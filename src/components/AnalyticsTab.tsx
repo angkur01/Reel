@@ -10,6 +10,7 @@ interface AnalyticsTabProps {
 export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ reels }) => {
   const [history, setHistory] = useState<ReelHistoryPoint[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [selectedReelId, setSelectedReelId] = useState<string>('all');
 
   useEffect(() => {
     fetch('/api/reels/history')
@@ -30,8 +31,16 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ reels }) => {
     likes: r.likes || 0,
   })).sort((a, b) => b.views - a.views).slice(0, 8);
 
-  // Time-series history chart grouping
-  const timeSeriesData = history.map((h) => ({
+  // Filter and sort time-series history chart grouping
+  const filteredHistory = selectedReelId === 'all'
+    ? history
+    : history.filter((h) => h.reelId === selectedReelId);
+
+  const sortedHistory = [...filteredHistory].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  const timeSeriesData = sortedHistory.map((h) => ({
     time: new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     views: h.views,
     likes: h.likes,
@@ -80,10 +89,25 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ reels }) => {
       {/* Time Series History Line Chart */}
       {timeSeriesData.length > 0 && (
         <div className="glass-panel p-6 rounded-3xl space-y-4">
-          <h3 className="font-extrabold text-white text-base flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-emerald-400" />
-            <span>Time-Series View Velocity Snapshot</span>
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+              <span>Time-Series View Velocity Snapshot</span>
+            </h3>
+            <select
+              id="select-analytics-reel-filter"
+              value={selectedReelId}
+              onChange={(e) => setSelectedReelId(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-medium focus:outline-none focus:border-indigo-500"
+            >
+              <option value="all">All Reels History</option>
+              {reels.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="h-72 w-full pt-4">
             <ResponsiveContainer width="100%" height="100%">

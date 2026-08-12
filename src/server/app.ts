@@ -8,6 +8,7 @@ import { startTelegramBotPolling, stopTelegramBotPolling, sendTelegramMessage, n
 import { getNextScheduledTime, runAutomaticFetchJob } from './scheduler.js';
 import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi } from './ai.js';
 import { calculateReelCpm, applyCpmToReel, recalculateAllDbReelsCpm, getDbCpmTotals } from './cpm.js';
+import { updateReelWithFetchResult, recalculateAllReelsGrowthAndCpm } from './statsHelper.js';
 import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign } from '../types.js';
 
 export function createExpressApp() {
@@ -256,6 +257,7 @@ export function createExpressApp() {
   // Get all Reels
   app.get('/api/reels', requireAuth, (req: Request, res: Response) => {
     const db = loadDb();
+    recalculateAllReelsGrowthAndCpm(db);
     const nextScheduledAt = getNextScheduledTime().toISOString();
     
     // Attach current nextScheduledAt dynamically
@@ -529,36 +531,8 @@ export function createExpressApp() {
     const nextScheduledAt = getNextScheduledTime().toISOString();
 
     if (fetchResult.success && fetchResult.data) {
-      const prevViews = target.views || 0;
-      const newViews = fetchResult.data.views || prevViews;
-      const viewGain = Math.max(0, newViews - prevViews);
-
-      target.growth24h = (target.growth24h || 0) + viewGain;
-      if (viewGain > 0) target.growth1h = viewGain;
-
-      target.views = newViews;
-      target.likes = fetchResult.data.likes || target.likes;
-      target.comments = fetchResult.data.comments || target.comments;
-      target.shares = fetchResult.data.shares || target.shares;
-      if (fetchResult.data.caption) target.caption = fetchResult.data.caption;
-      if (fetchResult.data.author) target.author = fetchResult.data.author;
-      if (fetchResult.data.thumbnail) target.thumbnail = fetchResult.data.thumbnail;
-
-      target.status = 'success';
-      target.lastError = null;
-      target.lastUpdatedAt = new Date().toISOString();
+      updateReelWithFetchResult(target, fetchResult, currentDb);
       target.nextScheduledAt = nextScheduledAt;
-      target.lastProviderUsed = fetchResult.providerName || null;
-
-      currentDb.history.push({
-        id: 'hist_' + Date.now(),
-        reelId: target.id,
-        timestamp: new Date().toISOString(),
-        views: target.views,
-        likes: target.likes,
-        comments: target.comments,
-        shares: target.shares,
-      });
 
       const logEntry: FetchLog = {
         id: 'log_' + Date.now(),
@@ -996,6 +970,7 @@ export function createExpressApp() {
   // Get Enhanced System Stats
   app.get('/api/stats', requireAuth, (req: Request, res: Response) => {
     const db = loadDb();
+    recalculateAllReelsGrowthAndCpm(db);
     const nextFetch = getNextScheduledTime().toISOString();
 
     const totalViews = db.reels.reduce((sum, r) => sum + (r.views || 0), 0);

@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { loadDb, saveDb } from './db.js';
 import { fetchReelWithFallbackChain } from './providers.js';
 import { notifyTelegramReelResult } from './telegram.js';
+import { updateReelWithFetchResult } from './statsHelper.js';
 import { FetchLog } from '../types.js';
 
 const FIXED_HOURS = [0, 6, 12, 18];
@@ -71,20 +72,8 @@ export async function runAutomaticFetchJob() {
 
     if (targetReel) {
       if (fetchResult.success && fetchResult.data) {
-        // Update stats without wiping previously valid statistics
-        targetReel.views = fetchResult.data.views || targetReel.views;
-        targetReel.likes = fetchResult.data.likes || targetReel.likes;
-        targetReel.comments = fetchResult.data.comments || targetReel.comments;
-        targetReel.shares = fetchResult.data.shares || targetReel.shares;
-        if (fetchResult.data.caption) targetReel.caption = fetchResult.data.caption;
-        if (fetchResult.data.author) targetReel.author = fetchResult.data.author;
-        if (fetchResult.data.thumbnail) targetReel.thumbnail = fetchResult.data.thumbnail;
-
-        targetReel.status = 'success';
-        targetReel.lastError = null;
-        targetReel.lastUpdatedAt = new Date().toISOString();
+        updateReelWithFetchResult(targetReel, fetchResult, currentDb);
         targetReel.nextScheduledAt = nextScheduledIso;
-        targetReel.lastProviderUsed = fetchResult.providerName || null;
 
         const logEntry: FetchLog = {
           id: 'log_auto_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),

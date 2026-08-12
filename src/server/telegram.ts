@@ -2,6 +2,7 @@ import { loadDb, saveDb } from './db.js';
 import { fetchReelWithFallbackChain } from './providers.js';
 import { runAiMonitoringCheck, generateDailyAiReport, generateAiCpmTelegramMessage } from './ai.js';
 import { applyCpmToReel } from './cpm.js';
+import { updateReelWithFetchResult } from './statsHelper.js';
 import { Reel, FetchLog } from '../types.js';
 
 // Global set of reel IDs currently being fetched to prevent duplicate simultaneous fetches
@@ -522,30 +523,17 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
     }
 
     if (fetchResult.success && fetchResult.data) {
-      const prevViews = target.views || 0;
-      const newViews = fetchResult.data.views || prevViews;
+      updateReelWithFetchResult(target, fetchResult, currentDb);
 
-      // Calculate growth velocity
-      const viewGain = Math.max(0, newViews - prevViews);
-      target.growth24h = (target.growth24h || 0) + viewGain;
-      if (viewGain > 0) {
-        target.growth1h = viewGain;
-        target.isStalled = false;
-      } else if (target.lastUpdatedAt && Date.now() - new Date(target.lastUpdatedAt).getTime() > 24 * 60 * 60 * 1000) {
-        target.isStalled = true;
-      }
-
-      // Check viral spike (>20% or >10k gain)
-      if (viewGain >= 10000 || (prevViews > 0 && (viewGain / prevViews) > 0.2)) {
-        target.isViral = true;
+      if (!target.name || target.name.startsWith('Reel ')) {
+        target.name = getFirst3Words(target.caption).slice(0, 10);
       }
 
       // Check milestone thresholds
       const milestones = [10000, 50000, 100000, 500000, 1000000, 5000000];
       for (const m of milestones) {
-        if (newViews >= m && (target.lastMilestone || 0) < m) {
+        if (target.views >= m && (target.lastMilestone || 0) < m) {
           target.lastMilestone = m;
-          // Trigger milestone message to Telegram
           if (currentDb.telegram.enabled && currentDb.telegram.botToken && currentDb.telegram.adminTelegramId) {
             sendTelegramMessage(
               currentDb.telegram.botToken,
@@ -557,36 +545,7 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
         }
       }
 
-      // Update statistics safely without wiping previously valid statistics
-      target.views = newViews;
-      target.likes = fetchResult.data.likes || target.likes;
-      target.comments = fetchResult.data.comments || target.comments;
-      target.shares = fetchResult.data.shares || target.shares;
-      if (fetchResult.data.caption) target.caption = fetchResult.data.caption;
-      if (fetchResult.data.author) target.author = fetchResult.data.author;
-      if (fetchResult.data.thumbnail) target.thumbnail = fetchResult.data.thumbnail;
-
-      // Reel name remains user custom if modified, else update from caption
-      if (!target.name || target.name.startsWith('Reel ')) {
-        target.name = getFirst3Words(target.caption).slice(0, 10);
-      }
-
-      target.status = 'success';
-      target.lastError = null;
-      target.lastUpdatedAt = new Date().toISOString();
-      target.lastProviderUsed = fetchResult.providerName || null;
-
-      // Record History Snapshot
-      currentDb.history.push({
-        id: 'hist_' + Date.now(),
-        reelId: target.id,
-        timestamp: new Date().toISOString(),
-        views: target.views,
-        likes: target.likes,
-        comments: target.comments,
-        shares: target.shares,
-      });
-      if (currentDb.history.length > 1000) currentDb.history.shift();
+      // Log fetch history
 
       // Log fetch history
       const logEntry: FetchLog = {
