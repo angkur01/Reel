@@ -1,6 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ApiProvider, TelegramSettings, TestProviderResult } from '../types';
-import { X, Key, Bot, ShieldCheck, Plus, Trash2, Edit3, CheckCircle2, AlertCircle, Play, Layers, ExternalLink, HelpCircle } from 'lucide-react';
+import {
+  X,
+  Key,
+  Bot,
+  ShieldCheck,
+  Plus,
+  Trash2,
+  Edit3,
+  CheckCircle2,
+  AlertCircle,
+  Play,
+  ExternalLink,
+  Code,
+  Sparkles,
+  Video,
+  MessageSquare,
+  Zap,
+  Layers,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,6 +34,7 @@ interface SettingsModalProps {
   onSaveTelegram: (t: Partial<TelegramSettings>) => Promise<boolean>;
   onTestTelegram: () => Promise<{ success: boolean; message?: string; error?: string }>;
   onChangePassword: (curr: string, next: string) => Promise<{ success: boolean; error?: string }>;
+  isInline?: boolean;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -28,16 +49,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveTelegram,
   onTestTelegram,
   onChangePassword,
+  isInline = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'apis' | 'telegram' | 'security'>('apis');
 
   // Provider Form State
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [showAddProviderForm, setShowAddProviderForm] = useState(false);
+  const [showAdvancedMapping, setShowAdvancedMapping] = useState(false);
   const [quickKeyInput, setQuickKeyInput] = useState<Record<string, string>>({});
   const [providerStatusMsg, setProviderStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const [providerForm, setProviderForm] = useState<Partial<ApiProvider>>({
+  const defaultProviderState: Partial<ApiProvider> = {
     name: 'Refetcher API',
     baseUrl: 'https://api.refetcher.com',
     endpointPath: '/',
@@ -58,7 +81,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       authorPath: 'author',
       thumbnailPath: 'thumbnail',
     },
-  });
+  };
+
+  const [providerForm, setProviderForm] = useState<Partial<ApiProvider>>(defaultProviderState);
 
   // Test Provider State
   const [testUrl, setTestUrl] = useState('https://www.instagram.com/reel/Db6jlRLFM5X/?igsh=dnNoaHRkYm1icTZk');
@@ -66,12 +91,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [testResult, setTestResult] = useState<{ providerId: string; result: TestProviderResult } | null>(null);
 
   // Telegram Form State
-  const [tgToken, setTgToken] = useState(telegramSettings.botToken || '');
-  const [tgAdminId, setTgAdminId] = useState(telegramSettings.adminTelegramId || '');
-  const [tgEnabled, setTgEnabled] = useState(telegramSettings.enabled ?? true);
+  const [tgToken, setTgToken] = useState(telegramSettings?.botToken || '');
+  const [tgAdminId, setTgAdminId] = useState(telegramSettings?.adminTelegramId || '');
+  const [tgEnabled, setTgEnabled] = useState(telegramSettings?.enabled ?? true);
   const [tgSaving, setTgSaving] = useState(false);
   const [tgTesting, setTgTesting] = useState(false);
   const [tgStatusMsg, setTgStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Sync Telegram settings prop updates
+  useEffect(() => {
+    if (telegramSettings) {
+      setTgToken(telegramSettings.botToken || '');
+      setTgAdminId(telegramSettings.adminTelegramId || '');
+      setTgEnabled(telegramSettings.enabled ?? true);
+    }
+  }, [telegramSettings]);
 
   // Security Form State
   const [currPassword, setCurrPassword] = useState('');
@@ -121,11 +155,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
 
     if (res.success) {
-      setProviderStatusMsg({ type: 'success', text: editingProviderId ? 'API Provider updated successfully!' : 'New API Provider added successfully!' });
+      setProviderStatusMsg({
+        type: 'success',
+        text: editingProviderId ? 'API Provider updated successfully!' : 'New API Provider added successfully!',
+      });
       setShowAddProviderForm(false);
       setEditingProviderId(null);
+      setProviderForm(defaultProviderState);
     } else {
-      setProviderStatusMsg({ type: 'error', text: res.error || 'Failed to save API Provider. Please try again.' });
+      setProviderStatusMsg({
+        type: 'error',
+        text: res.error || 'Failed to save API Provider. Please try again.',
+      });
     }
   };
 
@@ -197,418 +238,519 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-100">
+  const contentMarkup = (
+    <div className="space-y-6">
+      
+      {/* Navigation Tabs Header */}
+      <div className="flex flex-wrap items-center border-b border-slate-800 bg-slate-950/60 px-4 sm:px-6 gap-2 rounded-t-3xl">
+        <button
+          id="btn-tab-apis"
+          onClick={() => setActiveTab('apis')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'apis'
+              ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Key className="w-4 h-4" />
+          <span>Instagram APIs ({providers.length})</span>
+        </button>
+
+        <button
+          id="btn-tab-telegram"
+          onClick={() => setActiveTab('telegram')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'telegram'
+              ? 'border-sky-500 text-sky-400 bg-sky-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Bot className="w-4 h-4" />
+          <span>Telegram Bot Integration</span>
+        </button>
+
+        <button
+          id="btn-tab-security"
+          onClick={() => setActiveTab('security')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'security'
+              ? 'border-purple-500 text-purple-400 bg-purple-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Admin Security</span>
+        </button>
+      </div>
+
+      {/* TAB CONTENT BODY */}
+      <div className="p-4 sm:p-6 space-y-6">
         
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <span>Dashboard Settings</span>
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-800 bg-slate-950/50 px-6 gap-2">
-          
-          <button
-            onClick={() => setActiveTab('apis')}
-            className={`py-3 px-4 font-semibold text-xs flex items-center gap-2 border-b-2 transition-all ${
-              activeTab === 'apis'
-                ? 'border-rose-500 text-rose-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Key className="w-4 h-4" />
-            <span>Instagram APIs ({providers.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('telegram')}
-            className={`py-3 px-4 font-semibold text-xs flex items-center gap-2 border-b-2 transition-all ${
-              activeTab === 'telegram'
-                ? 'border-sky-500 text-sky-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Bot className="w-4 h-4" />
-            <span>Telegram Bot</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`py-3 px-4 font-semibold text-xs flex items-center gap-2 border-b-2 transition-all ${
-              activeTab === 'security'
-                ? 'border-purple-500 text-purple-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Admin Auth</span>
-          </button>
-
-        </div>
-
-        {/* Tab Content Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          
-          {/* TAB 1: API PROVIDERS MANAGEMENT */}
-          {activeTab === 'apis' && (
-            <div className="space-y-6">
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-200">API Provider Fallback Chain</h3>
-                  <p className="text-xs text-slate-400">
-                    If API 1 fails or runs out of credits, system automatically tries API 2 → API 3.
-                  </p>
-                </div>
-                {!showAddProviderForm && (
-                  <button
-                    onClick={() => {
-                      setEditingProviderId(null);
-                      setProviderForm({
-                        name: 'Refetcher API',
-                        baseUrl: 'https://api.refetcher.com',
-                        endpointPath: '/',
-                        method: 'POST',
-                        apiKey: '',
-                        apiKeyLocation: 'header_x_api_key',
-                        urlParamName: 'url',
-                        headersJson: '{\n  "Accept": "application/json",\n  "Content-Type": "application/json"\n}',
-                        customBodyJson: '',
-                        enabled: true,
-                        priority: providers.length + 1,
-                        mapping: {
-                          viewsPath: 'views',
-                          likesPath: 'likes',
-                          commentsPath: 'comments',
-                          sharesPath: 'shares',
-                          captionPath: 'caption',
-                          authorPath: 'author',
-                          thumbnailPath: 'thumbnail',
-                        },
-                      });
-                      setShowAddProviderForm(true);
-                    }}
-                    className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Provider</span>
-                  </button>
-                )}
+        {/* TAB 1: API PROVIDERS MANAGEMENT */}
+        {activeTab === 'apis' && (
+          <div className="space-y-6">
+            
+            {/* Header info */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-indigo-400" />
+                  <span>API Provider Fallback Chain</span>
+                </h3>
+                <p className="text-xs text-slate-400 max-w-xl">
+                  Configure primary and fallback Instagram scraping APIs. If Provider 1 fails or runs out of credits, system automatically retries with Provider 2, 3, etc.
+                </p>
               </div>
 
-              {/* Status Message Notification */}
-              {providerStatusMsg && (
-                <div
-                  className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 border ${
-                    providerStatusMsg.type === 'success'
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                      : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
-                  }`}
+              {!showAddProviderForm && (
+                <button
+                  id="btn-add-provider-trigger"
+                  onClick={() => {
+                    setEditingProviderId(null);
+                    setProviderForm(defaultProviderState);
+                    setShowAddProviderForm(true);
+                  }}
+                  className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
                 >
-                  {providerStatusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-                  <span>{providerStatusMsg.text}</span>
-                </div>
+                  <Plus className="w-4 h-4" />
+                  <span>Add API Provider</span>
+                </button>
               )}
+            </div>
 
-              {/* Reel URL input for real provider testing */}
-              <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
-                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                  <Play className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Test Instagram Reel URL (Used when clicking "Test Provider")</span>
-                </label>
-                <input
-                  type="text"
-                  value={testUrl}
-                  onChange={(e) => setTestUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-slate-200 focus:outline-none focus:ring-1 focus:ring-rose-500"
-                />
+            {/* Notification Banner */}
+            {providerStatusMsg && (
+              <div
+                className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 border ${
+                  providerStatusMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                }`}
+              >
+                {providerStatusMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                )}
+                <span>{providerStatusMsg.text}</span>
               </div>
+            )}
 
-              {/* Add / Edit Form Drawer */}
-              {showAddProviderForm && (
-                <form onSubmit={handleSaveProvider} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <h4 className="text-xs font-bold text-rose-400">
-                      {editingProviderId ? 'Edit API Provider' : 'Add New API Provider'}
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddProviderForm(false)}
-                      className="text-xs text-slate-400 hover:text-white"
+            {/* Test URL Config Drawer */}
+            <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+              <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <Play className="w-3.5 h-3.5 text-amber-400" />
+                <span>Test Instagram Reel URL (Used when clicking "Test Provider")</span>
+              </label>
+              <input
+                id="input-test-reel-url"
+                type="text"
+                value={testUrl}
+                onChange={(e) => setTestUrl(e.target.value)}
+                placeholder="https://www.instagram.com/reel/..."
+                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {/* Add / Edit Form Drawer */}
+            {showAddProviderForm && (
+              <form onSubmit={handleSaveProvider} className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-5 animate-fade-in">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                    <Code className="w-4 h-4" />
+                    <span>{editingProviderId ? 'Edit API Provider Configuration' : 'Add New API Provider'}</span>
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddProviderForm(false);
+                      setEditingProviderId(null);
+                    }}
+                    className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-slate-900 border border-slate-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Provider Name *</label>
+                    <input
+                      type="text"
+                      value={providerForm.name || ''}
+                      onChange={(e) => setProviderForm({ ...providerForm, name: e.target.value })}
+                      placeholder="e.g. Refetcher API"
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Base URL *</label>
+                    <input
+                      type="text"
+                      value={providerForm.baseUrl || ''}
+                      onChange={(e) => setProviderForm({ ...providerForm, baseUrl: e.target.value })}
+                      placeholder="https://api.refetcher.com"
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 font-mono"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Endpoint Path</label>
+                    <input
+                      type="text"
+                      value={providerForm.endpointPath || ''}
+                      onChange={(e) => setProviderForm({ ...providerForm, endpointPath: e.target.value })}
+                      placeholder="/"
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">HTTP Method</label>
+                    <select
+                      value={providerForm.method || 'POST'}
+                      onChange={(e) => setProviderForm({ ...providerForm, method: e.target.value as 'GET' | 'POST' })}
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
                     >
-                      Cancel
-                    </button>
+                      <option value="POST">POST (JSON Body / Headers)</option>
+                      <option value="GET">GET (Query Parameters)</option>
+                    </select>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="block text-slate-400 mb-1">Provider Name</label>
-                      <input
-                        type="text"
-                        value={providerForm.name || ''}
-                        onChange={(e) => setProviderForm({ ...providerForm, name: e.target.value })}
-                        placeholder="e.g. Refetcher API"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-400 mb-1">Base URL</label>
-                      <input
-                        type="text"
-                        value={providerForm.baseUrl || ''}
-                        onChange={(e) => setProviderForm({ ...providerForm, baseUrl: e.target.value })}
-                        placeholder="https://api.refetcher.com"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-400 mb-1">Endpoint Path</label>
-                      <input
-                        type="text"
-                        value={providerForm.endpointPath || ''}
-                        onChange={(e) => setProviderForm({ ...providerForm, endpointPath: e.target.value })}
-                        placeholder="/"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-400 mb-1">HTTP Method</label>
-                      <select
-                        value={providerForm.method || 'POST'}
-                        onChange={(e) => setProviderForm({ ...providerForm, method: e.target.value as 'GET' | 'POST' })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white"
-                      >
-                        <option value="POST">POST (JSON Body / Headers)</option>
-                        <option value="GET">GET (Query Parameters)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-400 mb-1">API Key Secret</label>
-                      <input
-                        type="password"
-                        value={providerForm.apiKey || ''}
-                        onChange={(e) => setProviderForm({ ...providerForm, apiKey: e.target.value })}
-                        placeholder="Enter API Key secret (e.g. pc_live_...)"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-400 mb-1">API Key Header / Location</label>
-                      <select
-                        value={providerForm.apiKeyLocation || 'header_x_api_key'}
-                        onChange={(e) => setProviderForm({ ...providerForm, apiKeyLocation: e.target.value as any })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white"
-                      >
-                        <option value="header_x_api_key">Header (X-API-Key: pc_live_...)</option>
-                        <option value="header_bearer">Authorization: Bearer KEY</option>
-                        <option value="query_api_key">Query Parameter (?api_key=...)</option>
-                        <option value="query_key">Query Parameter (?key=...)</option>
-                        <option value="body_api_key">JSON Body ("api_key": "KEY")</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-400 mb-1">Reel URL Parameter Name</label>
-                      <input
-                        type="text"
-                        value={providerForm.urlParamName || 'url'}
-                        onChange={(e) => setProviderForm({ ...providerForm, urlParamName: e.target.value })}
-                        placeholder="url"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-400 mb-1">Provider Enable Status</label>
-                      <select
-                        value={providerForm.enabled ? 'true' : 'false'}
-                        onChange={(e) => setProviderForm({ ...providerForm, enabled: e.target.value === 'true' })}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white"
-                      >
-                        <option value="true">Enabled</option>
-                        <option value="false">Disabled</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">API Key Secret</label>
+                    <input
+                      type="password"
+                      value={providerForm.apiKey || ''}
+                      onChange={(e) => setProviderForm({ ...providerForm, apiKey: e.target.value })}
+                      placeholder="Enter API Key secret..."
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-indigo-500"
+                    />
                   </div>
 
-                  <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20"
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">API Key Location</label>
+                    <select
+                      value={providerForm.apiKeyLocation || 'header_x_api_key'}
+                      onChange={(e) => setProviderForm({ ...providerForm, apiKeyLocation: e.target.value as any })}
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
                     >
-                      Save Provider
-                    </button>
+                      <option value="header_x_api_key">Header (X-API-Key: KEY)</option>
+                      <option value="header_bearer">Authorization: Bearer KEY</option>
+                      <option value="query_api_key">Query Parameter (?api_key=KEY)</option>
+                      <option value="query_key">Query Parameter (?key=KEY)</option>
+                      <option value="body_api_key">JSON Body ("api_key": "KEY")</option>
+                    </select>
                   </div>
-                </form>
-              )}
 
-              {/* Provider Cards List */}
-              <div className="space-y-3">
-                {providers.map((p, idx) => (
-                  <div key={p.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
-                    
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 text-xs font-mono font-bold flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <div>
-                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                            <span>{p.name}</span>
-                            {p.enabled ? (
-                              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">Enabled</span>
-                            ) : (
-                              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-medium">Disabled</span>
-                            )}
-                          </h4>
-                          <p className="text-xs text-slate-400 font-mono mt-0.5">{p.method} {p.baseUrl}{p.endpointPath}</p>
-                        </div>
-                      </div>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Reel URL Parameter Name</label>
+                    <input
+                      type="text"
+                      value={providerForm.urlParamName || 'url'}
+                      onChange={(e) => setProviderForm({ ...providerForm, urlParamName: e.target.value })}
+                      placeholder="url"
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
 
-                      <div className="flex items-center space-x-1">
-                        <button
-                          onClick={() => handleRunTest(p.id)}
-                          disabled={testingProviderId === p.id}
-                          className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50"
-                        >
-                          {testingProviderId === p.id ? (
-                            <span className="w-3.5 h-3.5 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin"></span>
-                          ) : (
-                            <Play className="w-3.5 h-3.5" />
-                          )}
-                          <span>Test Provider</span>
-                        </button>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Provider Status</label>
+                    <select
+                      value={providerForm.enabled ? 'true' : 'false'}
+                      onChange={(e) => setProviderForm({ ...providerForm, enabled: e.target.value === 'true' })}
+                      className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="true">Enabled</option>
+                      <option value="false">Disabled</option>
+                    </select>
+                  </div>
+                </div>
 
-                        <button
-                          onClick={() => handleOpenEditProvider(p)}
-                          className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800"
-                          title="Edit Full Settings"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
+                {/* Toggleable Advanced JSON Mapping Section */}
+                <div className="pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedMapping(!showAdvancedMapping)}
+                    className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 py-1"
+                  >
+                    <span>{showAdvancedMapping ? 'Hide' : 'Show'} Custom Headers & Response Mapping Paths</span>
+                    {showAdvancedMapping ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
 
-                        {providers.length > 1 && (
-                          <button
-                            onClick={() => onDeleteProvider(p.id)}
-                            className="p-2 text-slate-500 hover:text-rose-400 rounded-xl hover:bg-rose-500/10"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Quick API Key Input Row directly on card */}
-                    <div className="p-2.5 bg-slate-900 border border-slate-800/80 rounded-xl flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
-                        <Key className="w-3.5 h-3.5 text-rose-400" />
-                        <span>API Key:</span>
-                      </div>
-                      <div className="flex-1">
-                        <input
-                          type="password"
-                          value={quickKeyInput[p.id] !== undefined ? quickKeyInput[p.id] : ''}
-                          onChange={(e) => setQuickKeyInput({ ...quickKeyInput, [p.id]: e.target.value })}
-                          placeholder={p.apiKeyMasked ? `Current Key: ${p.apiKeyMasked}` : "Paste your API Key secret here..."}
-                          className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 font-mono placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                  {showAdvancedMapping && (
+                    <div className="mt-3 space-y-4 text-xs bg-slate-900/60 p-4 rounded-2xl border border-slate-800 animate-fade-in">
+                      <div>
+                        <label className="block text-slate-300 font-bold mb-1">Custom Headers (JSON Format)</label>
+                        <textarea
+                          rows={3}
+                          value={providerForm.headersJson || ''}
+                          onChange={(e) => setProviderForm({ ...providerForm, headersJson: e.target.value })}
+                          placeholder={'{\n  "Content-Type": "application/json"\n}'}
+                          className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 font-mono text-[11px] focus:outline-none focus:border-indigo-500"
                         />
                       </div>
-                      <button
-                        onClick={() => handleSaveQuickKey(p.id)}
-                        disabled={!quickKeyInput[p.id]}
-                        className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg disabled:opacity-40 disabled:hover:bg-rose-500 transition-all flex items-center justify-center gap-1 shrink-0"
-                      >
-                        <span>Save Key</span>
-                      </button>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Views Path</label>
+                          <input
+                            type="text"
+                            value={providerForm.mapping?.viewsPath || 'views'}
+                            onChange={(e) =>
+                              setProviderForm({
+                                ...providerForm,
+                                mapping: { ...providerForm.mapping, viewsPath: e.target.value },
+                              })
+                            }
+                            className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Likes Path</label>
+                          <input
+                            type="text"
+                            value={providerForm.mapping?.likesPath || 'likes'}
+                            onChange={(e) =>
+                              setProviderForm({
+                                ...providerForm,
+                                mapping: { ...providerForm.mapping, likesPath: e.target.value },
+                              })
+                            }
+                            className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Caption Path</label>
+                          <input
+                            type="text"
+                            value={providerForm.mapping?.captionPath || 'caption'}
+                            onChange={(e) =>
+                              setProviderForm({
+                                ...providerForm,
+                                mapping: { ...providerForm.mapping, captionPath: e.target.value },
+                              })
+                            }
+                            className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-400 text-[10px] uppercase font-bold mb-1">Author Path</label>
+                          <input
+                            type="text"
+                            value={providerForm.mapping?.authorPath || 'author'}
+                            onChange={(e) =>
+                              setProviderForm({
+                                ...providerForm,
+                                mapping: { ...providerForm.mapping, authorPath: e.target.value },
+                              })
+                            }
+                            className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+                  >
+                    Save API Provider
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Provider Cards List - No layout overlaps */}
+            <div className="space-y-4">
+              {providers.map((p, idx) => (
+                <div key={p.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+                  
+                  {/* Top Bar: Name, Badges & Action Buttons */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-full bg-slate-800 text-indigo-400 text-xs font-mono font-bold flex items-center justify-center border border-slate-700 shrink-0">
+                        #{idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-extrabold text-white flex flex-wrap items-center gap-2">
+                          <span className="truncate">{p.name}</span>
+                          {p.enabled ? (
+                            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                              ACTIVE
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-bold">
+                              DISABLED
+                            </span>
+                          )}
+                        </h4>
+                        <p className="text-xs text-slate-400 font-mono truncate mt-0.5">
+                          <span className="text-indigo-400 font-bold">{p.method}</span> {p.baseUrl}{p.endpointPath}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Test Results Banner */}
-                    {testResult && testResult.providerId === p.id && (
-                      <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
-                        <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
-                          <span className="font-bold flex items-center gap-1.5">
-                            {testResult.result.success ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                            ) : (
-                              <AlertCircle className="w-4 h-4 text-rose-400" />
-                            )}
-                            <span>Test Status: {testResult.result.success ? 'Success (200 OK)' : 'Failed'}</span>
-                          </span>
-                          <span className="font-mono text-slate-400">HTTP {testResult.result.httpStatus}</span>
-                        </div>
-
-                        {testResult.result.errorMessage && (
-                          <div className="text-rose-300 font-mono text-[11px] bg-rose-500/10 p-2 rounded-xl">
-                            {testResult.result.errorMessage}
-                          </div>
+                    {/* Action buttons box with flex-wrap so no text or icons collide */}
+                    <div className="flex items-center flex-wrap gap-2 shrink-0">
+                      <button
+                        id={`btn-test-provider-${p.id}`}
+                        onClick={() => handleRunTest(p.id)}
+                        disabled={testingProviderId === p.id}
+                        className="px-3 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+                      >
+                        {testingProviderId === p.id ? (
+                          <span className="w-3.5 h-3.5 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin"></span>
+                        ) : (
+                          <Play className="w-3.5 h-3.5" />
                         )}
+                        <span>Test Provider</span>
+                      </button>
 
-                        {testResult.result.parsedData && (
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                            <div><span className="text-slate-500">Views:</span> <strong className="text-sky-400">{testResult.result.parsedData.views?.toLocaleString()}</strong></div>
-                            <div><span className="text-slate-500">Likes:</span> <strong className="text-rose-400">{testResult.result.parsedData.likes?.toLocaleString()}</strong></div>
-                            <div><span className="text-slate-500">Comments:</span> <strong className="text-amber-400">{testResult.result.parsedData.comments?.toLocaleString()}</strong></div>
-                            <div><span className="text-slate-500">Author:</span> <strong className="text-slate-200">@{testResult.result.parsedData.author}</strong></div>
-                          </div>
-                        )}
+                      <button
+                        onClick={() => handleOpenEditProvider(p)}
+                        className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 border border-slate-800"
+                        title="Edit Full Settings"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
 
-                        {testResult.result.rawResponseSnippet && (
-                          <details className="text-[10px] text-slate-500">
-                            <summary className="cursor-pointer hover:text-slate-300 font-mono">View Raw Snippet</summary>
-                            <pre className="mt-1 p-2 bg-slate-950 rounded-xl overflow-x-auto font-mono text-slate-400 max-h-32">
-                              {testResult.result.rawResponseSnippet}
-                            </pre>
-                          </details>
-                        )}
-                      </div>
-                    )}
-
+                      {providers.length > 1 && (
+                        <button
+                          onClick={() => onDeleteProvider(p.id)}
+                          className="p-2 text-slate-500 hover:text-rose-400 rounded-xl hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/20"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                ))}
-              </div>
 
+                  {/* Quick API Key Input Bar - Clean layout */}
+                  <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 shrink-0">
+                      <Key className="w-3.5 h-3.5 text-rose-400" />
+                      <span>API Secret:</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <input
+                        type="password"
+                        value={quickKeyInput[p.id] !== undefined ? quickKeyInput[p.id] : ''}
+                        onChange={(e) => setQuickKeyInput({ ...quickKeyInput, [p.id]: e.target.value })}
+                        placeholder={p.apiKeyMasked ? `Saved Key: ${p.apiKeyMasked}` : "Paste API Key secret here..."}
+                        className="w-full px-3.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleSaveQuickKey(p.id)}
+                      disabled={!quickKeyInput[p.id]}
+                      className="px-4 py-1.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-bold rounded-lg disabled:opacity-40 transition shrink-0 cursor-pointer"
+                    >
+                      <span>Update Key</span>
+                    </button>
+                  </div>
+
+                  {/* Test Results Drawer */}
+                  {testResult && testResult.providerId === p.id && (
+                    <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3 text-xs animate-fade-in">
+                      <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                        <span className="font-bold flex items-center gap-1.5">
+                          {testResult.result.success ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-rose-400" />
+                          )}
+                          <span className={testResult.result.success ? 'text-emerald-400' : 'text-rose-400'}>
+                            Test Execution: {testResult.result.success ? 'Success (200 OK)' : 'Failed'}
+                          </span>
+                        </span>
+                        <span className="font-mono text-slate-400">HTTP {testResult.result.httpStatus}</span>
+                      </div>
+
+                      {testResult.result.errorMessage && (
+                        <div className="text-rose-300 font-mono text-[11px] bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
+                          {testResult.result.errorMessage}
+                        </div>
+                      )}
+
+                      {testResult.result.parsedData && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                          <div>
+                            <span className="text-slate-500 text-[10px] block">Views</span>
+                            <strong className="text-indigo-400 font-mono text-sm">{testResult.result.parsedData.views?.toLocaleString()}</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 text-[10px] block">Likes</span>
+                            <strong className="text-rose-400 font-mono text-sm">{testResult.result.parsedData.likes?.toLocaleString()}</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 text-[10px] block">Comments</span>
+                            <strong className="text-amber-400 font-mono text-sm">{testResult.result.parsedData.comments?.toLocaleString()}</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 text-[10px] block">Author</span>
+                            <strong className="text-slate-200 font-mono text-xs">@{testResult.result.parsedData.author}</strong>
+                          </div>
+                        </div>
+                      )}
+
+                      {testResult.result.rawResponseSnippet && (
+                        <details className="text-[10px] text-slate-500">
+                          <summary className="cursor-pointer hover:text-slate-300 font-mono">View Raw JSON Response</summary>
+                          <pre className="mt-1.5 p-3 bg-slate-950 rounded-xl overflow-x-auto font-mono text-slate-400 max-h-36 border border-slate-800">
+                            {testResult.result.rawResponseSnippet}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              ))}
             </div>
-          )}
 
-          {/* TAB 2: TELEGRAM BOT SETTINGS */}
-          {activeTab === 'telegram' && (
-            <form onSubmit={handleSaveTg} className="space-y-5">
+          </div>
+        )}
+
+        {/* TAB 2: TELEGRAM BOT INTEGRATION & CONFIGURATION */}
+        {activeTab === 'telegram' && (
+          <div className="space-y-6">
+            
+            {/* Telegram Configuration Form */}
+            <form onSubmit={handleSaveTg} className="space-y-6">
               
-              <div className="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-2xl">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+              {/* Header card with toggle */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-950 border border-slate-800 rounded-2xl">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Bot className="w-4 h-4 text-sky-400" />
-                    <span>Enable Telegram Bot Notifications</span>
+                    <span>Telegram Bot Administration & Dispatch</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Send stats updates after fetches and enable Telegram Force Refresh.
+                  <p className="text-xs text-slate-400 max-w-xl">
+                    Connect your Telegram Bot to receive real-time viral milestone alerts, daily AI digests, and run remote commands directly inside Telegram chats.
                   </p>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={tgEnabled}
-                  onChange={(e) => setTgEnabled(e.target.checked)}
-                  className="w-5 h-5 rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-sky-500 cursor-pointer"
-                />
+
+                <label className="flex items-center gap-3 cursor-pointer shrink-0">
+                  <span className="text-xs font-bold text-slate-300">Bot Enabled</span>
+                  <input
+                    id="checkbox-telegram-enabled"
+                    type="checkbox"
+                    checked={tgEnabled}
+                    onChange={(e) => setTgEnabled(e.target.checked)}
+                    className="w-5 h-5 rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-sky-500 cursor-pointer"
+                  />
+                </label>
               </div>
 
+              {/* Status Message */}
               {tgStatusMsg && (
                 <div
                   className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 border ${
@@ -617,131 +759,237 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
                   }`}
                 >
-                  {tgStatusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                  {tgStatusMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                  )}
                   <span>{tgStatusMsg.text}</span>
                 </div>
               )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Telegram Bot Token
+              {/* Form Input Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                    <span>Telegram Bot Token *</span>
+                    <a
+                      href="https://t.me/BotFather"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-400 hover:underline text-[10px] normal-case flex items-center gap-1"
+                    >
+                      <span>@BotFather</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                   </label>
                   <input
+                    id="input-telegram-token"
                     type="password"
                     value={tgToken}
                     onChange={(e) => setTgToken(e.target.value)}
-                    placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ..."
-                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-600 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                    placeholder="e.g. 123456789:ABCdefGhIJKlm..."
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-sky-500"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Get token from <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-sky-400 underline">@BotFather</a> on Telegram.
+                  <p className="text-[10px] text-slate-500">
+                    Bot Token created via @BotFather. Format: 123456789:AA...
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Admin Telegram User ID
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                    <span>Admin Telegram User ID *</span>
+                    <a
+                      href="https://t.me/userinfobot"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-400 hover:underline text-[10px] normal-case flex items-center gap-1"
+                    >
+                      <span>@userinfobot</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                   </label>
                   <input
+                    id="input-telegram-admin-id"
                     type="text"
                     value={tgAdminId}
                     onChange={(e) => setTgAdminId(e.target.value)}
                     placeholder="e.g. 12345678"
-                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-600 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-sky-500"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Find your ID via <a href="https://t.me/userinfobot" target="_blank" rel="noreferrer" className="text-sky-400 underline">@userinfobot</a>. Only this ID is authorized to interact with the bot.
+                  <p className="text-[10px] text-slate-500">
+                    Your personal Telegram numeric user ID. Only this ID can control the bot.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
                 <button
+                  id="btn-test-telegram-bot"
                   type="button"
                   onClick={handleTestTg}
                   disabled={tgTesting || !tgToken || !tgAdminId}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-sky-400 border border-sky-500/30 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer"
                 >
                   {tgTesting ? (
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    <span className="w-3.5 h-3.5 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin"></span>
                   ) : (
                     <Bot className="w-4 h-4 text-sky-400" />
                   )}
-                  <span>Test Telegram Bot</span>
+                  <span>Send Test Telegram Message</span>
                 </button>
 
                 <button
+                  id="btn-save-telegram-settings"
                   type="submit"
                   disabled={tgSaving}
-                  className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-sky-500/20"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold shadow-lg shadow-sky-500/20 transition cursor-pointer"
                 >
-                  {tgSaving ? 'Saving...' : 'Save Settings'}
+                  {tgSaving ? 'Saving...' : 'Save Telegram Settings'}
                 </button>
               </div>
 
             </form>
-          )}
 
-          {/* TAB 3: ADMIN AUTHENTICATION SECURITY */}
-          {activeTab === 'security' && (
-            <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md mx-auto">
-              
-              <div>
-                <h3 className="text-sm font-bold text-slate-200 mb-1">Change Admin Password</h3>
-                <p className="text-xs text-slate-400 mb-4">Update the master dashboard password.</p>
-              </div>
+            {/* Telegram Capabilities Overview Card */}
+            <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl space-y-4">
+              <h4 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-sky-400" />
+                <span>Telegram Bot Capabilities & Commands Reference</span>
+              </h4>
 
-              {pwdMsg && (
-                <div
-                  className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 border ${
-                    pwdMsg.type === 'success'
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                      : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
-                  }`}
-                >
-                  {pwdMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
-                  <span>{pwdMsg.text}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                <div className="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl space-y-1.5">
+                  <div className="flex items-center gap-2 text-sky-300 font-bold">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Interactive Buttons</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Type <code className="text-sky-300 bg-slate-950 px-1 py-0.5 rounded">/start</code> in Telegram to access live inline control buttons: Dashboard, Reels List, AI Check, Daily Report.
+                  </p>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Current Password</label>
-                <input
-                  type="password"
-                  value={currPassword}
-                  onChange={(e) => setCurrPassword(e.target.value)}
-                  placeholder="Current password"
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 text-sm"
-                  required
-                />
+                <div className="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl space-y-1.5">
+                  <div className="flex items-center gap-2 text-purple-300 font-bold">
+                    <Video className="w-4 h-4" />
+                    <span>Direct Video Upload</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Send or forward any MP4 Reel video directly to your Telegram bot. The server automatically stores and lists it in your dashboard!
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl space-y-1.5">
+                  <div className="flex items-center gap-2 text-amber-300 font-bold">
+                    <Zap className="w-4 h-4" />
+                    <span>Milestone Alerts</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Autonomous AI sends alerts whenever a Reel hits viral view thresholds (20k+, 50k+, 100k+ views).
+                  </p>
+                </div>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">New Password</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 text-sm"
-                  required
-                />
-              </div>
+          </div>
+        )}
 
-              <button
-                type="submit"
-                disabled={pwdLoading}
-                className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl font-semibold text-xs transition-all shadow-lg shadow-purple-500/20"
+        {/* TAB 3: ADMIN AUTHENTICATION SECURITY */}
+        {activeTab === 'security' && (
+          <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md mx-auto py-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-purple-400" />
+                <span>Change Dashboard Password</span>
+              </h3>
+              <p className="text-xs text-slate-400">Update the master administrative login password.</p>
+            </div>
+
+            {pwdMsg && (
+              <div
+                className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 border ${
+                  pwdMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                }`}
               >
-                {pwdLoading ? 'Updating Password...' : 'Update Admin Password'}
-              </button>
+                {pwdMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                )}
+                <span>{pwdMsg.text}</span>
+              </div>
+            )}
 
-            </form>
-          )}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300">Current Password</label>
+              <input
+                id="input-current-password"
+                type="password"
+                value={currPassword}
+                onChange={(e) => setCurrPassword(e.target.value)}
+                placeholder="Current password"
+                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 text-xs focus:outline-none focus:border-purple-500"
+                required
+              />
+            </div>
 
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300">New Password</label>
+              <input
+                id="input-new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 6 characters"
+                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 text-xs focus:outline-none focus:border-purple-500"
+                required
+              />
+            </div>
+
+            <button
+              id="btn-update-password"
+              type="submit"
+              disabled={pwdLoading}
+              className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-bold text-xs shadow-lg shadow-purple-500/20 transition cursor-pointer"
+            >
+              {pwdLoading ? 'Updating Password...' : 'Update Admin Password'}
+            </button>
+          </form>
+        )}
+
+      </div>
+    </div>
+  );
+
+  if (isInline) {
+    return (
+      <div className="glass-panel rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
+        {contentMarkup}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+      <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-100 relative">
+        
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900">
+          <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+            <span>Dashboard Settings & API Management</span>
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
+        <div className="overflow-y-auto flex-1">{contentMarkup}</div>
       </div>
     </div>
   );

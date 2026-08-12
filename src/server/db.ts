@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import bcrypt from 'bcryptjs';
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint } from '../types.js';
 
 export interface DatabaseSchema {
@@ -24,6 +26,9 @@ export interface DatabaseSchema {
 }
 
 let activeDbPath: string | null = null;
+let firestoreDb: any = null;
+let firestoreInitialized = false;
+let cachedDb: DatabaseSchema | null = null;
 
 function getDbFilePath(): string {
   if (activeDbPath) return activeDbPath;
@@ -41,7 +46,7 @@ function getDbFilePath(): string {
     activeDbPath = primaryFile;
     return activeDbPath;
   } catch (err) {
-    console.warn('[DB] Primary data directory is read-only. Falling back to temporary directory for serverless environment.');
+    console.warn('[DB] Primary data directory is read-only. Falling back to temporary directory for local cache.');
     const tmpDir = path.join(os.tmpdir(), 'reel-tracker-data');
     if (!fs.existsSync(tmpDir)) {
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -53,7 +58,6 @@ function getDbFilePath(): string {
 
 // Initial default configuration
 const defaultSessionSecret = Math.random().toString(36).substring(2) + Date.now().toString(36);
-// Default admin password is "admin123" if not set yet
 const defaultPasswordHash = bcrypt.hashSync("admin123", 10);
 
 const defaultProviders: ApiProvider[] = [
@@ -63,15 +67,15 @@ const defaultProviders: ApiProvider[] = [
     baseUrl: 'https://api.refetcher.com',
     endpointPath: '/',
     method: 'POST',
-    apiKey: '', // User populates in settings
-    apiKeyLocation: 'header_x_api_key', // Header X-API-Key: pc_live_...
+    apiKey: '',
+    apiKeyLocation: 'header_x_api_key',
     urlParamName: 'url',
     headersJson: '{\n  "Accept": "application/json",\n  "Content-Type": "application/json"\n}',
     customBodyJson: '',
     mapping: {
-      viewsPath: 'views', // or plays / play_count / view_count
-      likesPath: 'likes', // or like_count / reactions
-      commentsPath: 'comments', // or comment_count
+      viewsPath: 'views',
+      likesPath: 'likes',
+      commentsPath: 'comments',
       sharesPath: 'shares',
       captionPath: 'caption',
       authorPath: 'author',
@@ -115,104 +119,97 @@ function ensureDir(filePath: string) {
   }
 }
 
-export function loadDb(): DatabaseSchema {
-  const DB_FILE = getDbFilePath();
-  ensureDir(DB_FILE);
-  if (!fs.existsSync(DB_FILE)) {
-    const initialData: DatabaseSchema = {
-      auth: {
-        adminPasswordHash: defaultPasswordHash,
-        sessionSecret: defaultSessionSecret,
-      },
-      reels: [],
-      providers: defaultProviders,
-      telegram: defaultTelegram,
-      aiSettings: defaultAiSettings,
-      aiMeta: defaultAiMeta,
-      aiLogs: [],
-      history: [],
-      logs: [],
-      meta: {
-        lastAutoFetchAt: null,
-      },
-    };
-    saveDb(initialData);
-    return initialData;
-  }
+// Setup Firebase Firestore connection
+function initFirestore() {
+  if (firestoreInitialized) return firestoreDb;
+  firestoreInitialized = true;
 
   try {
-    const raw = fs.readFileSync(DB_FILE, 'utf-8');
-    const data = JSON.parse(raw) as DatabaseSchema;
-    if (!data.auth) {
-      data.auth = {
-        adminPasswordHash: defaultPasswordHash,
-        sessionSecret: defaultSessionSecret,
-        sessions: {},
-      };
-    } else if (!data.auth.sessions) {
-      data.auth.sessions = {};
-    }
-    if (!data.providers || data.providers.length === 0) {
-      data.providers = defaultProviders;
-    }
-    if (!data.telegram) {
-      data.telegram = defaultTelegram;
-    }
-    if (!data.aiSettings) {
-      data.aiSettings = defaultAiSettings;
-    }
-    if (!data.aiMeta) {
-      data.aiMeta = defaultAiMeta;
-    }
-    if (!data.aiLogs) {
-      data.aiLogs = [];
-    }
-    if (!data.history) {
-      data.history = [];
-    }
-    if (!data.logs) {
-      data.logs = [];
-    }
-    if (!data.meta) {
-      data.meta = { lastAutoFetchAt: null };
+    const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+    if (!fs.existsSync(configPath)) {
+      console.log('[Firestore] firebase-applet-config.json not found. Using local DB file.');
+      return null;
     }
 
-    // Reset daily check counter if new UTC day
-    const todayStr = new Date().toISOString().slice(0, 10);
-    if (data.aiMeta.lastCheckDate !== todayStr) {
-      data.aiMeta.checksUsedToday = 0;
-      data.aiMeta.lastCheckDate = todayStr;
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const apps = getApps();
+    const app = apps.length === 0 ? initializeApp(config) : apps[0];
+
+    if (config.firestoreDatabaseId) {
+      firestoreDb = getFirestore(app, config.firestoreDatabaseId);
+    } else {
+      firestoreDb = getFirestore(app);
     }
 
-    return data;
+    console.log('[Firestore] Connected to Firebase Firestore database:', config.firestoreDatabaseId || config.projectId);
+
+    // Initial sync from Firestore asynchronously
+    const docRef = doc(firestoreDb, 'dashboard_data', 'main');
+    getDoc(docRef).then((snapshot) => {
+      if (snapshot.exists()) {
+        const firestoreData = snapshot.data() as DatabaseSchema;
+        console.log(`[Firestore] Synced ${firestoreData.reels?.length || 0} reels & settings from Cloud Firestore database.`);
+        cachedDb = normalizeDbSchema(firestoreData);
+        saveLocalFile(cachedDb);
+      } else {
+        console.log('[Firestore] No existing Cloud Firestore document found. Seeding initial data...');
+        if (cachedDb) {
+          setDoc(docRef, cachedDb).catch(e => console.error('[Firestore Seed Error]', e));
+        }
+      }
+    }).catch(err => {
+      console.error('[Firestore Fetch Error]', err);
+    });
+
+    // Realtime Listener
+    onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as DatabaseSchema;
+        cachedDb = normalizeDbSchema(data);
+        saveLocalFile(cachedDb);
+      }
+    }, (error) => {
+      console.warn('[Firestore Listener Warning]', error);
+    });
+
+    return firestoreDb;
   } catch (err) {
-    console.error('Error reading database file, creating backup and starting fresh:', err);
-    if (fs.existsSync(DB_FILE)) {
-      try { fs.renameSync(DB_FILE, `${DB_FILE}.bak.${Date.now()}`); } catch {}
-    }
-    const initialData: DatabaseSchema = {
-      auth: {
-        adminPasswordHash: defaultPasswordHash,
-        sessionSecret: defaultSessionSecret,
-      },
-      reels: [],
-      providers: defaultProviders,
-      telegram: defaultTelegram,
-      aiSettings: defaultAiSettings,
-      aiMeta: defaultAiMeta,
-      aiLogs: [],
-      history: [],
-      logs: [],
-      meta: {
-        lastAutoFetchAt: null,
-      },
-    };
-    saveDb(initialData);
-    return initialData;
+    console.error('[Firestore Init Error]', err);
+    return null;
   }
 }
 
-export function saveDb(data: DatabaseSchema): void {
+function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
+  const normalized: DatabaseSchema = {
+    auth: data.auth || {
+      adminPasswordHash: defaultPasswordHash,
+      sessionSecret: defaultSessionSecret,
+      sessions: {},
+    },
+    reels: Array.isArray(data.reels) ? data.reels : [],
+    providers: (Array.isArray(data.providers) && data.providers.length > 0) ? data.providers : defaultProviders,
+    telegram: data.telegram || defaultTelegram,
+    aiSettings: data.aiSettings || defaultAiSettings,
+    aiMeta: data.aiMeta || defaultAiMeta,
+    aiLogs: Array.isArray(data.aiLogs) ? data.aiLogs : [],
+    history: Array.isArray(data.history) ? data.history : [],
+    logs: Array.isArray(data.logs) ? data.logs : [],
+    meta: data.meta || { lastAutoFetchAt: null },
+  };
+
+  if (!normalized.auth.sessions) normalized.auth.sessions = {};
+
+  // Reset daily check counter if new UTC day
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (normalized.aiMeta.lastCheckDate !== todayStr) {
+    normalized.aiMeta.checksUsedToday = 0;
+    normalized.aiMeta.lastCheckDate = todayStr;
+  }
+
+  return normalized;
+}
+
+function saveLocalFile(data: DatabaseSchema): void {
   const DB_FILE = getDbFilePath();
   ensureDir(DB_FILE);
   const tmpFile = `${DB_FILE}.tmp`;
@@ -220,6 +217,54 @@ export function saveDb(data: DatabaseSchema): void {
     fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
     fs.renameSync(tmpFile, DB_FILE);
   } catch (e) {
-    console.error('[DB Save Error]', e);
+    console.error('[Local DB Cache Save Error]', e);
   }
+}
+
+function saveFirestoreDoc(data: DatabaseSchema): void {
+  try {
+    const db = initFirestore();
+    if (db) {
+      const docRef = doc(db, 'dashboard_data', 'main');
+      setDoc(docRef, data, { merge: true }).catch((err) => {
+        console.error('[Firestore Cloud Save Error]', err);
+      });
+    }
+  } catch (e) {
+    console.error('[Firestore Sync Trigger Error]', e);
+  }
+}
+
+export function loadDb(): DatabaseSchema {
+  initFirestore();
+
+  if (cachedDb) {
+    return cachedDb;
+  }
+
+  const DB_FILE = getDbFilePath();
+  ensureDir(DB_FILE);
+
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      const data = JSON.parse(raw) as DatabaseSchema;
+      cachedDb = normalizeDbSchema(data);
+      return cachedDb;
+    } catch (err) {
+      console.error('Error reading local db file, falling back to initial data:', err);
+    }
+  }
+
+  const initialData: DatabaseSchema = normalizeDbSchema({});
+  cachedDb = initialData;
+  saveLocalFile(initialData);
+  saveFirestoreDoc(initialData);
+  return initialData;
+}
+
+export function saveDb(data: DatabaseSchema): void {
+  cachedDb = normalizeDbSchema(data);
+  saveLocalFile(cachedDb);
+  saveFirestoreDoc(cachedDb);
 }

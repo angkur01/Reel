@@ -464,22 +464,20 @@ export default function App() {
         {activeTab === 'analytics' && <AnalyticsTab reels={reels} />}
 
         {activeTab === 'settings' && (
-          <div className="glass-panel p-6 rounded-3xl space-y-6">
-            <h2 className="text-2xl font-black text-white">System & API Configurations</h2>
-            <SettingsModal
-              isOpen={true}
-              onClose={() => setActiveTab('overview')}
-              providers={providers}
-              telegramSettings={telegramSettings}
-              onAddProvider={handleAddProvider}
-              onUpdateProvider={handleUpdateProvider}
-              onDeleteProvider={handleDeleteProvider}
-              onTestProvider={handleTestProvider}
-              onSaveTelegram={handleSaveTelegram}
-              onTestTelegram={handleTestTelegram}
-              onChangePassword={handleChangePassword}
-            />
-          </div>
+          <SettingsModal
+            isOpen={true}
+            onClose={() => setActiveTab('overview')}
+            providers={providers}
+            telegramSettings={telegramSettings}
+            onAddProvider={handleAddProvider}
+            onUpdateProvider={handleUpdateProvider}
+            onDeleteProvider={handleDeleteProvider}
+            onTestProvider={handleTestProvider}
+            onSaveTelegram={handleSaveTelegram}
+            onTestTelegram={handleTestTelegram}
+            onChangePassword={handleChangePassword}
+            isInline={true}
+          />
         )}
       </main>
 

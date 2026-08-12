@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "dashboard_data": {
+      "title": "Dashboard State",
+      "description": "Stores persistent data including reels, providers, telegram configurations, AI settings, history logs, and stats",
+      "type": "object",
+      "properties": {
+        "auth": {
+          "type": "object"
+        },
+        "reels": {
+          "type": "array"
+        },
+        "providers": {
+          "type": "array"
+        },
+        "telegram": {
+          "type": "object"
+        },
+        "aiSettings": {
+          "type": "object"
+        },
+        "aiMeta": {
+          "type": "object"
+        },
+        "aiLogs": {
+          "type": "array"
+        },
+        "history": {
+          "type": "array"
+        },
+        "logs": {
+          "type": "array"
+        },
+        "meta": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/dashboard_data/{docId}": {
+      "schema": "dashboard_data",
+      "description": "Main document storing application database state including API keys, Telegram settings, reels, and analytics."
+    }
+  }
+}
