@@ -459,8 +459,7 @@ export function createExpressApp() {
   });
 
   // Edit Reel name / campaign
-  app.all(['/api/reels/:id/edit', '/api/reels/:id'], requireAuth, (req: Request, res: Response) => {
-    if (req.method !== 'PATCH' && req.method !== 'PUT') return;
+  const editReelHandler = (req: Request, res: Response) => {
     const { id } = req.params;
     const { name, campaignId } = req.body;
 
@@ -481,7 +480,10 @@ export function createExpressApp() {
     applyCpmToReel(reel, db.cpmCampaigns || []);
     saveDb(db);
     res.json({ success: true, reel, message: 'Reel details updated successfully!' });
-  });
+  };
+
+  app.patch(['/api/reels/:id/edit', '/api/reels/:id'], requireAuth, editReelHandler);
+  app.put(['/api/reels/:id/edit', '/api/reels/:id'], requireAuth, editReelHandler);
 
   // Delete Reel
   app.delete('/api/reels/:id', requireAuth, (req: Request, res: Response) => {
