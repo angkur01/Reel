@@ -1,0 +1,93 @@
+export interface Reel {
+  id: string;
+  url: string;
+  name: string; // first 5 chars of caption by default, or user custom
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  caption: string;
+  author: string;
+  thumbnail: string;
+  createdAt: string;
+  lastUpdatedAt: string | null;
+  nextScheduledAt: string;
+  status: 'success' | 'failed' | 'fetching' | 'pending';
+  lastError: string | null;
+  lastProviderUsed: string | null;
+}
+
+export interface ApiProvider {
+  id: string;
+  name: string;
+  baseUrl: string; // e.g. https://api.refetcher.com
+  endpointPath: string; // e.g. /v1/instagram/reel
+  method: 'GET' | 'POST';
+  apiKey: string; // Kept server side, sent as header or query param
+  apiKeyLocation: 'header_bearer' | 'header_x_api_key' | 'query_api_key' | 'query_key' | 'body_api_key';
+  urlParamName: string; // parameter name for the instagram reel URL, e.g. "url" or "link"
+  headersJson?: string; // custom headers JSON string if needed
+  customBodyJson?: string; // custom payload template if needed
+  mapping: {
+    viewsPath: string; // e.g. "data.views" or "view_count"
+    likesPath: string; // e.g. "data.likes" or "like_count"
+    commentsPath: string; // e.g. "data.comments" or "comment_count"
+    sharesPath: string; // e.g. "data.shares" or "share_count"
+    captionPath: string; // e.g. "data.caption" or "text"
+    authorPath: string; // e.g. "data.author" or "owner.username"
+    thumbnailPath: string; // e.g. "data.thumbnail" or "display_url"
+  };
+  enabled: boolean;
+  priority: number;
+  lastTestedAt?: string | null;
+  lastTestStatus?: 'success' | 'failed' | null;
+  lastTestError?: string | null;
+}
+
+export interface TelegramSettings {
+  botToken: string;
+  adminTelegramId: string;
+  enabled: boolean;
+  lastStatus?: string;
+  lastActiveAt?: string;
+}
+
+export interface FetchLog {
+  id: string;
+  reelId: string;
+  reelName: string;
+  timestamp: string;
+  type: 'automatic' | 'manual_web' | 'force_refresh_telegram';
+  status: 'success' | 'failed';
+  providerName: string;
+  errorMessage?: string;
+  statsAdded?: {
+    views: number;
+    likes: number;
+    comments: number;
+  };
+}
+
+export interface TestProviderResult {
+  success: boolean;
+  httpStatus: number;
+  rawResponseSnippet: string;
+  errorMessage?: string;
+  parsedData?: {
+    views?: number;
+    likes?: number;
+    comments?: number;
+    shares?: number;
+    caption?: string;
+    author?: string;
+    thumbnail?: string;
+  };
+}
+
+export interface SystemStats {
+  totalReels: number;
+  activeProviders: number;
+  lastAutoFetchAt: string | null;
+  nextScheduledFetchAt: string;
+  isFetchingAny: boolean;
+}

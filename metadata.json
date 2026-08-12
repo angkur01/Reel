@@ -1,0 +1,6 @@
+{
+  "name": "Instagram Reel Tracker",
+  "description": "Mobile-first Instagram Reel analytics and automatic tracking dashboard with Telegram bot notifications and modular API provider management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

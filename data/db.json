@@ -1,0 +1,49 @@
+{
+  "auth": {
+    "adminPasswordHash": "$2b$10$qmgcYLkZmxGQt.rYs54EhOyTmCEF9v6mO/0HXQ.aiIMHi7Nle83Si",
+    "sessionSecret": "z0kk6fs6wakmspbdsnh",
+    "sessions": {
+      "79e1714350a8d96eb8fc4706e89acd15b91f5d5dada2890557e22c6922d5d5c3": 1786492998417,
+      "4fd59348dd48ab7d81029f6891d71fe4d7f36deafe2a37e4bbf6b964aabb8faa": 1786493117133,
+      "dbe635fc7d711a4d52929aede60cdd98675d2557ba968c301b6f92ceeee3ccb4": 1786493439490
+    }
+  },
+  "reels": [],
+  "providers": [
+    {
+      "id": "provider_refetcher_default",
+      "name": "Refetcher API (Default)",
+      "baseUrl": "https://api.refetcher.com",
+      "endpointPath": "/",
+      "method": "POST",
+      "apiKey": "",
+      "apiKeyLocation": "header_x_api_key",
+      "urlParamName": "url",
+      "headersJson": "{\n  \"Accept\": \"application/json\",\n  \"Content-Type\": \"application/json\"\n}",
+      "customBodyJson": "",
+      "mapping": {
+        "viewsPath": "views",
+        "likesPath": "likes",
+        "commentsPath": "comments",
+        "sharesPath": "shares",
+        "captionPath": "caption",
+        "authorPath": "author",
+        "thumbnailPath": "thumbnail"
+      },
+      "enabled": true,
+      "priority": 1,
+      "lastTestedAt": null,
+      "lastTestStatus": null,
+      "lastTestError": null
+    }
+  ],
+  "telegram": {
+    "botToken": "",
+    "adminTelegramId": "",
+    "enabled": false
+  },
+  "logs": [],
+  "meta": {
+    "lastAutoFetchAt": "2026-08-12T00:00:20.652Z"
+  }
+}
