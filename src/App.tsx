@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { OverviewTab } from './components/OverviewTab';
 import { ReelsTab } from './components/ReelsTab';
+import { CpmCampaignsTab } from './components/CpmCampaignsTab';
 import { AiBrainTab } from './components/AiBrainTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { UptimeTab } from './components/UptimeTab';
@@ -9,7 +10,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { AddReelModal } from './components/AddReelModal';
 import { LoginModal } from './components/LoginModal';
 
-import { Reel, ApiProvider, TelegramSettings, SystemStats, AiSettings, AiMeta, AiLog, TestProviderResult } from './types';
+import { Reel, ApiProvider, TelegramSettings, SystemStats, AiSettings, AiMeta, AiLog, TestProviderResult, CpmCampaign } from './types';
 
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
@@ -42,6 +43,7 @@ export default function App() {
 
   // Core Data States
   const [reels, setReels] = useState<Reel[]>([]);
+  const [cpmCampaigns, setCpmCampaigns] = useState<CpmCampaign[]>([]);
   const [providers, setProviders] = useState<ApiProvider[]>([]);
   const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>({
     botToken: '',
@@ -94,8 +96,9 @@ export default function App() {
   // Load All Dashboard Data in Parallel
   const loadDashboardData = useCallback(async () => {
     try {
-      const [reelsRes, statsRes, provRes, tgRes, aiSettingsRes, aiLogsRes] = await Promise.allSettled([
+      const [reelsRes, cpmRes, statsRes, provRes, tgRes, aiSettingsRes, aiLogsRes] = await Promise.allSettled([
         authFetch('/api/reels', {}, 8000),
+        authFetch('/api/cpm-campaigns', {}, 8000),
         authFetch('/api/stats', {}, 8000),
         authFetch('/api/providers', {}, 8000),
         authFetch('/api/telegram/settings', {}, 8000),
@@ -107,6 +110,13 @@ export default function App() {
         try {
           const reelsData = await parseJsonResponse(reelsRes.value);
           if (reelsData.success) setReels(reelsData.reels || []);
+        } catch (e) {}
+      }
+
+      if (cpmRes.status === 'fulfilled' && cpmRes.value.ok) {
+        try {
+          const cpmData = await parseJsonResponse(cpmRes.value);
+          if (cpmData.success) setCpmCampaigns(cpmData.campaigns || []);
         } catch (e) {}
       }
 
@@ -205,12 +215,12 @@ export default function App() {
   };
 
   // Reel Actions
-  const handleAddReel = async (url: string, customName?: string) => {
+  const handleAddReel = async (url: string, customName?: string, campaignId?: string) => {
     try {
       const res = await authFetch('/api/reels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, customName }),
+        body: JSON.stringify({ url, customName, campaignId }),
       });
       const data = await res.json();
       if (data.reel) {
@@ -221,6 +231,54 @@ export default function App() {
       return { success: false, error: data.error };
     } catch (e: any) {
       return { success: false, error: e.message || 'Failed to add reel' };
+    }
+  };
+
+  // CPM Campaign Actions
+  const handleCreateCpmCampaign = async (campaignData: Omit<CpmCampaign, 'id' | 'createdAt'>) => {
+    const res = await authFetch('/api/cpm-campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(campaignData),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to create campaign');
+    }
+    await loadDashboardData();
+  };
+
+  const handleUpdateCpmCampaign = async (id: string, campaignData: Partial<CpmCampaign>) => {
+    const res = await authFetch(`/api/cpm-campaigns/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(campaignData),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to update campaign');
+    }
+    await loadDashboardData();
+  };
+
+  const handleDeleteCpmCampaign = async (id: string) => {
+    const res = await authFetch(`/api/cpm-campaigns/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to delete campaign');
+    }
+    await loadDashboardData();
+  };
+
+  const handleEditReelCampaign = async (reelId: string, campaignId: string | null) => {
+    const res = await authFetch(`/api/reels/${reelId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      await loadDashboardData();
     }
   };
 
@@ -478,6 +536,18 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'cpm-campaigns' && (
+          <CpmCampaignsTab
+            campaigns={cpmCampaigns}
+            reels={reels}
+            stats={stats}
+            onCreateCampaign={handleCreateCpmCampaign}
+            onUpdateCampaign={handleUpdateCpmCampaign}
+            onDeleteCampaign={handleDeleteCpmCampaign}
+            onEditReelCampaign={handleEditReelCampaign}
+          />
+        )}
+
         {activeTab === 'ai-brain' && (
           <AiBrainTab
             aiSettings={aiSettings}
@@ -517,6 +587,7 @@ export default function App() {
       <AddReelModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        campaigns={cpmCampaigns}
         onAddReel={handleAddReel}
       />
 

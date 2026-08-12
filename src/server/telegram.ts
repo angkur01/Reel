@@ -1,6 +1,7 @@
 import { loadDb, saveDb } from './db.js';
 import { fetchReelWithFallbackChain } from './providers.js';
-import { runAiMonitoringCheck, generateDailyAiReport } from './ai.js';
+import { runAiMonitoringCheck, generateDailyAiReport, generateAiCpmTelegramMessage } from './ai.js';
+import { applyCpmToReel } from './cpm.js';
 import { Reel, FetchLog } from '../types.js';
 
 // Global set of reel IDs currently being fetched to prevent duplicate simultaneous fetches
@@ -73,21 +74,54 @@ export async function notifyTelegramReelResult(reel: Reel, logType: 'automatic' 
     return false;
   }
 
+  // Ensure CPM is updated for this reel
+  applyCpmToReel(reel, db.cpmCampaigns || []);
+
   const titleWords = getFirst3Words(reel.caption);
   const formattedViews = reel.views.toLocaleString();
   const formattedLikes = reel.likes.toLocaleString();
 
-  const message = [
-    `<b>Video:</b> ${titleWords}`,
-    `<b>Views:</b> ${formattedViews}`,
-    `<b>Likes:</b> ${formattedLikes}`,
-    ``,
-    `📌 <b>Reel Name:</b> ${reel.name}`,
-    `🔗 <a href="${reel.url}">View on Instagram</a>`,
-    `🕒 <i>Updated: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</i>`
-  ].join('\n');
+  const lines: string[] = [];
 
-  return await sendTelegramMessage(botToken, adminTelegramId, message);
+  if (reel.campaignName) {
+    lines.push(`🔥 <b>${reel.campaignName} campaign update!</b>`);
+    lines.push(`🎬 <b>Reel:</b> ${reel.name}`);
+    lines.push(`👀 <b>Views:</b> ${formattedViews}`);
+    lines.push(`💰 <b>CPM Earnings:</b> $${(reel.cpmEarnings || 0).toFixed(2)}`);
+  } else {
+    lines.push(`<b>Video:</b> ${titleWords}`);
+    lines.push(`<b>Views:</b> ${formattedViews}`);
+    lines.push(`<b>Likes:</b> ${formattedLikes}`);
+    lines.push(``);
+    lines.push(`📌 <b>Reel Name:</b> ${reel.name}`);
+  }
+
+  lines.push(`🔗 <a href="${reel.url}">View on Instagram</a>`);
+  lines.push(`🕒 <i>Updated: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</i>`);
+
+  const message = lines.join('\n');
+  const mainSent = await sendTelegramMessage(botToken, adminTelegramId, message);
+
+  // If Reel is linked to a campaign, generate and send the exciting AI message with CPM Earnings and Estimated Payout
+  if (reel.campaignName && (reel.cpmEarnings || 0) > 0) {
+    try {
+      const aiMsg = await generateAiCpmTelegramMessage(
+        reel.name,
+        reel.campaignName,
+        reel.views,
+        reel.cpmEarnings || 0,
+        reel.estimatedPayout || 0,
+        reel.fee3Percent || 0
+      );
+      if (aiMsg) {
+        await sendTelegramMessage(botToken, adminTelegramId, aiMsg);
+      }
+    } catch (e) {
+      console.warn('[Telegram AI Message Error]', e);
+    }
+  }
+
+  return mainSent;
 }
 
 // Answer Callback Query
@@ -304,6 +338,10 @@ async function sendDashboardSummary(botToken: string, chatId: string) {
   const totalLikes = db.reels.reduce((sum, r) => sum + (r.likes || 0), 0);
   const total24hGain = db.reels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
 
+  const totalCpmEarnings = db.reels.reduce((sum, r) => sum + (r.cpmEarnings || 0), 0);
+  const totalFees = db.reels.reduce((sum, r) => sum + (r.fee3Percent || 0), 0);
+  const totalPayout = db.reels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
+
   const activeProviders = db.providers.filter(p => p.enabled).length;
   const aiChecksUsed = db.aiMeta?.checksUsedToday || 0;
   const aiLimit = db.aiSettings?.dailyCheckLimit || 50;
@@ -315,6 +353,10 @@ async function sendDashboardSummary(botToken: string, chatId: string) {
     `👁️ <b>Total Views:</b> ${totalViews.toLocaleString()}`,
     `❤️ <b>Total Likes:</b> ${totalLikes.toLocaleString()}`,
     `🚀 <b>24h View Gain:</b> +${total24hGain.toLocaleString()}`,
+    ``,
+    `💰 <b>CPM Earnings:</b> $${totalCpmEarnings.toFixed(2)}`,
+    `💸 <b>3% Processing Fee:</b> $${totalFees.toFixed(2)}`,
+    `💵 <b>Estimated Payout:</b> $${totalPayout.toFixed(2)}`,
     ``,
     `🔌 <b>Active Providers:</b> ${activeProviders}`,
     `🧠 <b>AI Check Limit:</b> ${aiChecksUsed}/${aiLimit} used today`,

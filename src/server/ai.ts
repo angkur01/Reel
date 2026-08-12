@@ -385,3 +385,45 @@ Format in crisp Markdown with emojis. Keep under 200 words.`;
 
   return { success: true, reportText: reportContent };
 }
+
+// Generate Exciting Natural-Language AI Telegram Message for CPM Campaign Updates
+export async function generateAiCpmTelegramMessage(
+  reelName: string,
+  campaignName: string,
+  views: number,
+  cpmEarnings: number,
+  estimatedPayout: number,
+  fee3Percent: number
+): Promise<string> {
+  const prompt = `Generate an exciting, natural-language creator update message for a Telegram bot update.
+
+EXACT PRE-CALCULATED DATA (DO NOT CHANGE OR RECALCULATE ANY NUMBERS):
+- Campaign Name: ${campaignName}
+- Reel Name: ${reelName}
+- Current Views: ${views.toLocaleString()}
+- Total CPM Earnings (before 3% fee): $${cpmEarnings.toFixed(2)}
+- 3% Processing Fee: $${fee3Percent.toFixed(2)}
+- Estimated Payout (after 3% fee): $${estimatedPayout.toFixed(2)}
+
+INSTRUCTIONS:
+1. Write a hyped, energetic, natural message (e.g., starting with "🚀 YOOO! ${campaignName} is moving! 🔥" or "🔥 Huge update for ${campaignName}!").
+2. Include ALL of these items clearly:
+   - Campaign Name: ${campaignName}
+   - Current Views: ${views.toLocaleString()}
+   - CPM Earnings: $${cpmEarnings.toFixed(2)}
+   - Estimated Payout: $${estimatedPayout.toFixed(2)} (explicitly mentioning it is after the 3% fee)
+3. Do NOT invent or recalculate any numbers. Use ONLY the exact numbers provided.
+4. Keep it under 5 sentences, using appropriate creator emojis (🔥, 🚀, 👀, 💰, 📈).
+5. Do NOT use markdown code blocks or json wrappers. Return raw plain text.`;
+
+  const aiResult = await generateAiInsight(prompt);
+  if (aiResult?.text && aiResult.text.trim().length > 10) {
+    return aiResult.text.trim();
+  }
+
+  // Fallback energetic message if AI model call is disabled/fails
+  return `🚀 YOOO! ${campaignName} is moving! 🔥
+That Reel '${reelName}' just hit ${views.toLocaleString()} views! 👀
+You're sitting at $${cpmEarnings.toFixed(2)} CPM earnings, which puts your estimated payout at $${estimatedPayout.toFixed(2)} after the 3% fee. 💰
+Let's keep it climbing! 📈`;
+}

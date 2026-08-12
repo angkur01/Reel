@@ -8,6 +8,17 @@ export interface ReelHistoryPoint {
   shares: number;
 }
 
+export interface CpmCampaign {
+  id: string;
+  name: string;
+  cpm: number;          // CPM rate ($ per 1,000 views)
+  minViews: number;     // Minimum required views eligibility threshold
+  maxViews: number;     // Maximum cap views for CPM calculation
+  enabled: boolean;     // Active or disabled
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Reel {
   id: string;
   url: string;
@@ -37,6 +48,18 @@ export interface Reel {
   // Video Media Support
   videoFileUrl?: string;
   telegramFileId?: string;
+
+  // CPM Campaign Association & Computed Financials
+  campaignId?: string | null;
+  campaignName?: string | null;
+  cpmRate?: number;
+  minViews?: number;
+  maxViews?: number;
+  eligibleViews?: number;
+  cpmEarnings?: number;
+  fee3Percent?: number;
+  estimatedPayout?: number;
+  cpmEligibilityStatus?: 'eligible' | 'below_minimum' | 'capped_at_max' | 'no_campaign';
 }
 
 export interface ApiProvider {
@@ -150,5 +173,11 @@ export interface SystemStats {
   aiActiveModel: 'gemini' | 'groq' | 'grok' | 'none';
   viralCount: number;
   stalledCount: number;
+  
+  // CPM System Totals
+  totalCpmEarnings: number;
+  total3PercentFees: number;
+  totalEstimatedPayout: number;
+  totalCampaignsCount: number;
 }
 

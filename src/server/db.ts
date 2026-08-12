@@ -4,7 +4,8 @@ import os from 'os';
 import bcrypt from 'bcryptjs';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint } from '../types.js';
+import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint, CpmCampaign } from '../types.js';
+import { recalculateAllDbReelsCpm } from './cpm.js';
 
 export interface DatabaseSchema {
   auth: {
@@ -13,6 +14,7 @@ export interface DatabaseSchema {
     sessions?: Record<string, number>;
   };
   reels: Reel[];
+  cpmCampaigns?: CpmCampaign[];
   providers: ApiProvider[];
   telegram: TelegramSettings;
   aiSettings: AiSettings;
@@ -163,8 +165,16 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   (remote.reels || []).forEach(processReel);
   (local.reels || []).forEach(processReel);
 
+  const campaignMap = new Map<string, CpmCampaign>();
+  (remote.cpmCampaigns || []).forEach(c => c && c.id && campaignMap.set(c.id, c));
+  (local.cpmCampaigns || []).forEach(c => c && c.id && campaignMap.set(c.id, c));
+  const mergedCampaigns = Array.from(campaignMap.values());
+
   const mergedReels = Array.from(reelMap.values()).filter(r => !deletedSet.has(r.id));
   mergedReels.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+  // Automatically recalculate CPM for all reels based on campaigns
+  recalculateAllDbReelsCpm(mergedReels, mergedCampaigns);
 
   const providerMap = new Map<string, ApiProvider>();
   (remote.providers || []).forEach(p => p && p.id && providerMap.set(p.id, p));
@@ -225,6 +235,7 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
       sessions: { ...(remote.auth?.sessions || {}), ...(local.auth?.sessions || {}) },
     },
     reels: mergedReels,
+    cpmCampaigns: mergedCampaigns,
     providers: mergedProviders,
     telegram: mergedTelegram,
     aiSettings: mergedAiSettings,
@@ -409,6 +420,7 @@ function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
       sessions: {},
     },
     reels: [],
+    cpmCampaigns: [],
     providers: defaultProviders,
     telegram: defaultTelegram,
     aiSettings: defaultAiSettings,

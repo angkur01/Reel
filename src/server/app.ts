@@ -7,7 +7,8 @@ import { fetchReelWithFallbackChain, testSingleProvider } from './providers.js';
 import { startTelegramBotPolling, stopTelegramBotPolling, sendTelegramMessage, notifyTelegramReelResult, getFirst3Words } from './telegram.js';
 import { getNextScheduledTime, runAutomaticFetchJob } from './scheduler.js';
 import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi } from './ai.js';
-import { Reel, ApiProvider, FetchLog, AiSettings } from '../types.js';
+import { calculateReelCpm, applyCpmToReel, recalculateAllDbReelsCpm, getDbCpmTotals } from './cpm.js';
+import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign } from '../types.js';
 
 export function createExpressApp() {
   const app = express();
@@ -154,6 +155,101 @@ export function createExpressApp() {
   });
 
   // ----------------------------------------------------
+  // CPM CAMPAIGNS ROUTES
+  // ----------------------------------------------------
+
+  // Get all CPM Campaigns
+  app.get('/api/cpm-campaigns', requireAuth, (req: Request, res: Response) => {
+    const db = loadDb();
+    const campaigns = db.cpmCampaigns || [];
+    res.json({ success: true, campaigns });
+  });
+
+  // Create a new CPM Campaign
+  app.post('/api/cpm-campaigns', requireAuth, (req: Request, res: Response) => {
+    const { name, cpm, minViews, maxViews, enabled } = req.body;
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      res.status(400).json({ success: false, error: 'Campaign name is required' });
+      return;
+    }
+
+    const db = loadDb();
+    if (!db.cpmCampaigns) db.cpmCampaigns = [];
+
+    const newCampaign: CpmCampaign = {
+      id: 'camp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      name: name.trim(),
+      cpm: Math.max(0, Number(cpm) || 0),
+      minViews: Math.max(0, Math.floor(Number(minViews) || 0)),
+      maxViews: Math.max(0, Math.floor(Number(maxViews) || 0)),
+      enabled: enabled !== false,
+      createdAt: new Date().toISOString(),
+    };
+
+    db.cpmCampaigns.push(newCampaign);
+
+    // Recalculate CPM for all reels in DB
+    recalculateAllDbReelsCpm(db.reels, db.cpmCampaigns);
+    saveDb(db);
+
+    res.json({ success: true, campaign: newCampaign, message: 'CPM Campaign created successfully!' });
+  });
+
+  // Edit CPM Campaign
+  app.put('/api/cpm-campaigns/:id', requireAuth, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { name, cpm, minViews, maxViews, enabled } = req.body;
+    const db = loadDb();
+    if (!db.cpmCampaigns) db.cpmCampaigns = [];
+
+    const campaign = db.cpmCampaigns.find(c => c.id === id);
+    if (!campaign) {
+      res.status(404).json({ success: false, error: 'Campaign not found' });
+      return;
+    }
+
+    if (name !== undefined && name.trim()) campaign.name = name.trim();
+    if (cpm !== undefined) campaign.cpm = Math.max(0, Number(cpm) || 0);
+    if (minViews !== undefined) campaign.minViews = Math.max(0, Math.floor(Number(minViews) || 0));
+    if (maxViews !== undefined) campaign.maxViews = Math.max(0, Math.floor(Number(maxViews) || 0));
+    if (enabled !== undefined) campaign.enabled = Boolean(enabled);
+    campaign.updatedAt = new Date().toISOString();
+
+    // Recalculate CPM for all reels connected to this campaign or all reels
+    recalculateAllDbReelsCpm(db.reels, db.cpmCampaigns);
+    saveDb(db);
+
+    res.json({ success: true, campaign, message: 'CPM Campaign updated successfully!' });
+  });
+
+  // Delete CPM Campaign
+  app.delete('/api/cpm-campaigns/:id', requireAuth, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const db = loadDb();
+    if (!db.cpmCampaigns) db.cpmCampaigns = [];
+
+    const index = db.cpmCampaigns.findIndex(c => c.id === id);
+    if (index === -1) {
+      res.status(404).json({ success: false, error: 'Campaign not found' });
+      return;
+    }
+
+    const deleted = db.cpmCampaigns.splice(index, 1)[0];
+
+    // Detach deleted campaign from all connected reels
+    for (const reel of db.reels) {
+      if (reel.campaignId === id) {
+        reel.campaignId = null;
+      }
+    }
+
+    recalculateAllDbReelsCpm(db.reels, db.cpmCampaigns);
+    saveDb(db);
+
+    res.json({ success: true, message: `Campaign "${deleted.name}" deleted successfully!` });
+  });
+
+  // ----------------------------------------------------
   // REELS ROUTES
   // ----------------------------------------------------
 
@@ -254,7 +350,7 @@ export function createExpressApp() {
 
   // Add & Fetch Reel instantly
   app.post('/api/reels', requireAuth, async (req: Request, res: Response) => {
-    const { url, customName } = req.body;
+    const { url, customName, campaignId } = req.body;
     if (!url || typeof url !== 'string' || !url.includes('instagram.com')) {
       res.status(400).json({ success: false, error: 'Please enter a valid Instagram Reel URL (e.g., https://www.instagram.com/reel/...)' });
       return;
@@ -304,10 +400,12 @@ export function createExpressApp() {
       growth1h: 0,
       growth6h: 0,
       growth24h: 0,
+      campaignId: campaignId || null,
     };
 
     // Save reel
     const currentDb = loadDb();
+    applyCpmToReel(newReel, currentDb.cpmCampaigns || []);
     currentDb.reels.unshift(newReel);
 
     // Record initial history
@@ -358,14 +456,11 @@ export function createExpressApp() {
     }
   });
 
-  // Edit Reel name
-  app.patch('/api/reels/:id', requireAuth, (req: Request, res: Response) => {
+  // Edit Reel name / campaign
+  app.all(['/api/reels/:id/edit', '/api/reels/:id'], requireAuth, (req: Request, res: Response) => {
+    if (req.method !== 'PATCH' && req.method !== 'PUT') return;
     const { id } = req.params;
-    const { name } = req.body;
-    if (!name || !name.trim()) {
-      res.status(400).json({ success: false, error: 'Reel name cannot be empty' });
-      return;
-    }
+    const { name, campaignId } = req.body;
 
     const db = loadDb();
     const reel = db.reels.find(r => r.id === id);
@@ -374,9 +469,16 @@ export function createExpressApp() {
       return;
     }
 
-    reel.name = name.trim();
+    if (name !== undefined && name.trim()) {
+      reel.name = name.trim();
+    }
+    if (campaignId !== undefined) {
+      reel.campaignId = campaignId || null;
+    }
+
+    applyCpmToReel(reel, db.cpmCampaigns || []);
     saveDb(db);
-    res.json({ success: true, reel });
+    res.json({ success: true, reel, message: 'Reel details updated successfully!' });
   });
 
   // Delete Reel
@@ -901,6 +1003,7 @@ export function createExpressApp() {
     const total24hGrowth = db.reels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
     const viralCount = db.reels.filter(r => r.isViral).length;
     const stalledCount = db.reels.filter(r => r.isStalled).length;
+    const cpmTotals = getDbCpmTotals(db.reels);
 
     res.json({
       success: true,
@@ -918,6 +1021,10 @@ export function createExpressApp() {
         aiActiveModel: db.aiMeta?.activeModelUsed || 'gemini',
         viralCount,
         stalledCount,
+        totalCpmEarnings: cpmTotals.totalCpmEarnings,
+        total3PercentFees: cpmTotals.total3PercentFees,
+        totalEstimatedPayout: cpmTotals.totalEstimatedPayout,
+        totalCampaignsCount: (db.cpmCampaigns || []).length,
       },
     });
   });

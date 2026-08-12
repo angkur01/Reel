@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
-import { X, Film, Link as LinkIcon, Sparkles } from 'lucide-react';
+import { X, Film, Link as LinkIcon, Sparkles, DollarSign } from 'lucide-react';
+import { CpmCampaign } from '../types';
 
 interface AddReelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddReel: (url: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  campaigns?: CpmCampaign[];
+  onAddReel: (url: string, name?: string, campaignId?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export const AddReelModal: React.FC<AddReelModalProps> = ({
   isOpen,
   onClose,
+  campaigns = [],
   onAddReel,
 }) => {
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -26,12 +30,13 @@ export const AddReelModal: React.FC<AddReelModalProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
 
-    const res = await onAddReel(url, name);
+    const res = await onAddReel(url, name, selectedCampaignId || undefined);
     setIsLoading(false);
 
     if (res.success) {
       setUrl('');
       setName('');
+      setSelectedCampaignId('');
       onClose();
     } else {
       setErrorMsg(res.error || 'Failed to add Reel.');
@@ -86,11 +91,34 @@ export const AddReelModal: React.FC<AddReelModalProps> = ({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Viral Product Reel #1"
+              placeholder="e.g. Want to know AXE"
               className="w-full px-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
             <p className="text-[10px] text-slate-500">
-              If left blank, AI auto-titles using caption words.
+              If left blank, auto-titles using caption words.
+            </p>
+          </div>
+
+          {/* Campaign Selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Which campaign?</span>
+            </label>
+            <select
+              value={selectedCampaignId}
+              onChange={(e) => setSelectedCampaignId(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="">None / Default</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} (${c.cpm.toFixed(2)}/1k CPM - Min {c.minViews.toLocaleString()} views)
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-500">
+              Connect this Reel permanently to a CPM Campaign for earnings tracking.
             </p>
           </div>
 

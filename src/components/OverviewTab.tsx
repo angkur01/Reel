@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Heart, TrendingUp, Film, Brain, Sparkles, RefreshCw, AlertTriangle, ArrowUpRight, ShieldCheck, Download } from 'lucide-react';
+import { Eye, Heart, TrendingUp, Film, Brain, Sparkles, RefreshCw, AlertTriangle, ArrowUpRight, ShieldCheck, Download, DollarSign } from 'lucide-react';
 import { Reel, SystemStats, AiLog } from '../types';
 
 interface OverviewTabProps {
@@ -163,6 +163,45 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               }}
             />
           </div>
+        </div>
+      </div>
+
+      {/* CPM Campaign Live Financial Summary Banner */}
+      <div className="glass-panel p-6 rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="p-3.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+            <DollarSign className="w-7 h-7" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-extrabold text-white">CPM Campaign Earnings & Payout</h3>
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 rounded border border-emerald-500/30">
+                Auto-Calculated
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Net earnings after applying active CPM rates and automatic 3% platform fee deduction.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-slate-800 pt-4 md:pt-0">
+          <div>
+            <span className="text-[11px] text-slate-400 block uppercase font-semibold">Gross CPM Earnings</span>
+            <span className="text-lg font-bold text-emerald-400">${(stats?.totalCpmEarnings || 0).toFixed(2)}</span>
+          </div>
+          <div className="text-slate-600 font-light text-xl">/</div>
+          <div>
+            <span className="text-[11px] text-slate-400 block uppercase font-semibold">Net Estimated Payout</span>
+            <span className="text-xl font-extrabold text-white">${(stats?.totalEstimatedPayout || 0).toFixed(2)}</span>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('cpm-campaigns')}
+            className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition cursor-pointer shrink-0"
+          >
+            Manage CPM
+          </button>
         </div>
       </div>
 

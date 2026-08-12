@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Reel } from '../types';
-import { Eye, Heart, MessageCircle, Share2, RefreshCw, Edit2, Trash2, ExternalLink, CheckCircle, AlertTriangle, Clock, User, Check, X } from 'lucide-react';
+import { Eye, Heart, MessageCircle, Share2, RefreshCw, Edit2, Trash2, ExternalLink, CheckCircle, AlertTriangle, Clock, User, Check, X, DollarSign } from 'lucide-react';
 
 interface ReelCardProps {
   reel: Reel;
@@ -162,7 +162,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onRefresh, onEditName,
         </div>
 
         {/* Stat Counter Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
           
           <div className="flex flex-col items-center justify-center p-1.5 bg-slate-900/60 rounded-xl border border-slate-800/50">
             <div className="flex items-center gap-1 text-[11px] text-sky-400 font-medium mb-0.5">
@@ -205,6 +205,23 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onRefresh, onEditName,
           </div>
 
         </div>
+
+        {/* CPM Campaign Payout Banner */}
+        {reel.campaignName && (
+          <div className="mb-3 p-2.5 rounded-2xl bg-gradient-to-r from-slate-950 via-emerald-950/40 to-slate-950 border border-emerald-500/30 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <span className="font-bold text-emerald-300 block leading-tight">{reel.campaignName}</span>
+                <span className="text-[10px] text-slate-400 font-mono">${reel.cpmRate || 0}/1k CPM</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="font-extrabold text-white text-xs block">${(reel.estimatedPayout || 0).toFixed(2)} payout</span>
+              <span className="text-[10px] text-slate-400 block">Earnings: ${(reel.cpmEarnings || 0).toFixed(2)}</span>
+            </div>
+          </div>
+        )}
 
         {/* Error Callout if Failed */}
         {reel.status === 'failed' && reel.lastError && (
