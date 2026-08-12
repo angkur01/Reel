@@ -61,17 +61,18 @@ function getDbFilePath(): string {
 }
 
 // Initial default configuration
-const defaultSessionSecret = Math.random().toString(36).substring(2) + Date.now().toString(36);
-const defaultPasswordHash = bcrypt.hashSync("admin123", 10);
+const defaultSessionSecret = process.env.ADMIN_SESSION_SECRET || (Math.random().toString(36).substring(2) + Date.now().toString(36));
+const customAdminPassword = process.env.ADMIN_PASSWORD || "admin123";
+const defaultPasswordHash = bcrypt.hashSync(customAdminPassword, 10);
 
 const defaultProviders: ApiProvider[] = [
   {
     id: 'provider_refetcher_default',
     name: 'Refetcher API (Default)',
-    baseUrl: 'https://api.refetcher.com',
+    baseUrl: process.env.PROVIDER_BASE_URL || 'https://api.refetcher.com',
     endpointPath: '/',
     method: 'POST',
-    apiKey: '',
+    apiKey: process.env.PROVIDER_API_KEY || process.env.RAPIDAPI_KEY || '',
     apiKeyLocation: 'header_x_api_key',
     urlParamName: 'url',
     headersJson: '{\n  "Accept": "application/json",\n  "Content-Type": "application/json"\n}',
@@ -94,14 +95,15 @@ const defaultProviders: ApiProvider[] = [
 ];
 
 const defaultTelegram: TelegramSettings = {
-  botToken: '',
-  adminTelegramId: '',
-  enabled: false,
+  botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+  adminTelegramId: process.env.TELEGRAM_ADMIN_ID || '',
+  enabled: Boolean(process.env.TELEGRAM_BOT_TOKEN),
 };
 
 const defaultAiSettings: AiSettings = {
-  geminiApiKey: '',
-  grokApiKey: '',
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+  grokApiKey: process.env.GROK_API_KEY || process.env.GROQ_API_KEY || '',
+  groqApiKey: process.env.GROQ_API_KEY || '',
   enableGemini: true,
   enableGrok: true,
   dailyCheckLimit: 50,
