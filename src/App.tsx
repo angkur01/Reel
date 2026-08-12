@@ -300,11 +300,10 @@ export default function App() {
     setIsRefreshingAll(true);
     try {
       await authFetch('/api/reels/refresh-all', { method: 'POST' });
-      setTimeout(async () => {
-        await loadDashboardData();
-        setIsRefreshingAll(false);
-      }, 3000);
+      await loadDashboardData();
     } catch (e) {
+      console.error('[Batch Refresh Error]', e);
+    } finally {
       setIsRefreshingAll(false);
     }
   };
@@ -533,6 +532,8 @@ export default function App() {
             onRetryFailed={handleRetryFailed}
             isRetryingFailed={isRetryingFailed}
             refreshingReelIds={refreshingReelIds}
+            onRefreshAll={handleBatchRefresh}
+            isRefreshingAll={isRefreshingAll}
           />
         )}
 

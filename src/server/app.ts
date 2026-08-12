@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import cookieParser from 'cookie-parser';
 
-import { loadDb, saveDb, getFirebaseConfig, saveFirebaseConfig, testFirestoreConnection } from './db.js';
+import { loadDb, saveDb, getFirebaseConfig, saveFirebaseConfig, testFirestoreConnection, normalizeInstagramUrl } from './db.js';
 import { requireAuth, verifyPassword, setPassword, createSessionToken, revokeSession, isValidSession } from './auth.js';
 import { fetchReelWithFallbackChain, testSingleProvider } from './providers.js';
 import { startTelegramBotPolling, stopTelegramBotPolling, sendTelegramMessage, notifyTelegramReelResult, getFirst3Words } from './telegram.js';
@@ -361,11 +361,11 @@ export function createExpressApp() {
       return;
     }
 
-    const cleanUrl = url.trim();
+    const cleanUrl = normalizeInstagramUrl(url) || url.trim();
     const db = loadDb();
 
     // Check if URL already saved
-    const existing = db.reels.find(r => r.url.toLowerCase() === cleanUrl.toLowerCase());
+    const existing = db.reels.find(r => normalizeInstagramUrl(r.url) === cleanUrl);
     if (existing) {
       res.status(400).json({ success: false, error: `This Reel is already saved in your dashboard as "${existing.name}".` });
       return;
@@ -588,8 +588,13 @@ export function createExpressApp() {
 
   // Trigger global manual refresh of ALL reels
   app.post('/api/reels/refresh-all', requireAuth, async (req: Request, res: Response) => {
-    runAutomaticFetchJob().catch(err => console.error('[Manual All Fetch Error]', err));
-    res.json({ success: true, message: 'Batch refresh triggered for all saved reels in background.' });
+    try {
+      const result = await runAutomaticFetchJob(true);
+      res.json({ success: result.success, message: result.message || 'Batch refresh processed.', count: result.count });
+    } catch (err: any) {
+      console.error('[Manual All Fetch Error]', err);
+      res.status(500).json({ success: false, error: err.message || 'Failed to refresh all reels' });
+    }
   });
 
   // ----------------------------------------------------

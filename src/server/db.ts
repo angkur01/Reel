@@ -127,6 +127,21 @@ function ensureDir(filePath: string) {
   }
 }
 
+export function normalizeInstagramUrl(rawUrl: string): string {
+  if (!rawUrl) return '';
+  try {
+    let clean = rawUrl.trim();
+    const match = clean.match(/instagram\.com\/(reel|p|tv)\/([A-Za-z0-9_-]+)/i);
+    if (match && match[2]) {
+      return `https://www.instagram.com/reel/${match[2]}`;
+    }
+    clean = clean.split('?')[0].split('#')[0].replace(/\/+$/, '');
+    return clean.toLowerCase();
+  } catch (e) {
+    return rawUrl.trim().toLowerCase();
+  }
+}
+
 export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<DatabaseSchema>): DatabaseSchema {
   const deletedSet = new Set<string>([
     ...(local.meta?.deletedReelIds || []),
@@ -142,12 +157,53 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   ]);
 
   const reelMap = new Map<string, Reel>();
+  const urlToReelIdMap = new Map<string, string>();
 
   const processReel = (r: Reel) => {
     if (!r || !r.id || deletedSet.has(r.id)) return;
+    const cleanUrl = normalizeInstagramUrl(r.url) || r.url;
+
+    // Check if another reel entry has the exact same canonical URL
+    const canonicalId = urlToReelIdMap.get(cleanUrl);
+    if (canonicalId && canonicalId !== r.id) {
+      const existing = reelMap.get(canonicalId);
+      if (existing) {
+        const existingTime = new Date(existing.lastUpdatedAt || existing.createdAt || 0).getTime();
+        const rTime = new Date(r.lastUpdatedAt || r.createdAt || 0).getTime();
+
+        if (rTime > existingTime || (r.views || 0) > (existing.views || 0)) {
+          deletedSet.add(canonicalId);
+          urlToReelIdMap.set(cleanUrl, r.id);
+          reelMap.delete(canonicalId);
+          reelMap.set(r.id, {
+            ...existing,
+            ...r,
+            url: cleanUrl,
+            views: Math.max(r.views || 0, existing.views || 0),
+            likes: Math.max(r.likes || 0, existing.likes || 0),
+            comments: Math.max(r.comments || 0, existing.comments || 0),
+            shares: Math.max(r.shares || 0, existing.shares || 0),
+          });
+        } else {
+          deletedSet.add(r.id);
+          reelMap.set(canonicalId, {
+            ...r,
+            ...existing,
+            url: cleanUrl,
+            views: Math.max(existing.views || 0, r.views || 0),
+            likes: Math.max(existing.likes || 0, r.likes || 0),
+            comments: Math.max(existing.comments || 0, r.comments || 0),
+            shares: Math.max(existing.shares || 0, r.shares || 0),
+          });
+        }
+        return;
+      }
+    }
+
     const existing = reelMap.get(r.id);
     if (!existing) {
-      reelMap.set(r.id, { ...r });
+      reelMap.set(r.id, { ...r, url: cleanUrl });
+      if (cleanUrl) urlToReelIdMap.set(cleanUrl, r.id);
     } else {
       const existingTime = new Date(existing.lastUpdatedAt || existing.createdAt || 0).getTime();
       const rTime = new Date(r.lastUpdatedAt || r.createdAt || 0).getTime();
@@ -156,21 +212,24 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
         reelMap.set(r.id, {
           ...existing,
           ...r,
-          views: r.views || existing.views,
-          likes: r.likes || existing.likes,
-          comments: r.comments || existing.comments,
-          shares: r.shares || existing.shares,
+          url: cleanUrl,
+          views: Math.max(r.views || 0, existing.views || 0),
+          likes: Math.max(r.likes || 0, existing.likes || 0),
+          comments: Math.max(r.comments || 0, existing.comments || 0),
+          shares: Math.max(r.shares || 0, existing.shares || 0),
         });
       } else {
         reelMap.set(r.id, {
           ...r,
           ...existing,
-          views: existing.views || r.views,
-          likes: existing.likes || r.likes,
-          comments: existing.comments || r.comments,
-          shares: existing.shares || r.shares,
+          url: cleanUrl,
+          views: Math.max(existing.views || 0, r.views || 0),
+          likes: Math.max(existing.likes || 0, r.likes || 0),
+          comments: Math.max(existing.comments || 0, r.comments || 0),
+          shares: Math.max(existing.shares || 0, r.shares || 0),
         });
       }
+      if (cleanUrl) urlToReelIdMap.set(cleanUrl, r.id);
     }
   };
 
@@ -554,6 +613,32 @@ function saveFirestoreDoc(data: DatabaseSchema): void {
   } catch (e) {
     console.error('[Firestore Sync Trigger Error]', e);
   }
+}
+
+export async function loadDbFresh(): Promise<DatabaseSchema> {
+  initFirestore();
+  const localBase = readLocalFile() || normalizeDbSchema({});
+  try {
+    const config = getFirebaseConfig();
+    if (config && config.projectId) {
+      const apps = getApps();
+      const app = apps.length === 0 ? initializeApp(config) : apps[0];
+      const firestore = config.firestoreDatabaseId ? getFirestore(app, config.firestoreDatabaseId) : getFirestore(app);
+      const docRef = doc(firestore, 'dashboard_data', 'main');
+      const snapshot = await getDoc(docRef);
+      if (snapshot.exists()) {
+        const remoteData = snapshot.data() as Partial<DatabaseSchema>;
+        cachedDb = mergeDatabaseSchemas(localBase, remoteData);
+        saveLocalFile(cachedDb);
+        console.log(`[Firestore] Force-loaded fresh database. Reels count: ${cachedDb.reels.length}`);
+        return cachedDb;
+      }
+    }
+  } catch (e: any) {
+    console.error('[Firestore] Error force-loading fresh db:', e);
+  }
+  cachedDb = localBase;
+  return cachedDb;
 }
 
 export function loadDb(): DatabaseSchema {

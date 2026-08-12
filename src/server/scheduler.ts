@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { loadDb, saveDb } from './db.js';
+import { loadDb, saveDb, loadDbFresh } from './db.js';
 import { fetchReelWithFallbackChain } from './providers.js';
 import { notifyTelegramReelResult } from './telegram.js';
 import { updateReelWithFetchResult } from './statsHelper.js';
@@ -34,30 +34,48 @@ export function getNextScheduledTime(fromDate: Date = new Date()): Date {
 
 // Global active automatic fetch guard
 let isAutoFetchRunning = false;
+let isSchedulerInitialized = false;
 
-export async function runAutomaticFetchJob() {
+export async function runAutomaticFetchJob(isManualForce = false): Promise<{ success: boolean; message: string; count?: number }> {
   if (isAutoFetchRunning) {
     console.log('[Automatic Scheduler] Fetch job already running, skipping duplicate.');
-    return;
+    return { success: false, message: 'A batch fetch is currently in progress.' };
+  }
+
+  // Load database directly from Firestore (or local disk fallback) to ensure zero stale state
+  const db = await loadDbFresh();
+
+  // Guard against duplicate automatic scheduled triggers within a 15-minute window
+  if (!isManualForce && db.meta?.lastAutoFetchAt) {
+    const lastRunMs = new Date(db.meta.lastAutoFetchAt).getTime();
+    const timeSinceLastMs = Date.now() - lastRunMs;
+    const cooldownMs = 15 * 60 * 1000; // 15 minutes cooldown
+
+    if (!isNaN(lastRunMs) && timeSinceLastMs < cooldownMs) {
+      console.log(`[Automatic Scheduler] Scheduled fetch already ran ${Math.round(timeSinceLastMs / 1000)}s ago (${db.meta.lastAutoFetchAt}). Skipping duplicate trigger.`);
+      return { success: true, message: 'Scheduled fetch already completed recently.' };
+    }
   }
 
   isAutoFetchRunning = true;
-  console.log(`[Automatic Scheduler] Starting FIXED scheduled refresh at ${new Date().toISOString()}`);
+  console.log(`[Automatic Scheduler] Starting ${isManualForce ? 'MANUAL FORCE' : 'FIXED SCHEDULED'} refresh at ${new Date().toISOString()}`);
 
-  const db = loadDb();
+  // Instantly mark execution timestamp to lock out secondary concurrent cron/interval triggers
+  db.meta.lastAutoFetchAt = new Date().toISOString();
+  saveDb(db);
+
   if (db.reels.length === 0) {
     console.log('[Automatic Scheduler] No saved Reels to update.');
-    db.meta.lastAutoFetchAt = new Date().toISOString();
-    saveDb(db);
     isAutoFetchRunning = false;
-    return;
+    return { success: true, message: 'No reels saved in database.', count: 0 };
   }
 
   const nextScheduledIso = getNextScheduledTime().toISOString();
+  const totalReels = db.reels.length;
 
-  for (let i = 0; i < db.reels.length; i++) {
+  for (let i = 0; i < totalReels; i++) {
     const reel = db.reels[i];
-    console.log(`[Automatic Scheduler] Fetching Reel (${i + 1}/${db.reels.length}): ${reel.name} -> ${reel.url}`);
+    console.log(`[Automatic Scheduler] Fetching Reel (${i + 1}/${totalReels}): ${reel.name} -> ${reel.url}`);
 
     // Mark status
     reel.status = 'fetching';
@@ -80,7 +98,7 @@ export async function runAutomaticFetchJob() {
           reelId: targetReel.id,
           reelName: targetReel.name,
           timestamp: new Date().toISOString(),
-          type: 'automatic',
+          type: isManualForce ? 'manual_web' : 'automatic',
           status: 'success',
           providerName: fetchResult.providerName || 'Unknown Provider',
           statsAdded: {
@@ -93,7 +111,7 @@ export async function runAutomaticFetchJob() {
         saveDb(currentDb);
 
         // Send Telegram completed result
-        await notifyTelegramReelResult(targetReel, 'automatic');
+        await notifyTelegramReelResult(targetReel, isManualForce ? 'manual_web' : 'automatic');
 
       } else {
         // Failed fetch: NEVER erase previously valid statistics
@@ -106,7 +124,7 @@ export async function runAutomaticFetchJob() {
           reelId: targetReel.id,
           reelName: targetReel.name,
           timestamp: new Date().toISOString(),
-          type: 'automatic',
+          type: isManualForce ? 'manual_web' : 'automatic',
           status: 'failed',
           providerName: 'All Providers Failed',
           errorMessage: targetReel.lastError,
@@ -123,32 +141,27 @@ export async function runAutomaticFetchJob() {
 
   isAutoFetchRunning = false;
   console.log('[Automatic Scheduler] Scheduled fetch job completed successfully.');
+  return { success: true, message: `Completed refresh for ${totalReels} reels.`, count: totalReels };
 }
 
 // Initialize node-cron schedule and backup timer check
 export function initializeScheduler() {
+  if (isSchedulerInitialized) {
+    console.log('[Scheduler] Scheduler already initialized. Skipping.');
+    return;
+  }
+  isSchedulerInitialized = true;
   console.log('[Scheduler] Initializing fixed time cron (00:00, 06:00, 12:00, 18:00 UTC)...');
 
   // Node-cron pattern for 00:00, 06:00, 12:00, 18:00
   cron.schedule('0 0,6,12,18 * * *', () => {
-    runAutomaticFetchJob().catch(err => console.error('[Scheduler Error]', err));
+    // Introduce random jitter to prevent concurrent container execution race condition on Cloud Run
+    const jitterMs = Math.floor(Math.random() * 45000) + 5000; // 5 to 50 seconds delay
+    console.log(`[Scheduler] Cron triggered. Delaying execution by ${jitterMs}ms to avoid concurrent container race...`);
+    setTimeout(() => {
+      runAutomaticFetchJob(false).catch(err => console.error('[Scheduler Error]', err));
+    }, jitterMs);
   }, {
     timezone: 'UTC',
   });
-
-  // Secondary check every 30 seconds to handle any container wake-up or drift
-  let lastTriggeredHour = -1;
-  setInterval(() => {
-    const now = new Date();
-    const currentUtcHour = now.getUTCHours();
-    const currentUtcMin = now.getUTCMinutes();
-
-    if (FIXED_HOURS.includes(currentUtcHour) && currentUtcMin === 0 && lastTriggeredHour !== currentUtcHour) {
-      lastTriggeredHour = currentUtcHour;
-      runAutomaticFetchJob().catch(err => console.error('[Scheduler Fallback Error]', err));
-    }
-    if (currentUtcMin > 1) {
-      lastTriggeredHour = -1; // Reset trigger flag
-    }
-  }, 30000);
 }

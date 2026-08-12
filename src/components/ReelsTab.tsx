@@ -11,6 +11,8 @@ interface ReelsTabProps {
   onRetryFailed: () => void;
   isRetryingFailed: boolean;
   refreshingReelIds: Set<string>;
+  onRefreshAll: () => void;
+  isRefreshingAll: boolean;
 }
 
 export const ReelsTab: React.FC<ReelsTabProps> = ({
@@ -22,6 +24,8 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   onRetryFailed,
   isRetryingFailed,
   refreshingReelIds,
+  onRefreshAll,
+  isRefreshingAll,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'viral' | 'stalled' | 'failed' | 'success'>('all');
@@ -83,6 +87,17 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
               <span>Retry {failedCount} Failed</span>
             </button>
           )}
+
+          <button
+            id="btn-force-refresh-all-dashboard"
+            onClick={onRefreshAll}
+            disabled={isRefreshingAll}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 text-slate-300 hover:text-white text-xs font-bold shadow-lg transition disabled:opacity-50 cursor-pointer active:scale-95"
+            title="Fetch latest stats for all reels in the database"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingAll ? 'animate-spin text-indigo-400' : ''}`} />
+            <span>Force Fetch All</span>
+          </button>
 
           <button
             id="btn-add-reel-reels-tab"

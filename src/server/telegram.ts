@@ -1,4 +1,4 @@
-import { loadDb, saveDb } from './db.js';
+import { loadDb, saveDb, normalizeInstagramUrl } from './db.js';
 import { fetchReelWithFallbackChain } from './providers.js';
 import { runAiMonitoringCheck, generateDailyAiReport, generateAiCpmTelegramMessage } from './ai.js';
 import { applyCpmToReel } from './cpm.js';
@@ -139,13 +139,14 @@ async function handleTelegramVideoUpload(botToken: string, chatId: string, msg: 
     }
 
     // Extract potential Instagram URL in caption
-    const urlMatch = caption.match(/https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+/i);
-    const reelUrl = urlMatch ? urlMatch[0] : `https://instagram.com/reel/tg_${Date.now()}`;
+    const urlMatch = caption.match(/https?:\/\/(www\.)?instagram\.com\/(reel|p|tv)\/[A-Za-z0-9_-]+/i);
+    let reelUrl = urlMatch ? urlMatch[0] : `https://instagram.com/reel/tg_${Date.now()}`;
+    const normalizedTargetUrl = normalizeInstagramUrl(reelUrl) || reelUrl;
 
     const db = loadDb();
 
-    // Check duplicate
-    const existingIndex = db.reels.findIndex(r => r.url === reelUrl);
+    // Check duplicate using normalized comparison
+    const existingIndex = db.reels.findIndex(r => normalizeInstagramUrl(r.url) === normalizedTargetUrl);
 
     if (existingIndex !== -1) {
       const existing = db.reels[existingIndex];
@@ -269,11 +270,12 @@ async function handleTelegramMessage(botToken: string, adminTelegramId: string, 
 
   // Check if text is an Instagram URL sent directly in message
   if (text.startsWith('http://') || text.startsWith('https://')) {
-    const urlMatch = text.match(/https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+/i);
+    const urlMatch = text.match(/https?:\/\/(www\.)?instagram\.com\/(reel|p|tv)\/[A-Za-z0-9_-]+/i);
     if (urlMatch) {
-      const reelUrl = urlMatch[0];
+      const rawUrl = urlMatch[0];
+      const reelUrl = normalizeInstagramUrl(rawUrl) || rawUrl;
       const db = loadDb();
-      const existing = db.reels.find(r => r.url === reelUrl);
+      const existing = db.reels.find(r => normalizeInstagramUrl(r.url) === reelUrl);
       if (existing) {
         await sendTelegramMessage(botToken, chatId, `⚠️ <b>Reel Already Exists:</b> ${existing.name} (${existing.views} views)\nUse ⚡ Force Refresh to update stats.`);
         return;
@@ -383,13 +385,17 @@ async function sendForceRefreshMenu(botToken: string, chatId: string) {
     return;
   }
 
-  const buttons = db.reels.map((reel) => {
+  const buttons = [
+    [{ text: '⚡ 🚀 FORCE REFRESH ALL REELS 🚀 ⚡', callback_data: 'force_refresh_all_reels' }]
+  ];
+
+  db.reels.forEach((reel) => {
     const title = reel.name || getFirst3Words(reel.caption);
-    return [{ text: `🎬 ${title} (${reel.views.toLocaleString()} views)`, callback_data: `select_reel:${reel.id}` }];
+    buttons.push([{ text: `🎬 ${title} (${reel.views.toLocaleString()} views)`, callback_data: `select_reel:${reel.id}` }]);
   });
 
   const replyMarkup = { inline_keyboard: buttons };
-  await sendTelegramMessage(botToken, chatId, `<b>🔄 Select a Reel to Force Refresh:</b>`, replyMarkup);
+  await sendTelegramMessage(botToken, chatId, `<b>🔄 Select a Reel or Force Refresh All:</b>`, replyMarkup);
 }
 
 // Handle inline keyboard button callbacks
@@ -406,6 +412,23 @@ async function handleTelegramCallback(botToken: string, adminTelegramId: string,
   if (data === 'force_refresh_menu' || data === 'list_reels') {
     await answerCallbackQuery(botToken, callbackQueryId);
     await sendForceRefreshMenu(botToken, chatId);
+    return;
+  }
+
+  if (data === 'force_refresh_all_reels') {
+    await answerCallbackQuery(botToken, callbackQueryId, 'Triggering batch refresh...');
+    await sendTelegramMessage(botToken, chatId, '🔄 <b>Starting manual batch refresh of all saved reels...</b>\nThis will update every reel in sequence and notify you.');
+    
+    // Dynamically import to prevent circular dependency at module startup
+    import('./scheduler.js').then(({ runAutomaticFetchJob }) => {
+      runAutomaticFetchJob(true).then((result) => {
+        sendTelegramMessage(botToken, chatId, `✅ <b>Manual Batch Refresh Completed!</b>\nRefreshed ${result.count || 0} reels successfully.`);
+      }).catch((err) => {
+        sendTelegramMessage(botToken, chatId, `❌ <b>Batch Refresh Failed:</b> ${err.message || err}`);
+      });
+    }).catch(err => {
+      console.error('[Dynamic Import Error]', err);
+    });
     return;
   }
 
