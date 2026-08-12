@@ -8,9 +8,12 @@ import { Reel, FetchLog } from '../types.js';
 // Global set of reel IDs currently being fetched to prevent duplicate simultaneous fetches
 const activeFetchingReelIds = new Set<string>();
 
-let pollingInterval: NodeJS.Timeout | null = null;
+let pollingTimeout: NodeJS.Timeout | null = null;
 let lastUpdateId = 0;
 let isPollingActive = false;
+let isPollingInFlight = false;
+let currentPollingSessionId = 0;
+const processedUpdateIds = new Set<number>();
 
 // Format first 3 words of caption
 export function getFirst3Words(caption: string): string {
@@ -85,44 +88,22 @@ export async function notifyTelegramReelResult(reel: Reel, logType: 'automatic' 
   const lines: string[] = [];
 
   if (reel.campaignName) {
-    lines.push(`🔥 <b>${reel.campaignName} campaign update!</b>`);
+    lines.push(`🔥 <b>${reel.campaignName} Campaign Update</b>`);
     lines.push(`🎬 <b>Reel:</b> ${reel.name}`);
-    lines.push(`👀 <b>Views:</b> ${formattedViews}`);
+    lines.push(`👀 <b>Views:</b> ${formattedViews} | ❤️ <b>Likes:</b> ${formattedLikes}`);
     lines.push(`💰 <b>CPM Earnings:</b> $${(reel.cpmEarnings || 0).toFixed(2)}`);
+    lines.push(`💸 <b>3% Fee:</b> $${(reel.fee3Percent || 0).toFixed(2)} | 💵 <b>Est. Payout:</b> $${(reel.estimatedPayout || 0).toFixed(2)}`);
   } else {
     lines.push(`<b>Video:</b> ${titleWords}`);
-    lines.push(`<b>Views:</b> ${formattedViews}`);
-    lines.push(`<b>Likes:</b> ${formattedLikes}`);
-    lines.push(``);
     lines.push(`📌 <b>Reel Name:</b> ${reel.name}`);
+    lines.push(`👀 <b>Views:</b> ${formattedViews} | ❤️ <b>Likes:</b> ${formattedLikes}`);
   }
 
   lines.push(`🔗 <a href="${reel.url}">View on Instagram</a>`);
   lines.push(`🕒 <i>Updated: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</i>`);
 
   const message = lines.join('\n');
-  const mainSent = await sendTelegramMessage(botToken, adminTelegramId, message);
-
-  // If Reel is linked to a campaign, generate and send the exciting AI message with CPM Earnings and Estimated Payout
-  if (reel.campaignName && (reel.cpmEarnings || 0) > 0) {
-    try {
-      const aiMsg = await generateAiCpmTelegramMessage(
-        reel.name,
-        reel.campaignName,
-        reel.views,
-        reel.cpmEarnings || 0,
-        reel.estimatedPayout || 0,
-        reel.fee3Percent || 0
-      );
-      if (aiMsg) {
-        await sendTelegramMessage(botToken, adminTelegramId, aiMsg);
-      }
-    } catch (e) {
-      console.warn('[Telegram AI Message Error]', e);
-    }
-  }
-
-  return mainSent;
+  return await sendTelegramMessage(botToken, adminTelegramId, message);
 }
 
 // Answer Callback Query
@@ -610,11 +591,6 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
   }
 }
 
-// Active polling lock & deduplication set
-let pollingTimeout: NodeJS.Timeout | null = null;
-let isPollingInFlight = false;
-const processedUpdateIds = new Set<number>();
-
 // Helper to check whether incoming message is from configured admin
 function isTelegramUserAuthorized(adminTelegramId: string, msgOrCb: any): boolean {
   const configured = String(adminTelegramId || '').trim().replace(/^@/, '').toLowerCase();
@@ -633,15 +609,21 @@ function isTelegramUserAuthorized(adminTelegramId: string, msgOrCb: any): boolea
 
 // Telegram Bot Polling Loop
 export function startTelegramBotPolling() {
-  if (isPollingActive) return;
-  isPollingActive = true;
+  stopTelegramBotPolling();
 
-  console.log('[Telegram Bot] Starting background polling service...');
+  isPollingActive = true;
+  currentPollingSessionId++;
+  const activeSessionId = currentPollingSessionId;
+
+  console.log(`[Telegram Bot] Starting single-instance polling service (Session #${activeSessionId})...`);
 
   const pollCycle = async () => {
-    if (!isPollingActive) return;
+    if (!isPollingActive || activeSessionId !== currentPollingSessionId) return;
+
     if (isPollingInFlight) {
-      pollingTimeout = setTimeout(pollCycle, 3000);
+      if (isPollingActive && activeSessionId === currentPollingSessionId) {
+        pollingTimeout = setTimeout(pollCycle, 3000);
+      }
       return;
     }
 
@@ -653,7 +635,9 @@ export function startTelegramBotPolling() {
 
       if (!enabled || !botToken) {
         isPollingInFlight = false;
-        pollingTimeout = setTimeout(pollCycle, 5000);
+        if (isPollingActive && activeSessionId === currentPollingSessionId) {
+          pollingTimeout = setTimeout(pollCycle, 5000);
+        }
         return;
       }
 
@@ -665,14 +649,17 @@ export function startTelegramBotPolling() {
         const json = (await res.json()) as any;
         if (json.ok && Array.isArray(json.result)) {
           for (const update of json.result) {
-            const updateId = update.update_id;
+            const updateId = Number(update.update_id);
+            if (isNaN(updateId)) continue;
+
+            // Immediately increment offset tracker
             lastUpdateId = Math.max(lastUpdateId, updateId);
 
             if (processedUpdateIds.has(updateId)) {
               continue; // Skip duplicate update
             }
             processedUpdateIds.add(updateId);
-            if (processedUpdateIds.size > 500) {
+            if (processedUpdateIds.size > 1000) {
               const oldest = Array.from(processedUpdateIds)[0];
               processedUpdateIds.delete(oldest);
             }
@@ -689,7 +676,7 @@ export function startTelegramBotPolling() {
       // Suppress transient polling network errors
     } finally {
       isPollingInFlight = false;
-      if (isPollingActive) {
+      if (isPollingActive && activeSessionId === currentPollingSessionId) {
         pollingTimeout = setTimeout(pollCycle, 3000);
       }
     }
@@ -699,6 +686,7 @@ export function startTelegramBotPolling() {
 }
 
 export function stopTelegramBotPolling() {
+  currentPollingSessionId++;
   if (pollingTimeout) {
     clearTimeout(pollingTimeout);
     pollingTimeout = null;

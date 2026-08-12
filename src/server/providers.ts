@@ -113,10 +113,18 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
       }
     }
 
-    if (provider.apiKeyLocation === 'header_bearer') {
-      headers['Authorization'] = `Bearer ${cleanApiKey}`;
-    } else if (provider.apiKeyLocation === 'header_x_api_key') {
-      headers['x-api-key'] = cleanApiKey;
+    if (cleanApiKey) {
+      if (provider.apiKeyLocation === 'header_bearer') {
+        for (const k of Object.keys(headers)) {
+          if (k.toLowerCase() === 'authorization') delete headers[k];
+        }
+        headers['Authorization'] = `Bearer ${cleanApiKey}`;
+      } else if (provider.apiKeyLocation === 'header_x_api_key') {
+        for (const k of Object.keys(headers)) {
+          if (k.toLowerCase() === 'x-api-key') delete headers[k];
+        }
+        headers['x-api-key'] = cleanApiKey;
+      }
     }
 
     // Prepare fetch options
