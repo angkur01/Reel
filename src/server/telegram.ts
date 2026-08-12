@@ -229,12 +229,11 @@ async function handleTelegramVideoUpload(botToken: string, chatId: string, msg: 
 
 // Handle incoming Telegram message
 async function handleTelegramMessage(botToken: string, adminTelegramId: string, msg: any) {
-  const senderId = String(msg.from?.id || '');
   const chatId = String(msg.chat?.id || '');
 
   // Security check: Only configured admin Telegram ID allowed
-  if (senderId !== String(adminTelegramId).trim()) {
-    console.warn(`[Telegram Security] Blocked unauthorized message from user ID: ${senderId}`);
+  if (!isTelegramUserAuthorized(adminTelegramId, msg)) {
+    console.warn(`[Telegram Security] Blocked unauthorized message from sender:`, msg.from, `Configured Admin ID: "${adminTelegramId}"`);
     await sendTelegramMessage(botToken, chatId, '⛔ <b>Unauthorized.</b> Access restricted to bot administrator.');
     return;
   }
@@ -413,12 +412,11 @@ async function sendForceRefreshMenu(botToken: string, chatId: string) {
 
 // Handle inline keyboard button callbacks
 async function handleTelegramCallback(botToken: string, adminTelegramId: string, cb: any) {
-  const senderId = String(cb.from?.id || '');
   const callbackQueryId = cb.id;
   const data = cb.data || '';
   const chatId = String(cb.message?.chat?.id || adminTelegramId);
 
-  if (senderId !== String(adminTelegramId).trim()) {
+  if (!isTelegramUserAuthorized(adminTelegramId, cb)) {
     await answerCallbackQuery(botToken, callbackQueryId, 'Unauthorized');
     return;
   }
@@ -656,16 +654,30 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
 // Active polling lock & deduplication set
 let pollingTimeout: NodeJS.Timeout | null = null;
 let isPollingInFlight = false;
-let isFirstPoll = true;
 const processedUpdateIds = new Set<number>();
+
+// Helper to check whether incoming message is from configured admin
+function isTelegramUserAuthorized(adminTelegramId: string, msgOrCb: any): boolean {
+  const configured = String(adminTelegramId || '').trim().replace(/^@/, '').toLowerCase();
+  if (!configured) return true; // Default allow if not configured yet
+
+  const senderId = String(msgOrCb.from?.id || '').toLowerCase();
+  const chatId = String(msgOrCb.chat?.id || msgOrCb.message?.chat?.id || '').toLowerCase();
+  const username = String(msgOrCb.from?.username || '').toLowerCase();
+
+  return (
+    senderId === configured ||
+    chatId === configured ||
+    (Boolean(username) && username === configured)
+  );
+}
 
 // Telegram Bot Polling Loop
 export function startTelegramBotPolling() {
   if (isPollingActive) return;
   isPollingActive = true;
-  isFirstPoll = true;
 
-  console.log('[Telegram Bot] Starting background polling service with auto-flush & de-duplication...');
+  console.log('[Telegram Bot] Starting background polling service...');
 
   const pollCycle = async () => {
     if (!isPollingActive) return;
@@ -680,32 +692,14 @@ export function startTelegramBotPolling() {
       const db = loadDb();
       const { botToken, adminTelegramId, enabled } = db.telegram;
 
-      if (!enabled || !botToken || !adminTelegramId) {
+      if (!enabled || !botToken) {
         isPollingInFlight = false;
         pollingTimeout = setTimeout(pollCycle, 5000);
         return;
       }
 
-      // On first poll after server boot, flush past updates from Telegram backlog to prevent replay spam
-      if (isFirstPoll) {
-        isFirstPoll = false;
-        try {
-          const flushUrl = `https://api.telegram.org/bot${botToken}/getUpdates?offset=-1&limit=1&timeout=0`;
-          const flushRes = await fetch(flushUrl);
-          if (flushRes.ok) {
-            const flushJson = (await flushRes.json()) as any;
-            if (flushJson.ok && Array.isArray(flushJson.result) && flushJson.result.length > 0) {
-              const latestUpdate = flushJson.result[flushJson.result.length - 1];
-              lastUpdateId = latestUpdate.update_id;
-              console.log(`[Telegram Bot] Flushed historical updates backlog. Set lastUpdateId to ${lastUpdateId}`);
-            }
-          }
-        } catch (e) {
-          console.warn('[Telegram Bot] Exception flushing past updates:', e);
-        }
-      }
-
-      const url = `https://api.telegram.org/bot${botToken}/getUpdates?offset=${lastUpdateId + 1}&timeout=3`;
+      const offsetParam = lastUpdateId > 0 ? `?offset=${lastUpdateId + 1}&timeout=3` : '?timeout=3';
+      const url = `https://api.telegram.org/bot${botToken}/getUpdates${offsetParam}`;
       const res = await fetch(url);
 
       if (res.ok) {

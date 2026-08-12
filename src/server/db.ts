@@ -177,24 +177,84 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   recalculateAllDbReelsCpm(mergedReels, mergedCampaigns);
 
   const providerMap = new Map<string, ApiProvider>();
-  (remote.providers || []).forEach(p => p && p.id && providerMap.set(p.id, p));
-  (local.providers || []).forEach(p => p && p.id && providerMap.set(p.id, p));
+  const allProviderIds = new Set<string>([
+    ...(remote.providers || []).map(p => p?.id).filter(Boolean) as string[],
+    ...(local.providers || []).map(p => p?.id).filter(Boolean) as string[],
+  ]);
+
+  allProviderIds.forEach(id => {
+    const remoteP = (remote.providers || []).find(p => p?.id === id);
+    const localP = (local.providers || []).find(p => p?.id === id);
+
+    if (localP && remoteP) {
+      const bestApiKey = (localP.apiKey && !localP.apiKey.includes('••••'))
+        ? localP.apiKey
+        : (remoteP.apiKey && !remoteP.apiKey.includes('••••'))
+          ? remoteP.apiKey
+          : (localP.apiKey || remoteP.apiKey || '');
+
+      providerMap.set(id, {
+        ...remoteP,
+        ...localP,
+        apiKey: bestApiKey,
+        baseUrl: localP.baseUrl || remoteP.baseUrl || '',
+        enabled: localP.enabled ?? remoteP.enabled ?? true,
+      });
+    } else if (localP) {
+      providerMap.set(id, localP);
+    } else if (remoteP) {
+      providerMap.set(id, remoteP);
+    }
+  });
+
   const mergedProviders = Array.from(providerMap.values());
   if (mergedProviders.length === 0) {
     mergedProviders.push(...defaultProviders);
   }
 
+  const bestTelegramToken = (local.telegram?.botToken && !local.telegram?.botToken.includes('••••'))
+    ? local.telegram.botToken
+    : (remote.telegram?.botToken && !remote.telegram?.botToken.includes('••••'))
+      ? remote.telegram.botToken
+      : (local.telegram?.botToken || remote.telegram?.botToken || '');
+
+  const bestAdminTelegramId = local.telegram?.adminTelegramId || remote.telegram?.adminTelegramId || '';
+
+  const isTelegramEnabled = (remote.telegram?.enabled !== undefined)
+    ? remote.telegram.enabled
+    : (local.telegram?.enabled ?? false);
+
   const mergedTelegram: TelegramSettings = {
-    botToken: local.telegram?.botToken || remote.telegram?.botToken || '',
-    adminTelegramId: local.telegram?.adminTelegramId || remote.telegram?.adminTelegramId || '',
-    enabled: local.telegram?.enabled ?? remote.telegram?.enabled ?? false,
+    botToken: bestTelegramToken,
+    adminTelegramId: bestAdminTelegramId,
+    enabled: Boolean(bestTelegramToken && isTelegramEnabled),
+    lastStatus: local.telegram?.lastStatus || remote.telegram?.lastStatus || null,
   };
 
+  const bestGeminiKey = (local.aiSettings?.geminiApiKey && !local.aiSettings?.geminiApiKey.includes('••••'))
+    ? local.aiSettings.geminiApiKey
+    : (remote.aiSettings?.geminiApiKey && !remote.aiSettings?.geminiApiKey.includes('••••'))
+      ? remote.aiSettings.geminiApiKey
+      : (local.aiSettings?.geminiApiKey || remote.aiSettings?.geminiApiKey || '');
+
+  const bestGrokKey = (local.aiSettings?.grokApiKey && !local.aiSettings?.grokApiKey.includes('••••'))
+    ? local.aiSettings.grokApiKey
+    : (remote.aiSettings?.grokApiKey && !remote.aiSettings?.grokApiKey.includes('••••'))
+      ? remote.aiSettings.grokApiKey
+      : (local.aiSettings?.grokApiKey || remote.aiSettings?.grokApiKey || '');
+
+  const bestGroqKey = (local.aiSettings?.groqApiKey && !local.aiSettings?.groqApiKey.includes('••••'))
+    ? local.aiSettings.groqApiKey
+    : (remote.aiSettings?.groqApiKey && !remote.aiSettings?.groqApiKey.includes('••••'))
+      ? remote.aiSettings.groqApiKey
+      : (local.aiSettings?.groqApiKey || remote.aiSettings?.groqApiKey || bestGrokKey);
+
   const mergedAiSettings: AiSettings = {
-    geminiApiKey: local.aiSettings?.geminiApiKey || remote.aiSettings?.geminiApiKey || '',
-    grokApiKey: local.aiSettings?.grokApiKey || remote.aiSettings?.grokApiKey || '',
-    enableGemini: local.aiSettings?.enableGemini ?? remote.aiSettings?.enableGemini ?? true,
-    enableGrok: local.aiSettings?.enableGrok ?? remote.aiSettings?.enableGrok ?? true,
+    geminiApiKey: bestGeminiKey,
+    grokApiKey: bestGrokKey,
+    groqApiKey: bestGroqKey,
+    enableGemini: remote.aiSettings?.enableGemini ?? local.aiSettings?.enableGemini ?? true,
+    enableGrok: remote.aiSettings?.enableGrok ?? local.aiSettings?.enableGrok ?? true,
     dailyCheckLimit: local.aiSettings?.dailyCheckLimit || remote.aiSettings?.dailyCheckLimit || 50,
     alertSensitivity: local.aiSettings?.alertSensitivity || remote.aiSettings?.alertSensitivity || 'medium',
     modelPreference: local.aiSettings?.modelPreference || remote.aiSettings?.modelPreference || 'auto',
@@ -463,7 +523,16 @@ function saveFirestoreDoc(data: DatabaseSchema): void {
     const db = initFirestore();
     if (db) {
       const docRef = doc(db, 'dashboard_data', 'main');
-      setDoc(docRef, data, { merge: true }).catch((err) => {
+
+      // Prune heavy log arrays to ensure payload stays under Firestore 1MB size limit
+      const firestorePayload: DatabaseSchema = {
+        ...data,
+        history: (data.history || []).slice(0, 150),
+        logs: (data.logs || []).slice(0, 50),
+        aiLogs: (data.aiLogs || []).slice(0, 50),
+      };
+
+      setDoc(docRef, firestorePayload, { merge: true }).catch((err) => {
         console.error('[Firestore Cloud Save Error]', err);
       });
     }
