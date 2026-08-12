@@ -3,8 +3,8 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { loadDb, saveDb } from './db.js';
 
-// In-memory active sessions mapping token -> timestamp
-const activeSessions = new Map<string, number>();
+// Secret key for HMAC token signing
+const HMAC_SECRET = process.env.ADMIN_SESSION_SECRET || 'reel-tracker-hmac-master-key-2026';
 
 export function verifyPassword(password: string): boolean {
   const db = loadDb();
@@ -18,38 +18,69 @@ export function setPassword(newPassword: string): void {
 }
 
 export function createSessionToken(): string {
-  const token = crypto.randomBytes(32).toString('hex');
   const db = loadDb();
+  const timestamp = Date.now();
+  const passHashSnippet = (db.auth.adminPasswordHash || 'default').slice(-10);
+  const randomPart = crypto.randomBytes(8).toString('hex');
+  const payload = `${timestamp}:${randomPart}:${passHashSnippet}`;
+  const signature = crypto.createHmac('sha256', HMAC_SECRET).update(payload).digest('hex');
+  const token = `${payload}:${signature}`;
+
   if (!db.auth.sessions) {
     db.auth.sessions = {};
   }
-  db.auth.sessions[token] = Date.now();
+  db.auth.sessions[token] = timestamp;
   saveDb(db);
+
   return token;
 }
 
 export function isValidSession(token: string | undefined): boolean {
-  if (!token) return false;
+  if (!token || typeof token !== 'string') return false;
+
+  const cleanToken = token.trim();
+  if (!cleanToken || cleanToken === 'null' || cleanToken === 'undefined') return false;
+
+  // 1. Verify stateless HMAC signed token
+  try {
+    const parts = cleanToken.split(':');
+    if (parts.length === 4) {
+      const [timestampStr, randomPart, passHashSnippet, signature] = parts;
+      const timestamp = parseInt(timestampStr, 10);
+
+      if (!isNaN(timestamp)) {
+        const payload = `${timestampStr}:${randomPart}:${passHashSnippet}`;
+        const expectedSignature = crypto.createHmac('sha256', HMAC_SECRET).update(payload).digest('hex');
+
+        // Constant time signature comparison
+        const sigBuf = Buffer.from(signature, 'hex');
+        const expectedBuf = Buffer.from(expectedSignature, 'hex');
+
+        if (sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+          // Check expiration (365 days)
+          const MAX_AGE = 365 * 24 * 60 * 60 * 1000;
+          if (Date.now() - timestamp < MAX_AGE && timestamp <= Date.now() + 300000) {
+            return true;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Fall through to DB check
+  }
+
+  // 2. Check in-memory / DB session table
   const db = loadDb();
-  const sessions = db.auth.sessions || {};
-  const lastActiveAt = sessions[token];
-  if (!lastActiveAt) return false;
-
-  // Session valid for 365 days
-  const MAX_AGE = 365 * 24 * 60 * 60 * 1000;
-  if (Date.now() - lastActiveAt > MAX_AGE) {
-    delete db.auth.sessions![token];
-    saveDb(db);
-    return false;
+  const sessions = db.auth?.sessions || {};
+  const lastActiveAt = sessions[cleanToken];
+  if (lastActiveAt) {
+    const MAX_AGE = 365 * 24 * 60 * 60 * 1000;
+    if (Date.now() - lastActiveAt < MAX_AGE) {
+      return true;
+    }
   }
 
-  // Auto-renew session activity timestamp if last active > 1 hour ago
-  if (Date.now() - lastActiveAt > 60 * 60 * 1000) {
-    db.auth.sessions![token] = Date.now();
-    saveDb(db);
-  }
-
-  return true;
+  return false;
 }
 
 export function revokeSession(token: string): void {
@@ -61,11 +92,11 @@ export function revokeSession(token: string): void {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
   let token: string | undefined = undefined;
+  const authHeader = req.headers.authorization;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
+    token = authHeader.substring(7).trim();
   } else if (req.cookies && req.cookies.admin_session) {
     token = req.cookies.admin_session;
   }
@@ -76,3 +107,4 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     res.status(401).json({ success: false, error: 'Unauthorized. Admin login required.' });
   }
 }
+

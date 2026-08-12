@@ -1,63 +1,88 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Header } from './components/Header';
-import { LoginModal } from './components/LoginModal';
-import { AddReelCard } from './components/AddReelCard';
-import { ReelsList } from './components/ReelsList';
+import { Navbar } from './components/Navbar';
+import { OverviewTab } from './components/OverviewTab';
+import { ReelsTab } from './components/ReelsTab';
+import { AiBrainTab } from './components/AiBrainTab';
+import { AnalyticsTab } from './components/AnalyticsTab';
 import { SettingsModal } from './components/SettingsModal';
-import { LogsModal } from './components/LogsModal';
-import { Reel, ApiProvider, TelegramSettings, FetchLog, TestProviderResult } from './types';
+import { AddReelModal } from './components/AddReelModal';
+import { LoginModal } from './components/LoginModal';
+
+import { Reel, ApiProvider, TelegramSettings, SystemStats, AiSettings, AiMeta, AiLog, TestProviderResult } from './types';
 
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     const text = await res.text();
     if (res.status === 404) {
-      throw new Error('API endpoint not found (HTTP 404). Please verify backend server or serverless function deployment.');
+      throw new Error('API endpoint not found (HTTP 404). Please verify backend deployment.');
     }
     throw new Error(`Server returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 60)}`);
   }
   return await res.json();
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('overview');
+
+  // Core Data States
   const [reels, setReels] = useState<Reel[]>([]);
   const [providers, setProviders] = useState<ApiProvider[]>([]);
   const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>({
     botToken: '',
     adminTelegramId: '',
-    enabled: false,
+    enabled: true,
   });
-  const [logs, setLogs] = useState<FetchLog[]>([]);
-  const [nextScheduledFetchAt, setNextScheduledFetchAt] = useState<string>('');
-  const [isRefreshingBatch, setIsRefreshingBatch] = useState(false);
+  const [stats, setStats] = useState<SystemStats | null>(null);
+  const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
+  const [aiMeta, setAiMeta] = useState<AiMeta | null>(null);
+  const [aiLogs, setAiLogs] = useState<AiLog[]>([]);
 
-  // Modals state
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isLogsOpen, setIsLogsOpen] = useState(false);
+  // Action Loading States
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+  const [isRunningAiCheck, setIsRunningAiCheck] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isRetryingFailed, setIsRetryingFailed] = useState(false);
+  const [refreshingReelIds, setRefreshingReelIds] = useState<Set<string>>(new Set());
 
-  // Helper for authenticated requests (supports both cookies & Bearer header in iframe)
-  const authFetch = useCallback(async (url: string, options: RequestInit = {}) => {
+  // Modal Controls
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedReelForModal, setSelectedReelForModal] = useState<Reel | null>(null);
+
+  // Authenticated Fetch Wrapper
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}, timeoutMs = 8000) => {
     const token = localStorage.getItem('admin_token');
     const headers = new Headers(options.headers || {});
-    if (token) {
+    if (token && token !== 'null' && token !== 'undefined') {
       headers.set('Authorization', `Bearer ${token}`);
     }
-    return fetch(url, {
-      ...options,
-      headers,
-    });
+    const res = await fetchWithTimeout(url, { ...options, headers }, timeoutMs);
+    if (res.status === 401 && !url.includes('/api/auth/status') && !url.includes('/api/auth/login')) {
+      console.warn('[Auth] 401 Unauthorized detected. Prompting login.');
+      localStorage.removeItem('admin_token');
+      setIsAuthenticated(false);
+    }
+    return res;
   }, []);
 
-  // Check initial authentication
+  // Check Auth Status
   const checkAuthStatus = useCallback(async () => {
     try {
-      const res = await authFetch('/api/auth/status');
+      const res = await authFetch('/api/auth/status', {}, 4000);
       const data = await parseJsonResponse(res);
       setIsAuthenticated(data.authenticated === true);
     } catch (e) {
@@ -65,42 +90,67 @@ export default function App() {
     }
   }, [authFetch]);
 
-  // Fetch Dashboard Data
+  // Load All Dashboard Data in Parallel
   const loadDashboardData = useCallback(async () => {
     try {
-      const reelsRes = await authFetch('/api/reels');
-      if (reelsRes.ok) {
-        const reelsData = await parseJsonResponse(reelsRes);
-        if (reelsData.success) {
-          setReels(reelsData.reels || []);
-          if (reelsData.nextScheduledFetchAt) {
-            setNextScheduledFetchAt(reelsData.nextScheduledFetchAt);
+      const [reelsRes, statsRes, provRes, tgRes, aiSettingsRes, aiLogsRes] = await Promise.allSettled([
+        authFetch('/api/reels', {}, 8000),
+        authFetch('/api/stats', {}, 8000),
+        authFetch('/api/providers', {}, 8000),
+        authFetch('/api/telegram/settings', {}, 8000),
+        authFetch('/api/ai/settings', {}, 8000),
+        authFetch('/api/ai/logs', {}, 8000),
+      ]);
+
+      if (reelsRes.status === 'fulfilled' && reelsRes.value.ok) {
+        try {
+          const reelsData = await parseJsonResponse(reelsRes.value);
+          if (reelsData.success) setReels(reelsData.reels || []);
+        } catch (e) {}
+      }
+
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+        try {
+          const statsData = await parseJsonResponse(statsRes.value);
+          if (statsData.success) setStats(statsData.stats);
+        } catch (e) {}
+      }
+
+      if (provRes.status === 'fulfilled' && provRes.value.ok) {
+        try {
+          const provData = await parseJsonResponse(provRes.value);
+          if (provData.success) setProviders(provData.providers || []);
+        } catch (e) {}
+      }
+
+      if (tgRes.status === 'fulfilled' && tgRes.value.ok) {
+        try {
+          const tgData = await parseJsonResponse(tgRes.value);
+          if (tgData.success && tgData.telegram) {
+            setTelegramSettings({
+              botToken: tgData.telegram.botTokenMasked || '',
+              adminTelegramId: tgData.telegram.adminTelegramId || '',
+              enabled: tgData.telegram.enabled ?? true,
+            });
           }
-        }
+        } catch (e) {}
       }
 
-      const provRes = await authFetch('/api/providers');
-      if (provRes.ok) {
-        const provData = await parseJsonResponse(provRes);
-        if (provData.success) setProviders(provData.providers || []);
+      if (aiSettingsRes.status === 'fulfilled' && aiSettingsRes.value.ok) {
+        try {
+          const aiData = await parseJsonResponse(aiSettingsRes.value);
+          if (aiData.success) {
+            setAiSettings(aiData.aiSettings);
+            setAiMeta(aiData.aiMeta);
+          }
+        } catch (e) {}
       }
 
-      const tgRes = await authFetch('/api/telegram/settings');
-      if (tgRes.ok) {
-        const tgData = await parseJsonResponse(tgRes);
-        if (tgData.success && tgData.telegram) {
-          setTelegramSettings({
-            botToken: tgData.telegram.botTokenMasked || '',
-            adminTelegramId: tgData.telegram.adminTelegramId || '',
-            enabled: tgData.telegram.enabled ?? true,
-          });
-        }
-      }
-
-      const logsRes = await authFetch('/api/logs');
-      if (logsRes.ok) {
-        const logsData = await parseJsonResponse(logsRes);
-        if (logsData.success) setLogs(logsData.logs || []);
+      if (aiLogsRes.status === 'fulfilled' && aiLogsRes.value.ok) {
+        try {
+          const logsData = await parseJsonResponse(aiLogsRes.value);
+          if (logsData.success) setAiLogs(logsData.aiLogs || []);
+        } catch (e) {}
       }
 
     } catch (err) {
@@ -110,13 +160,16 @@ export default function App() {
 
   useEffect(() => {
     checkAuthStatus();
+    const safetyTimer = setTimeout(() => {
+      setIsAuthenticated((prev) => (prev === null ? false : prev));
+    }, 3500);
+    return () => clearTimeout(safetyTimer);
   }, [checkAuthStatus]);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadDashboardData();
-      // Poll data every 10 seconds to reflect automatic or Telegram updates live
-      const interval = setInterval(loadDashboardData, 10000);
+      const interval = setInterval(loadDashboardData, 8000);
       return () => clearInterval(interval);
     }
   }, [isAuthenticated, loadDashboardData]);
@@ -145,14 +198,12 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await authFetch('/api/auth/logout', { method: 'POST' });
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
     localStorage.removeItem('admin_token');
     setIsAuthenticated(false);
   };
 
-  // Reel Handlers
+  // Reel Actions
   const handleAddReel = async (url: string, customName?: string) => {
     try {
       const res = await authFetch('/api/reels', {
@@ -161,184 +212,187 @@ export default function App() {
         body: JSON.stringify({ url, customName }),
       });
       const data = await res.json();
-      if (data.reel) {
-        loadDashboardData();
-      }
-      if (data.success) {
-        return { success: true };
-      }
+      if (data.reel) loadDashboardData();
+      if (data.success) return { success: true };
       return { success: false, error: data.error };
     } catch (e: any) {
       return { success: false, error: e.message || 'Failed to add reel' };
     }
   };
 
-  const handleEditReelName = async (id: string, newName: string) => {
+  const handleRefreshReel = async (id: string) => {
+    setRefreshingReelIds((prev) => new Set(prev).add(id));
+    try {
+      await authFetch(`/api/reels/${id}/fetch`, { method: 'POST' });
+      await loadDashboardData();
+    } finally {
+      setRefreshingReelIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  const handleBatchRefresh = async () => {
+    setIsRefreshingAll(true);
+    try {
+      await authFetch('/api/reels/refresh-all', { method: 'POST' });
+      setTimeout(async () => {
+        await loadDashboardData();
+        setIsRefreshingAll(false);
+      }, 3000);
+    } catch (e) {
+      setIsRefreshingAll(false);
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    setIsRetryingFailed(true);
+    try {
+      await authFetch('/api/reels/retry-failed', { method: 'POST' });
+      await loadDashboardData();
+    } finally {
+      setIsRetryingFailed(false);
+    }
+  };
+
+  const handleEditReelName = async (id: string, currentName: string) => {
+    const newName = prompt('Enter new custom name for this Reel:', currentName);
+    if (!newName || !newName.trim()) return;
+
     try {
       const res = await authFetch(`/api/reels/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName }),
+        body: JSON.stringify({ name: newName.trim() }),
       });
-      if (res.ok) {
-        loadDashboardData();
-      }
+      if (res.ok) loadDashboardData();
     } catch (e) {
-      console.error('Error updating reel name:', e);
+      console.error('Error renaming reel:', e);
     }
   };
 
   const handleDeleteReel = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this Reel?')) return;
     try {
       const res = await authFetch(`/api/reels/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        loadDashboardData();
-      }
+      if (res.ok) loadDashboardData();
     } catch (e) {
       console.error('Error deleting reel:', e);
     }
   };
 
-  const handleRefreshReel = async (id: string) => {
+  // AI Actions
+  const handleRunAiCheck = async () => {
+    setIsRunningAiCheck(true);
     try {
-      await authFetch(`/api/reels/${id}/fetch`, { method: 'POST' });
-      loadDashboardData();
-    } catch (e) {
-      console.error('Error refreshing reel:', e);
+      const res = await authFetch('/api/ai/check', { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || 'AI Check failed.');
+      }
+      await loadDashboardData();
+    } finally {
+      setIsRunningAiCheck(false);
     }
   };
 
-  const handleBatchRefresh = async () => {
-    setIsRefreshingBatch(true);
+  const handleGenerateDailyReport = async () => {
+    setIsGeneratingReport(true);
     try {
-      await authFetch('/api/reels/refresh-all', { method: 'POST' });
-      setTimeout(() => {
-        loadDashboardData();
-        setIsRefreshingBatch(false);
-      }, 3000);
-    } catch (e) {
-      setIsRefreshingBatch(false);
-    }
-  };
-
-  // Provider Handlers
-  const handleAddProvider = async (p: Partial<ApiProvider>): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await authFetch('/api/providers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(p),
-      });
+      const res = await authFetch('/api/ai/daily-report', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        loadDashboardData();
-        return { success: true };
+        alert('Daily Report generated & sent to Telegram successfully!');
+      } else {
+        alert('Failed to generate daily report.');
       }
-      return { success: false, error: data.error || 'Failed to add provider' };
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Network error' };
+      await loadDashboardData();
+    } finally {
+      setIsGeneratingReport(false);
     }
   };
 
-  const handleUpdateProvider = async (id: string, p: Partial<ApiProvider>): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await authFetch(`/api/providers/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(p),
-      });
-      const data = await res.json();
-      if (data.success) {
-        loadDashboardData();
-        return { success: true };
-      }
-      return { success: false, error: data.error || 'Failed to update provider' };
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Network error' };
-    }
+  const handleSaveAiSettings = async (newSettings: Partial<AiSettings>) => {
+    await authFetch('/api/ai/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSettings),
+    });
+    await loadDashboardData();
+  };
+
+  // Settings Modal Handlers
+  const handleAddProvider = async (p: Partial<ApiProvider>) => {
+    const res = await authFetch('/api/providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(p),
+    });
+    const data = await res.json();
+    if (data.success) loadDashboardData();
+    return data;
+  };
+
+  const handleUpdateProvider = async (id: string, p: Partial<ApiProvider>) => {
+    const res = await authFetch(`/api/providers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(p),
+    });
+    const data = await res.json();
+    if (data.success) loadDashboardData();
+    return data;
   };
 
   const handleDeleteProvider = async (id: string) => {
-    try {
-      const res = await authFetch(`/api/providers/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        loadDashboardData();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    const res = await authFetch(`/api/providers/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) loadDashboardData();
+    return data.success;
   };
 
-  const handleTestProvider = async (id: string, testUrl?: string): Promise<TestProviderResult | null> => {
-    try {
-      const res = await authFetch(`/api/providers/${id}/test`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ testUrl }),
-      });
-      const data = await res.json();
-      if (data.success && data.result) {
-        return data.result as TestProviderResult;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
+  const handleTestProvider = async (id: string, testUrl?: string) => {
+    const res = await authFetch(`/api/providers/${id}/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testUrl }),
+    });
+    const data = await res.json();
+    return data.result as TestProviderResult;
   };
 
-  // Telegram Handlers
   const handleSaveTelegram = async (t: Partial<TelegramSettings>) => {
-    try {
-      const res = await authFetch('/api/telegram/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(t),
-      });
-      const data = await res.json();
-      if (data.success) {
-        loadDashboardData();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
+    const res = await authFetch('/api/telegram/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(t),
+    });
+    const data = await res.json();
+    if (data.success) loadDashboardData();
+    return data.success;
   };
 
   const handleTestTelegram = async () => {
-    try {
-      const res = await authFetch('/api/telegram/test', { method: 'POST' });
-      const data = await res.json();
-      return data;
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Telegram test failed' };
-    }
+    const res = await authFetch('/api/telegram/test', { method: 'POST' });
+    return await res.json();
   };
 
-  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
-    try {
-      const res = await authFetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      const data = await res.json();
-      return data;
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Password update failed' };
-    }
+  const handleChangePassword = async (curr: string, next: string) => {
+    const res = await authFetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: curr, newPassword: next }),
+    });
+    return await res.json();
   };
 
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 font-sans">
-        <div className="flex flex-col items-center space-y-3">
-          <div className="w-8 h-8 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin"></div>
-          <span className="text-xs">Loading Dashboard...</span>
-        </div>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3">
+        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+        <span className="text-xs font-mono">Initializing AI Command Center...</span>
       </div>
     );
   }
@@ -348,55 +402,92 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-rose-500 selection:text-white pb-16">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
       
-      {/* Navigation Header */}
-      <Header
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenLogs={() => setIsLogsOpen(true)}
+      {/* Top Navbar Header */}
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        stats={stats}
+        isRefreshingAll={isRefreshingAll}
+        onRefreshAll={handleBatchRefresh}
         onLogout={handleLogout}
-        onBatchRefresh={handleBatchRefresh}
-        nextScheduledFetchAt={nextScheduledFetchAt}
-        isRefreshingBatch={isRefreshingBatch}
-        telegramEnabled={telegramSettings.enabled}
+        onOpenAddModal={() => setIsAddModalOpen(true)}
       />
 
-      {/* Main Container */}
+      {/* Main Tab Content Canvas */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
-        
-        {/* Add Reel Input Section */}
-        <AddReelCard onAddReel={handleAddReel} />
+        {activeTab === 'overview' && (
+          <OverviewTab
+            stats={stats}
+            reels={reels}
+            aiLogs={aiLogs}
+            onOpenAddModal={() => setIsAddModalOpen(true)}
+            onRefreshAll={handleBatchRefresh}
+            isRefreshingAll={isRefreshingAll}
+            onRunAiCheck={handleRunAiCheck}
+            isRunningAiCheck={isRunningAiCheck}
+            onSelectReel={(reel) => {
+              setSelectedReelForModal(reel);
+              setActiveTab('reels');
+            }}
+            setActiveTab={setActiveTab}
+          />
+        )}
 
-        {/* Saved Reels List & Stats */}
-        <ReelsList
-          reels={reels}
-          onRefresh={handleRefreshReel}
-          onEditName={handleEditReelName}
-          onDelete={handleDeleteReel}
-        />
+        {activeTab === 'reels' && (
+          <ReelsTab
+            reels={reels}
+            onRefreshReel={handleRefreshReel}
+            onEditReelName={handleEditReelName}
+            onDeleteReel={handleDeleteReel}
+            onOpenAddModal={() => setIsAddModalOpen(true)}
+            onRetryFailed={handleRetryFailed}
+            isRetryingFailed={isRetryingFailed}
+            refreshingReelIds={refreshingReelIds}
+          />
+        )}
 
+        {activeTab === 'ai-brain' && (
+          <AiBrainTab
+            aiSettings={aiSettings}
+            aiMeta={aiMeta}
+            aiLogs={aiLogs}
+            onSaveAiSettings={handleSaveAiSettings}
+            onRunAiCheck={handleRunAiCheck}
+            isRunningAiCheck={isRunningAiCheck}
+            onGenerateDailyReport={handleGenerateDailyReport}
+            isGeneratingReport={isGeneratingReport}
+          />
+        )}
+
+        {activeTab === 'analytics' && <AnalyticsTab reels={reels} />}
+
+        {activeTab === 'settings' && (
+          <div className="glass-panel p-6 rounded-3xl space-y-6">
+            <h2 className="text-2xl font-black text-white">System & API Configurations</h2>
+            <SettingsModal
+              isOpen={true}
+              onClose={() => setActiveTab('overview')}
+              providers={providers}
+              telegramSettings={telegramSettings}
+              onAddProvider={handleAddProvider}
+              onUpdateProvider={handleUpdateProvider}
+              onDeleteProvider={handleDeleteProvider}
+              onTestProvider={handleTestProvider}
+              onSaveTelegram={handleSaveTelegram}
+              onTestTelegram={handleTestTelegram}
+              onChangePassword={handleChangePassword}
+            />
+          </div>
+        )}
       </main>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        providers={providers}
-        telegramSettings={telegramSettings}
-        onAddProvider={handleAddProvider}
-        onUpdateProvider={handleUpdateProvider}
-        onDeleteProvider={handleDeleteProvider}
-        onTestProvider={handleTestProvider}
-        onSaveTelegram={handleSaveTelegram}
-        onTestTelegram={handleTestTelegram}
-        onChangePassword={handleChangePassword}
-      />
-
-      {/* Logs Modal */}
-      <LogsModal
-        isOpen={isLogsOpen}
-        onClose={() => setIsLogsOpen(false)}
-        logs={logs}
+      {/* Add Reel Modal */}
+      <AddReelModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAddReel={handleAddReel}
       />
 
     </div>

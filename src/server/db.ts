@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import bcrypt from 'bcryptjs';
-import { Reel, ApiProvider, TelegramSettings, FetchLog } from '../types.js';
+import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint } from '../types.js';
 
 export interface DatabaseSchema {
   auth: {
@@ -13,6 +13,10 @@ export interface DatabaseSchema {
   reels: Reel[];
   providers: ApiProvider[];
   telegram: TelegramSettings;
+  aiSettings: AiSettings;
+  aiMeta: AiMeta;
+  aiLogs: AiLog[];
+  history: ReelHistoryPoint[];
   logs: FetchLog[];
   meta: {
     lastAutoFetchAt: string | null;
@@ -87,6 +91,23 @@ const defaultTelegram: TelegramSettings = {
   enabled: false,
 };
 
+const defaultAiSettings: AiSettings = {
+  geminiApiKey: '',
+  grokApiKey: '',
+  enableGemini: true,
+  enableGrok: true,
+  dailyCheckLimit: 50,
+  alertSensitivity: 'medium',
+  modelPreference: 'auto',
+};
+
+const defaultAiMeta: AiMeta = {
+  checksUsedToday: 0,
+  lastCheckDate: new Date().toISOString().slice(0, 10),
+  lastAiAnalysisAt: null,
+  activeModelUsed: 'gemini',
+};
+
 function ensureDir(filePath: string) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
@@ -106,6 +127,10 @@ export function loadDb(): DatabaseSchema {
       reels: [],
       providers: defaultProviders,
       telegram: defaultTelegram,
+      aiSettings: defaultAiSettings,
+      aiMeta: defaultAiMeta,
+      aiLogs: [],
+      history: [],
       logs: [],
       meta: {
         lastAutoFetchAt: null,
@@ -133,12 +158,32 @@ export function loadDb(): DatabaseSchema {
     if (!data.telegram) {
       data.telegram = defaultTelegram;
     }
+    if (!data.aiSettings) {
+      data.aiSettings = defaultAiSettings;
+    }
+    if (!data.aiMeta) {
+      data.aiMeta = defaultAiMeta;
+    }
+    if (!data.aiLogs) {
+      data.aiLogs = [];
+    }
+    if (!data.history) {
+      data.history = [];
+    }
     if (!data.logs) {
       data.logs = [];
     }
     if (!data.meta) {
       data.meta = { lastAutoFetchAt: null };
     }
+
+    // Reset daily check counter if new UTC day
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (data.aiMeta.lastCheckDate !== todayStr) {
+      data.aiMeta.checksUsedToday = 0;
+      data.aiMeta.lastCheckDate = todayStr;
+    }
+
     return data;
   } catch (err) {
     console.error('Error reading database file, creating backup and starting fresh:', err);
@@ -153,6 +198,10 @@ export function loadDb(): DatabaseSchema {
       reels: [],
       providers: defaultProviders,
       telegram: defaultTelegram,
+      aiSettings: defaultAiSettings,
+      aiMeta: defaultAiMeta,
+      aiLogs: [],
+      history: [],
       logs: [],
       meta: {
         lastAutoFetchAt: null,

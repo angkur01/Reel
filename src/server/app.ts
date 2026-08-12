@@ -6,7 +6,8 @@ import { requireAuth, verifyPassword, setPassword, createSessionToken, revokeSes
 import { fetchReelWithFallbackChain, testSingleProvider } from './providers.js';
 import { startTelegramBotPolling, stopTelegramBotPolling, sendTelegramMessage, notifyTelegramReelResult, getFirst3Words } from './telegram.js';
 import { getNextScheduledTime, runAutomaticFetchJob } from './scheduler.js';
-import { Reel, ApiProvider, FetchLog } from '../types.js';
+import { runAiMonitoringCheck, generateDailyAiReport } from './ai.js';
+import { Reel, ApiProvider, FetchLog, AiSettings } from '../types.js';
 
 export function createExpressApp() {
   const app = express();
@@ -116,6 +117,83 @@ export function createExpressApp() {
     });
   });
 
+  // Export Reels Statistics (CSV / JSON)
+  app.get('/api/reels/export', requireAuth, (req: Request, res: Response) => {
+    const { format } = req.query;
+    const db = loadDb();
+
+    if (format === 'csv') {
+      const headers = ['ID', 'Name', 'Views', 'Likes', 'Comments', 'Shares', '24h Gain', 'Author', 'Status', 'URL', 'Last Updated'];
+      const rows = db.reels.map(r => [
+        `"${r.id}"`,
+        `"${r.name.replace(/"/g, '""')}"`,
+        r.views,
+        r.likes,
+        r.comments,
+        r.shares,
+        r.growth24h || 0,
+        `"${(r.author || '').replace(/"/g, '""')}"`,
+        `"${r.status}"`,
+        `"${r.url}"`,
+        `"${r.lastUpdatedAt || 'Never'}"`
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=reels_analytics.csv');
+      res.send(csvContent);
+      return;
+    }
+
+    res.json({
+      success: true,
+      exportedAt: new Date().toISOString(),
+      reels: db.reels,
+    });
+  });
+
+  // Get History Time-Series Data
+  app.get('/api/reels/history', requireAuth, (req: Request, res: Response) => {
+    const db = loadDb();
+    res.json({ success: true, history: db.history || [] });
+  });
+
+  // Retry Failed Reels
+  app.post('/api/reels/retry-failed', requireAuth, async (req: Request, res: Response) => {
+    const db = loadDb();
+    const failedReels = db.reels.filter(r => r.status === 'failed');
+
+    if (failedReels.length === 0) {
+      res.json({ success: true, message: 'No failed reels found to retry.' });
+      return;
+    }
+
+    let successCount = 0;
+    for (const reel of failedReels) {
+      reel.status = 'fetching';
+      saveDb(db);
+      const result = await fetchReelWithFallbackChain(db.providers, reel.url);
+      if (result.success && result.data) {
+        reel.views = result.data.views || reel.views;
+        reel.likes = result.data.likes || reel.likes;
+        reel.comments = result.data.comments || reel.comments;
+        reel.status = 'success';
+        reel.lastError = null;
+        reel.lastUpdatedAt = new Date().toISOString();
+        successCount++;
+      } else {
+        reel.status = 'failed';
+        reel.lastError = result.error || 'Retry failed';
+      }
+      saveDb(db);
+    }
+
+    res.json({
+      success: true,
+      message: `Retried ${failedReels.length} reels. ${successCount} updated successfully!`,
+    });
+  });
+
   // Add & Fetch Reel instantly
   app.post('/api/reels', requireAuth, async (req: Request, res: Response) => {
     const { url, customName } = req.body;
@@ -144,7 +222,7 @@ export function createExpressApp() {
     const caption = fetchResult.data?.caption || 'Instagram Reel';
 
     if (!reelName) {
-      reelName = getFirst3Words(caption).slice(0, 5);
+      reelName = getFirst3Words(caption).slice(0, 10);
       if (!reelName) reelName = 'Reel ' + newId.slice(-4);
     }
 
@@ -165,11 +243,27 @@ export function createExpressApp() {
       status: fetchResult.success ? 'success' : 'failed',
       lastError: fetchResult.success ? null : (fetchResult.error || 'Failed to fetch Reel stats'),
       lastProviderUsed: fetchResult.providerName || null,
+      growth1h: 0,
+      growth6h: 0,
+      growth24h: 0,
     };
 
     // Save reel
     const currentDb = loadDb();
     currentDb.reels.unshift(newReel);
+
+    // Record initial history
+    if (fetchResult.success) {
+      currentDb.history.push({
+        id: 'hist_' + Date.now(),
+        reelId: newReel.id,
+        timestamp: new Date().toISOString(),
+        views: newReel.views,
+        likes: newReel.likes,
+        comments: newReel.comments,
+        shares: newReel.shares,
+      });
+    }
 
     // Log attempt
     const logEntry: FetchLog = {
@@ -270,7 +364,14 @@ export function createExpressApp() {
     const nextScheduledAt = getNextScheduledTime().toISOString();
 
     if (fetchResult.success && fetchResult.data) {
-      target.views = fetchResult.data.views || target.views;
+      const prevViews = target.views || 0;
+      const newViews = fetchResult.data.views || prevViews;
+      const viewGain = Math.max(0, newViews - prevViews);
+
+      target.growth24h = (target.growth24h || 0) + viewGain;
+      if (viewGain > 0) target.growth1h = viewGain;
+
+      target.views = newViews;
       target.likes = fetchResult.data.likes || target.likes;
       target.comments = fetchResult.data.comments || target.comments;
       target.shares = fetchResult.data.shares || target.shares;
@@ -283,6 +384,16 @@ export function createExpressApp() {
       target.lastUpdatedAt = new Date().toISOString();
       target.nextScheduledAt = nextScheduledAt;
       target.lastProviderUsed = fetchResult.providerName || null;
+
+      currentDb.history.push({
+        id: 'hist_' + Date.now(),
+        reelId: target.id,
+        timestamp: new Date().toISOString(),
+        views: target.views,
+        likes: target.likes,
+        comments: target.comments,
+        shares: target.shares,
+      });
 
       const logEntry: FetchLog = {
         id: 'log_' + Date.now(),
@@ -335,6 +446,74 @@ export function createExpressApp() {
   app.post('/api/reels/refresh-all', requireAuth, async (req: Request, res: Response) => {
     runAutomaticFetchJob().catch(err => console.error('[Manual All Fetch Error]', err));
     res.json({ success: true, message: 'Batch refresh triggered for all saved reels in background.' });
+  });
+
+  // ----------------------------------------------------
+  // AI BRAIN & MONITORING ROUTES
+  // ----------------------------------------------------
+
+  // Get AI Settings & Usage Status
+  app.get('/api/ai/settings', requireAuth, (req: Request, res: Response) => {
+    const db = loadDb();
+    const s = db.aiSettings;
+    const m = db.aiMeta;
+
+    res.json({
+      success: true,
+      aiSettings: {
+        geminiApiKeyMasked: s.geminiApiKey ? (s.geminiApiKey.slice(0, 4) + '••••••••' + s.geminiApiKey.slice(-4)) : '',
+        grokApiKeyMasked: s.grokApiKey ? (s.grokApiKey.slice(0, 4) + '••••••••' + s.grokApiKey.slice(-4)) : '',
+        enableGemini: s.enableGemini,
+        enableGrok: s.enableGrok,
+        dailyCheckLimit: s.dailyCheckLimit,
+        alertSensitivity: s.alertSensitivity,
+        modelPreference: s.modelPreference,
+      },
+      aiMeta: m,
+    });
+  });
+
+  // Save AI Settings
+  app.post('/api/ai/settings', requireAuth, (req: Request, res: Response) => {
+    const { geminiApiKey, grokApiKey, enableGemini, enableGrok, dailyCheckLimit, alertSensitivity, modelPreference } = req.body;
+    const db = loadDb();
+
+    if (geminiApiKey !== undefined && !geminiApiKey.includes('••••')) {
+      db.aiSettings.geminiApiKey = geminiApiKey.trim();
+    }
+    if (grokApiKey !== undefined && !grokApiKey.includes('••••')) {
+      db.aiSettings.grokApiKey = grokApiKey.trim();
+    }
+    if (enableGemini !== undefined) db.aiSettings.enableGemini = Boolean(enableGemini);
+    if (enableGrok !== undefined) db.aiSettings.enableGrok = Boolean(enableGrok);
+    if (dailyCheckLimit !== undefined) db.aiSettings.dailyCheckLimit = Math.min(100, Math.max(1, Number(dailyCheckLimit)));
+    if (alertSensitivity !== undefined) db.aiSettings.alertSensitivity = alertSensitivity;
+    if (modelPreference !== undefined) db.aiSettings.modelPreference = modelPreference;
+
+    saveDb(db);
+    res.json({ success: true, message: 'AI Brain settings updated successfully!' });
+  });
+
+  // Trigger Manual AI Monitoring Check (Consumes 1 check from 50 daily limit)
+  app.post('/api/ai/check', requireAuth, async (req: Request, res: Response) => {
+    const result = await runAiMonitoringCheck(true);
+    if (result.success) {
+      res.json({ success: true, message: result.message, aiLog: result.aiLog });
+    } else {
+      res.status(400).json({ success: false, error: result.message });
+    }
+  });
+
+  // Get AI Logs
+  app.get('/api/ai/logs', requireAuth, (req: Request, res: Response) => {
+    const db = loadDb();
+    res.json({ success: true, aiLogs: db.aiLogs || [] });
+  });
+
+  // Generate Daily AI Executive Report
+  app.post('/api/ai/daily-report', requireAuth, async (req: Request, res: Response) => {
+    const result = await generateDailyAiReport();
+    res.json({ success: result.success, reportText: result.reportText });
   });
 
   // ----------------------------------------------------
@@ -561,21 +740,37 @@ export function createExpressApp() {
     res.json({ success: true, logs: db.logs || [] });
   });
 
-  // Get System Stats
+  // Get Enhanced System Stats
   app.get('/api/stats', requireAuth, (req: Request, res: Response) => {
     const db = loadDb();
     const nextFetch = getNextScheduledTime().toISOString();
+
+    const totalViews = db.reels.reduce((sum, r) => sum + (r.views || 0), 0);
+    const totalLikes = db.reels.reduce((sum, r) => sum + (r.likes || 0), 0);
+    const total24hGrowth = db.reels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
+    const viralCount = db.reels.filter(r => r.isViral).length;
+    const stalledCount = db.reels.filter(r => r.isStalled).length;
+
     res.json({
       success: true,
       stats: {
         totalReels: db.reels.length,
+        totalViews,
+        totalLikes,
+        total24hGrowth,
         activeProviders: db.providers.filter(p => p.enabled).length,
         lastAutoFetchAt: db.meta.lastAutoFetchAt,
         nextScheduledFetchAt: nextFetch,
         telegramEnabled: db.telegram.enabled,
+        aiChecksUsedToday: db.aiMeta?.checksUsedToday || 0,
+        aiDailyLimit: db.aiSettings?.dailyCheckLimit || 50,
+        aiActiveModel: db.aiMeta?.activeModelUsed || 'gemini',
+        viralCount,
+        stalledCount,
       },
     });
   });
 
   return app;
 }
+

@@ -1,5 +1,6 @@
 import { loadDb, saveDb } from './db.js';
 import { fetchReelWithFallbackChain } from './providers.js';
+import { runAiMonitoringCheck, generateDailyAiReport } from './ai.js';
 import { Reel, FetchLog } from '../types.js';
 
 // Global set of reel IDs currently being fetched to prevent duplicate simultaneous fetches
@@ -17,6 +18,17 @@ export function getFirst3Words(caption: string): string {
   return words.slice(0, 3).join(' ') || 'Instagram Reel';
 }
 
+// Default Admin Keyboard Menu
+export const mainAdminKeyboard = {
+  keyboard: [
+    [{ text: '📊 Dashboard' }, { text: '🎬 Reels' }],
+    [{ text: '⚡ Force Refresh' }, { text: '🧠 AI Status' }],
+    [{ text: '📈 Daily Report' }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+};
+
 // Send telegram message
 export async function sendTelegramMessage(botToken: string, chatId: string, text: string, replyMarkup?: any): Promise<boolean> {
   if (!botToken || !chatId) return false;
@@ -30,6 +42,8 @@ export async function sendTelegramMessage(botToken: string, chatId: string, text
     };
     if (replyMarkup) {
       body.reply_markup = replyMarkup;
+    } else {
+      body.reply_markup = mainAdminKeyboard;
     }
 
     const res = await fetch(url, {
@@ -63,10 +77,6 @@ export async function notifyTelegramReelResult(reel: Reel, logType: 'automatic' 
   const formattedViews = reel.views.toLocaleString();
   const formattedLikes = reel.likes.toLocaleString();
 
-  // Telegram message specification required by prompt:
-  // Video: first 3 words of caption
-  // Views: xxxx
-  // Likes: xxxx
   const message = [
     `<b>Video:</b> ${titleWords}`,
     `<b>Views:</b> ${formattedViews}`,
@@ -94,6 +104,95 @@ async function answerCallbackQuery(botToken: string, callbackQueryId: string, te
   }
 }
 
+// Process uploaded video message from Telegram
+async function handleTelegramVideoUpload(botToken: string, chatId: string, msg: any) {
+  const video = msg.video || msg.video_note || (msg.document?.mime_type?.startsWith('video/') ? msg.document : null);
+  if (!video) return;
+
+  const caption = (msg.caption || 'Telegram Video Reel').trim();
+  const fileId = video.file_id;
+
+  try {
+    // Get file path from Telegram
+    const infoRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+    const infoJson = await infoRes.json() as any;
+
+    let fileUrl = '';
+    if (infoJson.ok && infoJson.result?.file_path) {
+      fileUrl = `https://api.telegram.org/file/bot${botToken}/${infoJson.result.file_path}`;
+    }
+
+    // Extract potential Instagram URL in caption
+    const urlMatch = caption.match(/https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+/i);
+    const reelUrl = urlMatch ? urlMatch[0] : `https://instagram.com/reel/tg_${Date.now()}`;
+
+    const db = loadDb();
+
+    // Check duplicate
+    const existingIndex = db.reels.findIndex(r => r.url === reelUrl);
+
+    if (existingIndex !== -1) {
+      const existing = db.reels[existingIndex];
+      existing.videoFileUrl = fileUrl || existing.videoFileUrl;
+      existing.telegramFileId = fileId;
+      if (caption) existing.caption = caption;
+      saveDb(db);
+
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        `🎬 <b>Updated Reel Video Media!</b>\nLinked video media to existing Reel: <b>${existing.name}</b>`
+      );
+      return;
+    }
+
+    // Create new Reel from Telegram video upload
+    const reelName = getFirst3Words(caption).slice(0, 10);
+    const newReel: Reel = {
+      id: 'reel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      url: reelUrl,
+      name: reelName,
+      views: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      caption: caption,
+      author: msg.from?.first_name || 'Telegram Admin',
+      thumbnail: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80',
+      createdAt: new Date().toISOString(),
+      lastUpdatedAt: null,
+      nextScheduledAt: new Date().toISOString(),
+      status: 'pending',
+      lastError: null,
+      lastProviderUsed: null,
+      videoFileUrl: fileUrl,
+      telegramFileId: fileId,
+    };
+
+    db.reels.unshift(newReel);
+    saveDb(db);
+
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      `🎥 <b>Video Reel Received & Saved!</b>\n\n📌 <b>Name:</b> ${newReel.name}\n📝 <b>Caption:</b> ${caption}\n🔗 <b>URL:</b> ${reelUrl}\n\n<i>Use ⚡ Force Refresh button below to fetch statistics for this reel.</i>`,
+      {
+        inline_keyboard: [
+          [{ text: `🚀 Fetch Stats Now (${newReel.name})`, callback_data: `fetch_now:${newReel.id}` }],
+          [{ text: '📊 Back to Dashboard', callback_data: 'send_dashboard' }],
+        ],
+      }
+    );
+
+    // Automatically trigger initial fetch
+    executeTelegramForceRefresh(newReel.id, chatId).catch(() => {});
+
+  } catch (err: any) {
+    console.error('[Telegram Video Save Error]', err);
+    await sendTelegramMessage(botToken, chatId, `❌ Failed to save uploaded video: ${err?.message || 'Error processing media'}`);
+  }
+}
+
 // Handle incoming Telegram message
 async function handleTelegramMessage(botToken: string, adminTelegramId: string, msg: any) {
   const senderId = String(msg.from?.id || '');
@@ -106,50 +205,164 @@ async function handleTelegramMessage(botToken: string, adminTelegramId: string, 
     return;
   }
 
+  // Handle video upload
+  if (msg.video || msg.video_note || (msg.document?.mime_type?.startsWith('video/'))) {
+    await handleTelegramVideoUpload(botToken, chatId, msg);
+    return;
+  }
+
   const text = (msg.text || '').trim();
 
   if (text === '/start' || text === '/help') {
-    const replyMarkup = {
-      inline_keyboard: [
-        [{ text: '🔄 Force Refresh', callback_query_data: 'force_refresh_menu' }],
-        [{ text: '📊 List Saved Reels', callback_query_data: 'list_reels' }],
-      ],
-    };
     await sendTelegramMessage(
       botToken,
       chatId,
-      `<b>📱 Instagram Reel Tracker Bot</b>\n\nWelcome Admin! Use the menu below or click <b>🔄 Force Refresh</b> to select a Reel and update stats immediately.`,
-      replyMarkup
+      `<b>⚡ REEL COMMAND CENTER BOT</b>\n\nWelcome Admin! Controls & notifications active.\n\n• 📊 <b>Dashboard</b> - Summary stats\n• 🎬 <b>Reels</b> - Manage saved reels\n• ⚡ <b>Force Refresh</b> - Update reel immediately\n• 🧠 <b>AI Status</b> - AI limit & monitoring\n• 📈 <b>Daily Report</b> - Instant AI performance audit\n\n<i>You can also send/upload Reel video files directly here!</i>`,
+      mainAdminKeyboard
     );
     return;
   }
 
-  if (text === '🔄 Force Refresh' || text === '/refresh' || text === '/reels') {
+  if (text === '📊 Dashboard' || text === '/dashboard') {
+    await sendDashboardSummary(botToken, chatId);
+    return;
+  }
+
+  if (text === '🎬 Reels' || text === '/reels') {
     await sendForceRefreshMenu(botToken, chatId);
     return;
   }
 
-  // Default reply
-  const replyMarkup = {
-    inline_keyboard: [
-      [{ text: '🔄 Force Refresh', callback_data: 'force_refresh_menu' }],
-      [{ text: '📋 View All Reels', callback_data: 'list_reels' }],
-    ],
-  };
-  await sendTelegramMessage(botToken, chatId, `Commands:\n/refresh - Force Refresh Reel\n/start - Main Menu`, replyMarkup);
+  if (text === '⚡ Force Refresh' || text === '/refresh') {
+    await sendForceRefreshMenu(botToken, chatId);
+    return;
+  }
+
+  if (text === '🧠 AI Status' || text === '/ai') {
+    await sendAiStatusSummary(botToken, chatId);
+    return;
+  }
+
+  if (text === '📈 Daily Report' || text === '/report') {
+    await sendTelegramMessage(botToken, chatId, '⏳ Generating daily AI report...');
+    const result = await generateDailyAiReport();
+    if (!result.success) {
+      await sendTelegramMessage(botToken, chatId, `⚠️ ${result.reportText}`);
+    }
+    return;
+  }
+
+  // Check if text is an Instagram URL sent directly in message
+  if (text.startsWith('http://') || text.startsWith('https://')) {
+    const urlMatch = text.match(/https?:\/\/(www\.)?instagram\.com\/(reel|p)\/[A-Za-z0-9_-]+/i);
+    if (urlMatch) {
+      const reelUrl = urlMatch[0];
+      const db = loadDb();
+      const existing = db.reels.find(r => r.url === reelUrl);
+      if (existing) {
+        await sendTelegramMessage(botToken, chatId, `⚠️ <b>Reel Already Exists:</b> ${existing.name} (${existing.views} views)\nUse ⚡ Force Refresh to update stats.`);
+        return;
+      }
+
+      // Add new reel
+      const newReel: Reel = {
+        id: 'reel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        url: reelUrl,
+        name: 'Reel ' + (db.reels.length + 1),
+        views: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        caption: 'Instagram Reel',
+        author: 'Instagram User',
+        thumbnail: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80',
+        createdAt: new Date().toISOString(),
+        lastUpdatedAt: null,
+        nextScheduledAt: new Date().toISOString(),
+        status: 'pending',
+        lastError: null,
+        lastProviderUsed: null,
+      };
+      db.reels.unshift(newReel);
+      saveDb(db);
+
+      await sendTelegramMessage(botToken, chatId, `✅ <b>New Instagram Reel Added!</b>\nFetching statistics now...`);
+      executeTelegramForceRefresh(newReel.id, chatId).catch(() => {});
+      return;
+    }
+  }
+
+  // Default menu reply
+  await sendTelegramMessage(botToken, chatId, `Use the command center menu below:`, mainAdminKeyboard);
+}
+
+// Send Dashboard Summary via Telegram
+async function sendDashboardSummary(botToken: string, chatId: string) {
+  const db = loadDb();
+  const totalReels = db.reels.length;
+  const totalViews = db.reels.reduce((sum, r) => sum + (r.views || 0), 0);
+  const totalLikes = db.reels.reduce((sum, r) => sum + (r.likes || 0), 0);
+  const total24hGain = db.reels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
+
+  const activeProviders = db.providers.filter(p => p.enabled).length;
+  const aiChecksUsed = db.aiMeta?.checksUsedToday || 0;
+  const aiLimit = db.aiSettings?.dailyCheckLimit || 50;
+
+  const msg = [
+    `<b>📊 REEL COMMAND CENTER DASHBOARD</b>`,
+    ``,
+    `🎬 <b>Total Reels:</b> ${totalReels}`,
+    `👁️ <b>Total Views:</b> ${totalViews.toLocaleString()}`,
+    `❤️ <b>Total Likes:</b> ${totalLikes.toLocaleString()}`,
+    `🚀 <b>24h View Gain:</b> +${total24hGain.toLocaleString()}`,
+    ``,
+    `🔌 <b>Active Providers:</b> ${activeProviders}`,
+    `🧠 <b>AI Check Limit:</b> ${aiChecksUsed}/${aiLimit} used today`,
+    ``,
+    `🕒 <i>Last Auto Fetch: ${db.meta.lastAutoFetchAt ? new Date(db.meta.lastAutoFetchAt).toLocaleTimeString() : 'Pending'}</i>`
+  ].join('\n');
+
+  await sendTelegramMessage(botToken, chatId, msg);
+}
+
+// Send AI Status Summary via Telegram
+async function sendAiStatusSummary(botToken: string, chatId: string) {
+  const db = loadDb();
+  const checksUsed = db.aiMeta?.checksUsedToday || 0;
+  const limit = db.aiSettings?.dailyCheckLimit || 50;
+
+  const inlineButtons = [
+    [{ text: `🤖 Run AI Check Now (${checksUsed}/${limit})`, callback_data: 'trigger_ai_check' }],
+    [{ text: '📈 Send Daily Report', callback_data: 'send_daily_report' }],
+  ];
+
+  const msg = [
+    `<b>🧠 AI BRAIN MONITORING STATUS</b>`,
+    ``,
+    `• <b>Primary Model:</b> Google Gemini 3.6 Flash`,
+    `• <b>Secondary Fallback:</b> Grok AI`,
+    `• <b>Active Model Used:</b> ${db.aiMeta?.activeModelUsed || 'Gemini'}`,
+    `• <b>Daily Monitoring Allowance:</b> ${checksUsed} / ${limit} checks used today`,
+    `• <b>Alert Sensitivity:</b> ${db.aiSettings?.alertSensitivity || 'medium'}`,
+    `• <b>Last Analysis:</b> ${db.aiMeta?.lastAiAnalysisAt ? new Date(db.aiMeta.lastAiAnalysisAt).toLocaleString() : 'None yet'}`,
+    ``,
+    `<i>Note: Normal 6-hour scheduled updates and Telegram force refreshes do NOT consume your 50 AI monitoring checks allowance.</i>`
+  ].join('\n');
+
+  await sendTelegramMessage(botToken, chatId, msg, { inline_keyboard: inlineButtons });
 }
 
 // Send force refresh menu showing all saved reels as inline buttons
 async function sendForceRefreshMenu(botToken: string, chatId: string) {
   const db = loadDb();
   if (db.reels.length === 0) {
-    await sendTelegramMessage(botToken, chatId, '⚠️ <b>No Reels saved yet.</b> Add reels from the web dashboard.');
+    await sendTelegramMessage(botToken, chatId, '⚠️ <b>No Reels saved yet.</b> Add reels or send links/videos here.');
     return;
   }
 
   const buttons = db.reels.map((reel) => {
     const title = reel.name || getFirst3Words(reel.caption);
-    return [{ text: `🎬 ${title} (${reel.views} views)`, callback_data: `select_reel:${reel.id}` }];
+    return [{ text: `🎬 ${title} (${reel.views.toLocaleString()} views)`, callback_data: `select_reel:${reel.id}` }];
   });
 
   const replyMarkup = { inline_keyboard: buttons };
@@ -171,6 +384,28 @@ async function handleTelegramCallback(botToken: string, adminTelegramId: string,
   if (data === 'force_refresh_menu' || data === 'list_reels') {
     await answerCallbackQuery(botToken, callbackQueryId);
     await sendForceRefreshMenu(botToken, chatId);
+    return;
+  }
+
+  if (data === 'send_dashboard') {
+    await answerCallbackQuery(botToken, callbackQueryId);
+    await sendDashboardSummary(botToken, chatId);
+    return;
+  }
+
+  if (data === 'trigger_ai_check') {
+    await answerCallbackQuery(botToken, callbackQueryId, 'Running AI Check...');
+    await sendTelegramMessage(botToken, chatId, '🧠 Running AI analysis on saved Reels...');
+    const result = await runAiMonitoringCheck(true);
+    if (!result.success) {
+      await sendTelegramMessage(botToken, chatId, `⚠️ ${result.message}`);
+    }
+    return;
+  }
+
+  if (data === 'send_daily_report') {
+    await answerCallbackQuery(botToken, callbackQueryId, 'Generating Report...');
+    await generateDailyAiReport();
     return;
   }
 
@@ -196,7 +431,7 @@ async function handleTelegramCallback(botToken: string, adminTelegramId: string,
     await sendTelegramMessage(
       botToken,
       chatId,
-      `<b>Reel Selected:</b> ${reel.name}\n<b>Current Views:</b> ${reel.views}\n<b>Current Likes:</b> ${reel.likes}\n\nClick <b>Fetch Now</b> to update immediately:`,
+      `<b>Reel Selected:</b> ${reel.name}\n<b>Current Views:</b> ${reel.views.toLocaleString()}\n<b>Current Likes:</b> ${reel.likes.toLocaleString()}\n\nClick <b>Fetch Now</b> to update immediately:`,
       replyMarkup
     );
     return;
@@ -247,8 +482,43 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
     }
 
     if (fetchResult.success && fetchResult.data) {
+      const prevViews = target.views || 0;
+      const newViews = fetchResult.data.views || prevViews;
+
+      // Calculate growth velocity
+      const viewGain = Math.max(0, newViews - prevViews);
+      target.growth24h = (target.growth24h || 0) + viewGain;
+      if (viewGain > 0) {
+        target.growth1h = viewGain;
+        target.isStalled = false;
+      } else if (target.lastUpdatedAt && Date.now() - new Date(target.lastUpdatedAt).getTime() > 24 * 60 * 60 * 1000) {
+        target.isStalled = true;
+      }
+
+      // Check viral spike (>20% or >10k gain)
+      if (viewGain >= 10000 || (prevViews > 0 && (viewGain / prevViews) > 0.2)) {
+        target.isViral = true;
+      }
+
+      // Check milestone thresholds
+      const milestones = [10000, 50000, 100000, 500000, 1000000, 5000000];
+      for (const m of milestones) {
+        if (newViews >= m && (target.lastMilestone || 0) < m) {
+          target.lastMilestone = m;
+          // Trigger milestone message to Telegram
+          if (currentDb.telegram.enabled && currentDb.telegram.botToken && currentDb.telegram.adminTelegramId) {
+            sendTelegramMessage(
+              currentDb.telegram.botToken,
+              currentDb.telegram.adminTelegramId,
+              `🎉 <b>MILESTONE REACHED!</b>\n\nReel <b>"${target.name}"</b> just crossed <b>${m.toLocaleString()} VIEWS!</b> 🚀🔥`
+            ).catch(() => {});
+          }
+          break;
+        }
+      }
+
       // Update statistics safely without wiping previously valid statistics
-      target.views = fetchResult.data.views || target.views;
+      target.views = newViews;
       target.likes = fetchResult.data.likes || target.likes;
       target.comments = fetchResult.data.comments || target.comments;
       target.shares = fetchResult.data.shares || target.shares;
@@ -258,7 +528,7 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
 
       // Reel name remains user custom if modified, else update from caption
       if (!target.name || target.name.startsWith('Reel ')) {
-        target.name = getFirst3Words(target.caption).slice(0, 5);
+        target.name = getFirst3Words(target.caption).slice(0, 10);
       }
 
       target.status = 'success';
@@ -266,8 +536,18 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
       target.lastUpdatedAt = new Date().toISOString();
       target.lastProviderUsed = fetchResult.providerName || null;
 
-      // Note: Next scheduled update remains strictly on 00:00, 06:00, 12:00, 18:00 fixed times!
-      
+      // Record History Snapshot
+      currentDb.history.push({
+        id: 'hist_' + Date.now(),
+        reelId: target.id,
+        timestamp: new Date().toISOString(),
+        views: target.views,
+        likes: target.likes,
+        comments: target.comments,
+        shares: target.shares,
+      });
+      if (currentDb.history.length > 1000) currentDb.history.shift();
+
       // Log fetch history
       const logEntry: FetchLog = {
         id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
