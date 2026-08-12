@@ -6,7 +6,7 @@ import { requireAuth, verifyPassword, setPassword, createSessionToken, revokeSes
 import { fetchReelWithFallbackChain, testSingleProvider } from './providers.js';
 import { startTelegramBotPolling, stopTelegramBotPolling, sendTelegramMessage, notifyTelegramReelResult, getFirst3Words } from './telegram.js';
 import { getNextScheduledTime, runAutomaticFetchJob } from './scheduler.js';
-import { runAiMonitoringCheck, generateDailyAiReport } from './ai.js';
+import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi } from './ai.js';
 import { Reel, ApiProvider, FetchLog, AiSettings } from '../types.js';
 
 export function createExpressApp() {
@@ -332,6 +332,11 @@ export function createExpressApp() {
     }
 
     const deleted = db.reels.splice(index, 1)[0];
+    if (!db.meta) db.meta = { lastAutoFetchAt: null, deletedReelIds: [] };
+    if (!db.meta.deletedReelIds) db.meta.deletedReelIds = [];
+    if (!db.meta.deletedReelIds.includes(id)) {
+      db.meta.deletedReelIds.push(id);
+    }
     saveDb(db);
     res.json({ success: true, message: `Reel "${deleted.name}" deleted` });
   });
@@ -458,16 +463,19 @@ export function createExpressApp() {
     const s = db.aiSettings;
     const m = db.aiMeta;
 
+    const groqKey = s.groqApiKey || s.grokApiKey || '';
+
     res.json({
       success: true,
       aiSettings: {
         geminiApiKeyMasked: s.geminiApiKey ? (s.geminiApiKey.slice(0, 4) + '••••••••' + s.geminiApiKey.slice(-4)) : '',
         grokApiKeyMasked: s.grokApiKey ? (s.grokApiKey.slice(0, 4) + '••••••••' + s.grokApiKey.slice(-4)) : '',
+        groqApiKeyMasked: groqKey ? (groqKey.slice(0, 4) + '••••••••' + groqKey.slice(-4)) : '',
         enableGemini: s.enableGemini,
         enableGrok: s.enableGrok,
         dailyCheckLimit: s.dailyCheckLimit,
         alertSensitivity: s.alertSensitivity,
-        modelPreference: s.modelPreference,
+        modelPreference: s.modelPreference || 'groq_first',
       },
       aiMeta: m,
     });
@@ -475,14 +483,18 @@ export function createExpressApp() {
 
   // Save AI Settings
   app.post('/api/ai/settings', requireAuth, (req: Request, res: Response) => {
-    const { geminiApiKey, grokApiKey, enableGemini, enableGrok, dailyCheckLimit, alertSensitivity, modelPreference } = req.body;
+    const { geminiApiKey, grokApiKey, groqApiKey, enableGemini, enableGrok, dailyCheckLimit, alertSensitivity, modelPreference } = req.body;
     const db = loadDb();
 
     if (geminiApiKey !== undefined && !geminiApiKey.includes('••••')) {
       db.aiSettings.geminiApiKey = geminiApiKey.trim();
     }
-    if (grokApiKey !== undefined && !grokApiKey.includes('••••')) {
+    if (groqApiKey !== undefined && !groqApiKey.includes('••••')) {
+      db.aiSettings.groqApiKey = groqApiKey.trim();
+      db.aiSettings.grokApiKey = groqApiKey.trim();
+    } else if (grokApiKey !== undefined && !grokApiKey.includes('••••')) {
       db.aiSettings.grokApiKey = grokApiKey.trim();
+      db.aiSettings.groqApiKey = grokApiKey.trim();
     }
     if (enableGemini !== undefined) db.aiSettings.enableGemini = Boolean(enableGemini);
     if (enableGrok !== undefined) db.aiSettings.enableGrok = Boolean(enableGrok);
@@ -492,6 +504,31 @@ export function createExpressApp() {
 
     saveDb(db);
     res.json({ success: true, message: 'AI Brain settings updated successfully!' });
+  });
+
+  // Test AI Key Connection (Groq Cloud / xAI Grok / Gemini)
+  app.post('/api/ai/test', requireAuth, async (req: Request, res: Response) => {
+    const { apiKey, model } = req.body;
+    const db = loadDb();
+    const keyToUse = apiKey || db.aiSettings.groqApiKey || db.aiSettings.grokApiKey;
+
+    const testPrompt = 'Say "Hello! Groq Cloud API connection is working perfectly! 🚀" in 1 concise sentence.';
+
+    if (model === 'grok' || keyToUse?.startsWith('xai-')) {
+      const grokRes = await callGrokApi(testPrompt, keyToUse);
+      if (grokRes.text) {
+        res.json({ success: true, message: 'xAI Grok connection successful!', response: grokRes.text });
+      } else {
+        res.status(400).json({ success: false, error: grokRes.error || 'Failed to connect to xAI Grok' });
+      }
+    } else {
+      const groqRes = await callGroqApi(testPrompt, keyToUse);
+      if (groqRes.text) {
+        res.json({ success: true, message: 'Groq Cloud API connection successful!', response: groqRes.text });
+      } else {
+        res.status(400).json({ success: false, error: groqRes.error || 'Failed to connect to Groq Cloud API' });
+      }
+    }
   });
 
   // Trigger Manual AI Monitoring Check (Consumes 1 check from 50 daily limit)

@@ -212,7 +212,10 @@ export default function App() {
         body: JSON.stringify({ url, customName }),
       });
       const data = await res.json();
-      if (data.reel) loadDashboardData();
+      if (data.reel) {
+        setReels((prev) => [data.reel, ...prev.filter((r) => r.id !== data.reel.id)]);
+        loadDashboardData();
+      }
       if (data.success) return { success: true };
       return { success: false, error: data.error };
     } catch (e: any) {
@@ -261,6 +264,8 @@ export default function App() {
     const newName = prompt('Enter new custom name for this Reel:', currentName);
     if (!newName || !newName.trim()) return;
 
+    setReels((prev) => prev.map((r) => (r.id === id ? { ...r, name: newName.trim() } : r)));
+
     try {
       const res = await authFetch(`/api/reels/${id}`, {
         method: 'PATCH',
@@ -275,6 +280,7 @@ export default function App() {
 
   const handleDeleteReel = async (id: string) => {
     if (!confirm('Are you sure you want to delete this Reel?')) return;
+    setReels((prev) => prev.filter((r) => r.id !== id));
     try {
       const res = await authFetch(`/api/reels/${id}`, { method: 'DELETE' });
       if (res.ok) loadDashboardData();

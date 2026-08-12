@@ -76,25 +76,26 @@ export interface TelegramSettings {
 
 export interface AiSettings {
   geminiApiKey: string; // Masked on client
-  grokApiKey: string;   // Masked on client
+  grokApiKey: string;   // Masked on client (or Groq API Key)
+  groqApiKey?: string;  // Explicit Groq Cloud API Key
   enableGemini: boolean;
   enableGrok: boolean;
   dailyCheckLimit: number; // default 50
   alertSensitivity: 'low' | 'medium' | 'high';
-  modelPreference: 'auto' | 'gemini_first' | 'grok_first';
+  modelPreference: 'auto' | 'groq_first' | 'gemini_first' | 'grok_first';
 }
 
 export interface AiMeta {
   checksUsedToday: number;
   lastCheckDate: string; // "YYYY-MM-DD"
   lastAiAnalysisAt: string | null;
-  activeModelUsed?: 'gemini' | 'grok' | 'none';
+  activeModelUsed?: 'gemini' | 'groq' | 'grok' | 'none';
 }
 
 export interface AiLog {
   id: string;
   timestamp: string;
-  modelUsed: 'gemini' | 'grok';
+  modelUsed: 'gemini' | 'groq' | 'grok';
   headline: string;
   message: string;
   sentToTelegram: boolean;
@@ -146,7 +147,7 @@ export interface SystemStats {
   isFetchingAny: boolean;
   aiChecksUsedToday: number;
   aiDailyLimit: number;
-  aiActiveModel: 'gemini' | 'grok' | 'none';
+  aiActiveModel: 'gemini' | 'groq' | 'grok' | 'none';
   viralCount: number;
   stalledCount: number;
 }

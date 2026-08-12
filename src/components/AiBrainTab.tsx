@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Brain, Sparkles, Zap, Shield, Bell, CheckCircle, AlertTriangle, RefreshCw, Send, Check } from 'lucide-react';
+import { Brain, Sparkles, Zap, Shield, Bell, Send, Check, RefreshCw, AlertCircle } from 'lucide-react';
 import { AiSettings, AiMeta, AiLog } from '../types';
 
 interface AiBrainTabProps {
@@ -24,24 +24,28 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
   isGeneratingReport,
 }) => {
   const [geminiKey, setGeminiKey] = useState(aiSettings?.geminiApiKey || '');
-  const [grokKey, setGrokKey] = useState(aiSettings?.grokApiKey || '');
+  const [groqKey, setGroqKey] = useState(aiSettings?.groqApiKey || aiSettings?.grokApiKey || '');
   const [sensitivity, setSensitivity] = useState<'low' | 'medium' | 'high'>(
     aiSettings?.alertSensitivity || 'medium'
   );
-  const [modelPref, setModelPref] = useState<'auto' | 'gemini_first' | 'grok_first'>(
-    aiSettings?.modelPreference || 'auto'
+  const [modelPref, setModelPref] = useState<'auto' | 'groq_first' | 'gemini_first' | 'grok_first'>(
+    aiSettings?.modelPreference || 'groq_first'
   );
   const [limit, setLimit] = useState(aiSettings?.dailyCheckLimit || 50);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const [isTestingGroq, setIsTestingGroq] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
       await onSaveAiSettings({
         geminiApiKey: geminiKey,
-        grokApiKey: grokKey,
+        groqApiKey: groqKey,
+        grokApiKey: groqKey,
         alertSensitivity: sensitivity,
         modelPreference: modelPref,
         dailyCheckLimit: Number(limit),
@@ -53,12 +57,33 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
     }
   };
 
+  const handleTestGroq = async () => {
+    setIsTestingGroq(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: groqKey, model: 'groq' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({ success: true, message: data.response || 'Groq Cloud API connected successfully!' });
+      } else {
+        setTestResult({ success: false, message: data.error || 'Groq connection failed' });
+      }
+    } catch (e: any) {
+      setTestResult({ success: false, message: e.message || 'Network request failed' });
+    } finally {
+      setIsTestingGroq(false);
+    }
+  };
+
   const checksUsed = aiMeta?.checksUsedToday || 0;
   const maxLimit = aiSettings?.dailyCheckLimit || 50;
 
   return (
     <div className="space-y-6 pb-16">
-      
       {/* Hero Header */}
       <div className="glass-panel p-6 sm:p-8 rounded-3xl relative overflow-hidden space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -71,8 +96,8 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
               Autonomous AI Monitor Engine
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-              Google Gemini 3.6 Flash acts as primary AI logic. If unavailable, Grok AI automatically takes over.
-              Strictly limited to 50 AI monitoring checks per day to safeguard quota.
+              Powered by Groq Cloud API (Llama-3.3-70B) & Google Gemini 3.6 Flash for high-speed performance monitoring.
+              Strictly limited to {maxLimit} checks per day.
             </p>
           </div>
 
@@ -127,7 +152,59 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
 
       {/* Model Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        
+        {/* Groq Cloud Card */}
+        <div className="glass-panel p-6 rounded-3xl space-y-4 border border-purple-500/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-400">
+                <Zap className="w-6 h-6 text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-white text-base">Groq Cloud API</h3>
+                <p className="text-xs text-slate-400">Ultra-fast Llama-3.3-70B Engine</p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold border border-purple-500/30">
+              PRIMARY ENGINE
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs text-slate-400 font-medium">Groq API Key (gsk_...)</label>
+            <div className="flex gap-2">
+              <input
+                id="input-groq-key"
+                type="password"
+                value={groqKey}
+                onChange={(e) => setGroqKey(e.target.value)}
+                placeholder="Enter Groq API Key (gsk_...)"
+                className="w-full px-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+              />
+              <button
+                id="btn-test-groq"
+                type="button"
+                onClick={handleTestGroq}
+                disabled={isTestingGroq}
+                className="px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shrink-0 transition disabled:opacity-50 cursor-pointer"
+              >
+                {isTestingGroq ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Test Key'}
+              </button>
+            </div>
+            {testResult && (
+              <div
+                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                  testResult.success
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}
+              >
+                {testResult.success ? <Check className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span>{testResult.message}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Gemini Card */}
         <div className="glass-panel p-6 rounded-3xl space-y-4 border border-indigo-500/30">
           <div className="flex items-center justify-between">
@@ -137,7 +214,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
               </div>
               <div>
                 <h3 className="font-extrabold text-white text-base">Google Gemini 3.6 Flash</h3>
-                <p className="text-xs text-slate-400">Primary AI Reasoning Engine</p>
+                <p className="text-xs text-slate-400">Secondary AI Reasoning Engine</p>
               </div>
             </div>
             <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
@@ -157,37 +234,6 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
             />
           </div>
         </div>
-
-        {/* Grok Card */}
-        <div className="glass-panel p-6 rounded-3xl space-y-4 border border-purple-500/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-400">
-                <Zap className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-white text-base">Grok AI Engine</h3>
-                <p className="text-xs text-slate-400">Automatic Secondary Fallback</p>
-              </div>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold border border-purple-500/30">
-              FALLBACK READY
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs text-slate-400 font-medium">Grok API Key</label>
-            <input
-              id="input-grok-key"
-              type="password"
-              value={grokKey}
-              onChange={(e) => setGrokKey(e.target.value)}
-              placeholder="Enter GROK_API_KEY..."
-              className="w-full px-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-purple-500"
-            />
-          </div>
-        </div>
-
       </div>
 
       {/* AI Controls & Sensitivity */}
@@ -207,9 +253,9 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
               onChange={(e) => setModelPref(e.target.value as any)}
               className="w-full py-2.5 px-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
             >
-              <option value="auto">Auto (Gemini → Grok Fallback)</option>
-              <option value="gemini_first">Gemini Primary Only</option>
-              <option value="grok_first">Grok Primary Only</option>
+              <option value="groq_first">Groq Primary (Default → Gemini Fallback)</option>
+              <option value="auto">Auto Selection</option>
+              <option value="gemini_first">Gemini Primary (→ Groq Fallback)</option>
             </select>
           </div>
 
@@ -298,7 +344,6 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
           </div>
         )}
       </div>
-
     </div>
   );
 };

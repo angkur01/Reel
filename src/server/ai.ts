@@ -22,12 +22,70 @@ function getGeminiClient(customApiKey?: string): GoogleGenAI | null {
   }
 }
 
-// Call Grok API via xAI endpoint (OpenAI compatible)
-async function callGrokApi(prompt: string, customApiKey?: string): Promise<string | null> {
-  const apiKey = (customApiKey || process.env.GROK_API_KEY || '').trim();
-  if (!apiKey) return null;
+// Call Groq Cloud API (Ultra-fast LLM Inference: llama-3.3-70b-versatile, llama-3.1-8b-instant)
+export async function callGroqApi(prompt: string, customApiKey?: string): Promise<{ text: string | null; error?: string }> {
+  const apiKey = (customApiKey || process.env.GROQ_API_KEY || process.env.GROK_API_KEY || '').trim();
+  if (!apiKey) {
+    return { text: null, error: 'No Groq API key provided' };
+  }
+
+  const modelsToTry = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
+
+  for (const model of modelsToTry) {
+    try {
+      console.log(`[AI] Calling Groq Cloud API (model: ${model})...`);
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert Instagram Reel Analytics AI Brain. Provide short, punchy, actionable performance alerts and commentary with emojis. Return raw JSON if requested.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 500,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => '');
+        console.warn(`[AI] Groq API (${model}) returned HTTP ${res.status}: ${errorText.slice(0, 200)}`);
+        // If HTTP 401 or invalid key, don't keep trying models
+        if (res.status === 401) {
+          return { text: null, error: `Groq HTTP 401 Unauthorized: Invalid API key` };
+        }
+        continue;
+      }
+
+      const json = (await res.json()) as any;
+      const text = json.choices?.[0]?.message?.content;
+      if (text) {
+        return { text };
+      }
+    } catch (err: any) {
+      console.error(`[AI] Groq API (${model}) Exception:`, err);
+    }
+  }
+
+  return { text: null, error: 'Groq API request failed across all models' };
+}
+
+// Call xAI Grok API (https://api.x.ai/v1/chat/completions with grok-2-latest)
+export async function callGrokApi(prompt: string, customApiKey?: string): Promise<{ text: string | null; error?: string }> {
+  const apiKey = (customApiKey || process.env.GROK_API_KEY || process.env.GROQ_API_KEY || '').trim();
+  if (!apiKey) {
+    return { text: null, error: 'No xAI Grok API key provided' };
+  }
 
   try {
+    console.log('[AI] Calling xAI Grok API (grok-2-latest)...');
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -37,8 +95,11 @@ async function callGrokApi(prompt: string, customApiKey?: string): Promise<strin
       body: JSON.stringify({
         model: 'grok-2-latest',
         messages: [
-          { role: 'system', content: 'You are an expert Instagram Reel Analytics AI Brain. Provide short, punchy, actionable performance alerts and commentary with emojis.' },
-          { role: 'user', content: prompt }
+          {
+            role: 'system',
+            content: 'You are an expert Instagram Reel Analytics AI Brain. Provide short, punchy, actionable performance alerts and commentary with emojis.',
+          },
+          { role: 'user', content: prompt },
         ],
         temperature: 0.7,
         max_tokens: 500,
@@ -46,42 +107,39 @@ async function callGrokApi(prompt: string, customApiKey?: string): Promise<strin
     });
 
     if (!res.ok) {
-      console.warn(`[AI] Grok API returned HTTP ${res.status}`);
-      return null;
+      const errorText = await res.text().catch(() => '');
+      console.warn(`[AI] xAI Grok API returned HTTP ${res.status}: ${errorText.slice(0, 200)}`);
+      return { text: null, error: `xAI Grok HTTP ${res.status}: ${errorText.slice(0, 150)}` };
     }
 
-    const json = await res.json() as any;
+    const json = (await res.json()) as any;
     const text = json.choices?.[0]?.message?.content;
-    return text || null;
-  } catch (err) {
-    console.error('[AI] Grok API Exception:', err);
-    return null;
+    return { text: text || null };
+  } catch (err: any) {
+    console.error('[AI] xAI Grok API Exception:', err);
+    return { text: null, error: err.message || 'xAI Grok API request exception' };
   }
 }
 
-// Execute AI text generation with primary + fallback
-export async function generateAiInsight(prompt: string): Promise<{ text: string; modelUsed: 'gemini' | 'grok' } | null> {
+// Execute AI text generation with configurable primary + fallback priority
+export async function generateAiInsight(prompt: string): Promise<{ text: string; modelUsed: 'gemini' | 'groq' | 'grok' } | null> {
   const db = loadDb();
   const settings = db.aiSettings;
 
   const geminiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
-  const grokKey = settings.grokApiKey || process.env.GROK_API_KEY;
+  const groqKey = settings.groqApiKey || settings.grokApiKey || process.env.GROQ_API_KEY || process.env.GROK_API_KEY;
+  const grokKey = settings.grokApiKey || settings.groqApiKey || process.env.GROK_API_KEY || process.env.GROQ_API_KEY;
 
-  const preference = settings.modelPreference || 'auto';
+  const preference = settings.modelPreference || 'groq_first';
   const enableGemini = settings.enableGemini !== false;
-  const enableGrok = settings.enableGrok !== false;
-
-  // Determine try order
-  let tryGeminiFirst = true;
-  if (preference === 'grok_first') {
-    tryGeminiFirst = false;
-  }
+  const enableGroq = settings.enableGrok !== false;
 
   const attemptGemini = async (): Promise<string | null> => {
     if (!enableGemini) return null;
     const ai = getGeminiClient(geminiKey);
     if (!ai) return null;
     try {
+      console.log('[AI] Calling Google Gemini 3.6 Flash...');
       const response = await ai.models.generateContent({
         model: 'gemini-3.6-flash',
         contents: prompt,
@@ -97,31 +155,65 @@ export async function generateAiInsight(prompt: string): Promise<{ text: string;
     }
   };
 
-  const attemptGrok = async (): Promise<string | null> => {
-    if (!enableGrok) return null;
-    return await callGrokApi(prompt, grokKey);
+  const attemptGroqOrGrok = async (): Promise<{ text: string; modelUsed: 'groq' | 'grok' } | null> => {
+    if (!enableGroq) return null;
+
+    // Check key prefix to smartly choose Groq Cloud vs xAI Grok
+    const key = (groqKey || '').trim();
+    if (key.startsWith('gsk_') || process.env.GROQ_API_KEY || !key.startsWith('xai-')) {
+      const groqRes = await callGroqApi(prompt, key);
+      if (groqRes.text) return { text: groqRes.text, modelUsed: 'groq' };
+
+      // Fallback to xAI Grok if Groq Cloud failed
+      if (key.startsWith('xai-') || process.env.GROK_API_KEY) {
+        const grokRes = await callGrokApi(prompt, key);
+        if (grokRes.text) return { text: grokRes.text, modelUsed: 'grok' };
+      }
+    } else {
+      const grokRes = await callGrokApi(prompt, key);
+      if (grokRes.text) return { text: grokRes.text, modelUsed: 'grok' };
+
+      const groqRes = await callGroqApi(prompt, key);
+      if (groqRes.text) return { text: groqRes.text, modelUsed: 'groq' };
+    }
+
+    return null;
   };
 
-  if (tryGeminiFirst) {
+  // Preference order: Default groq_first
+  if (preference === 'groq_first' || preference === 'grok_first') {
+    const groqResult = await attemptGroqOrGrok();
+    if (groqResult) return groqResult;
+
+    console.log('[AI Fallback] Groq/Grok unavailable. Falling back to Gemini...');
+    const geminiResult = await attemptGemini();
+    if (geminiResult) return { text: geminiResult, modelUsed: 'gemini' };
+  } else if (preference === 'gemini_first') {
     const geminiResult = await attemptGemini();
     if (geminiResult) return { text: geminiResult, modelUsed: 'gemini' };
 
-    console.log('[AI Fallback] Gemini unavailable or failed. Falling back to Grok...');
-    const grokResult = await attemptGrok();
-    if (grokResult) return { text: grokResult, modelUsed: 'grok' };
+    console.log('[AI Fallback] Gemini unavailable. Falling back to Groq/Grok...');
+    const groqResult = await attemptGroqOrGrok();
+    if (groqResult) return groqResult;
   } else {
-    const grokResult = await attemptGrok();
-    if (grokResult) return { text: grokResult, modelUsed: 'grok' };
-
-    console.log('[AI Fallback] Grok unavailable or failed. Falling back to Gemini...');
-    const geminiResult = await attemptGemini();
-    if (geminiResult) return { text: geminiResult, modelUsed: 'gemini' };
+    // Auto mode: Try Groq first if key present, else Gemini first
+    if (groqKey) {
+      const groqResult = await attemptGroqOrGrok();
+      if (groqResult) return groqResult;
+      const geminiResult = await attemptGemini();
+      if (geminiResult) return { text: geminiResult, modelUsed: 'gemini' };
+    } else {
+      const geminiResult = await attemptGemini();
+      if (geminiResult) return { text: geminiResult, modelUsed: 'gemini' };
+      const groqResult = await attemptGroqOrGrok();
+      if (groqResult) return groqResult;
+    }
   }
 
   return null;
 }
 
-// Execute AI Monitoring Check (Limited strictly to 50 checks/day)
+// Execute AI Monitoring Check (Limited strictly to daily limit)
 export async function runAiMonitoringCheck(isManualTrigger = false): Promise<{ success: boolean; message: string; aiLog?: AiLog }> {
   const db = loadDb();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -201,7 +293,7 @@ Instructions:
   let messageText = `Analyzed ${db.reels.length} reels (${totalViews.toLocaleString()} total views, +${total24hGain.toLocaleString()} 24h gain).`;
   let type: AiLog['type'] = isManualTrigger ? 'manual_audit' : 'viral';
   let reelName: string | undefined = undefined;
-  let modelUsed: 'gemini' | 'grok' = 'gemini';
+  let modelUsed: 'gemini' | 'groq' | 'grok' = 'groq';
 
   if (aiResult) {
     modelUsed = aiResult.modelUsed;
@@ -223,7 +315,8 @@ Instructions:
   // Check if we should notify Telegram
   let sentToTelegram = false;
   if (db.telegram.enabled && db.telegram.botToken && db.telegram.adminTelegramId) {
-    const telegramMsg = `<b>${headline}</b>\n\n${messageText}\n\n<i>🤖 Powered by ${modelUsed === 'gemini' ? 'Google Gemini' : 'Grok AI'} (Check ${db.aiMeta.checksUsedToday}/${limit} used today)</i>`;
+    const modelLabel = modelUsed === 'groq' ? 'Groq Llama-3.3' : modelUsed === 'gemini' ? 'Google Gemini' : 'Grok AI';
+    const telegramMsg = `<b>${headline}</b>\n\n${messageText}\n\n<i>🤖 Powered by ${modelLabel} (Check ${db.aiMeta.checksUsedToday}/${limit} used today)</i>`;
     sentToTelegram = await sendTelegramMessage(db.telegram.botToken, db.telegram.adminTelegramId, telegramMsg);
   }
 
@@ -242,9 +335,10 @@ Instructions:
   if (db.aiLogs.length > 100) db.aiLogs.pop();
   saveDb(db);
 
+  const modelName = modelUsed === 'groq' ? 'Groq Llama-3.3' : modelUsed === 'gemini' ? 'Google Gemini' : 'Grok';
   return {
     success: true,
-    message: `AI Check completed using ${modelUsed === 'gemini' ? 'Google Gemini' : 'Grok'}. (${db.aiMeta.checksUsedToday}/${limit} daily checks used).`,
+    message: `AI Check completed using ${modelName}. (${db.aiMeta.checksUsedToday}/${limit} daily checks used).`,
     aiLog: aiLogEntry,
   };
 }
@@ -270,13 +364,15 @@ Stats:
 - Total Likes: ${totalLikes.toLocaleString()}
 - 24h Growth: +${total24hGain.toLocaleString()} views
 
-Top Reels by Views: ${topReels.map(r => `${r.name} (${r.views.toLocaleString()} views)`).join(', ')}
-Top 24h Gainers: ${topGainers.map(r => `${r.name} (+${(r.growth24h || 0).toLocaleString()} views)`).join(', ')}
+Top Reels by Views: ${topReels.map((r) => `${r.name} (${r.views.toLocaleString()} views)`).join(', ')}
+Top 24h Gainers: ${topGainers.map((r) => `${r.name} (+${(r.growth24h || 0).toLocaleString()} views)`).join(', ')}
 
 Format in crisp Markdown with emojis. Keep under 200 words.`;
 
   const aiResult = await generateAiInsight(prompt);
-  const reportContent = aiResult?.text || `📊 <b>Daily Reel Performance Summary</b>\n\n• Total Reels: ${db.reels.length}\n• Total Views: ${totalViews.toLocaleString()}\n• 24h Growth: +${total24hGain.toLocaleString()} views\n\n<b>Top Performer:</b> ${topReels[0]?.name || 'N/A'} (${topReels[0]?.views.toLocaleString()} views)`;
+  const reportContent =
+    aiResult?.text ||
+    `📊 <b>Daily Reel Performance Summary</b>\n\n• Total Reels: ${db.reels.length}\n• Total Views: ${totalViews.toLocaleString()}\n• 24h Growth: +${total24hGain.toLocaleString()} views\n\n<b>Top Performer:</b> ${topReels[0]?.name || 'N/A'} (${topReels[0]?.views.toLocaleString()} views)`;
 
   // Send to Telegram if enabled
   if (db.telegram.enabled && db.telegram.botToken && db.telegram.adminTelegramId) {

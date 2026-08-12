@@ -22,6 +22,7 @@ export interface DatabaseSchema {
   logs: FetchLog[];
   meta: {
     lastAutoFetchAt: string | null;
+    deletedReelIds?: string[];
   };
 }
 
@@ -29,6 +30,7 @@ let activeDbPath: string | null = null;
 let firestoreDb: any = null;
 let firestoreInitialized = false;
 let cachedDb: DatabaseSchema | null = null;
+let lastLocalWriteAt = 0;
 
 function getDbFilePath(): string {
   if (activeDbPath) return activeDbPath;
@@ -119,6 +121,124 @@ function ensureDir(filePath: string) {
   }
 }
 
+export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<DatabaseSchema>): DatabaseSchema {
+  const deletedSet = new Set<string>([
+    ...(local.meta?.deletedReelIds || []),
+    ...(remote.meta?.deletedReelIds || []),
+  ]);
+
+  const reelMap = new Map<string, Reel>();
+
+  const processReel = (r: Reel) => {
+    if (!r || !r.id || deletedSet.has(r.id)) return;
+    const existing = reelMap.get(r.id);
+    if (!existing) {
+      reelMap.set(r.id, { ...r });
+    } else {
+      const existingTime = new Date(existing.lastUpdatedAt || existing.createdAt || 0).getTime();
+      const rTime = new Date(r.lastUpdatedAt || r.createdAt || 0).getTime();
+
+      if (rTime >= existingTime) {
+        reelMap.set(r.id, {
+          ...existing,
+          ...r,
+          views: r.views || existing.views,
+          likes: r.likes || existing.likes,
+          comments: r.comments || existing.comments,
+          shares: r.shares || existing.shares,
+        });
+      } else {
+        reelMap.set(r.id, {
+          ...r,
+          ...existing,
+          views: existing.views || r.views,
+          likes: existing.likes || r.likes,
+          comments: existing.comments || r.comments,
+          shares: existing.shares || r.shares,
+        });
+      }
+    }
+  };
+
+  (remote.reels || []).forEach(processReel);
+  (local.reels || []).forEach(processReel);
+
+  const mergedReels = Array.from(reelMap.values()).filter(r => !deletedSet.has(r.id));
+  mergedReels.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+  const providerMap = new Map<string, ApiProvider>();
+  (remote.providers || []).forEach(p => p && p.id && providerMap.set(p.id, p));
+  (local.providers || []).forEach(p => p && p.id && providerMap.set(p.id, p));
+  const mergedProviders = Array.from(providerMap.values());
+  if (mergedProviders.length === 0) {
+    mergedProviders.push(...defaultProviders);
+  }
+
+  const mergedTelegram: TelegramSettings = {
+    botToken: local.telegram?.botToken || remote.telegram?.botToken || '',
+    adminTelegramId: local.telegram?.adminTelegramId || remote.telegram?.adminTelegramId || '',
+    enabled: local.telegram?.enabled ?? remote.telegram?.enabled ?? false,
+  };
+
+  const mergedAiSettings: AiSettings = {
+    geminiApiKey: local.aiSettings?.geminiApiKey || remote.aiSettings?.geminiApiKey || '',
+    grokApiKey: local.aiSettings?.grokApiKey || remote.aiSettings?.grokApiKey || '',
+    enableGemini: local.aiSettings?.enableGemini ?? remote.aiSettings?.enableGemini ?? true,
+    enableGrok: local.aiSettings?.enableGrok ?? remote.aiSettings?.enableGrok ?? true,
+    dailyCheckLimit: local.aiSettings?.dailyCheckLimit || remote.aiSettings?.dailyCheckLimit || 50,
+    alertSensitivity: local.aiSettings?.alertSensitivity || remote.aiSettings?.alertSensitivity || 'medium',
+    modelPreference: local.aiSettings?.modelPreference || remote.aiSettings?.modelPreference || 'auto',
+  };
+
+  const historyMap = new Map<string, ReelHistoryPoint>();
+  (remote.history || []).forEach(h => h && h.id && historyMap.set(h.id, h));
+  (local.history || []).forEach(h => h && h.id && historyMap.set(h.id, h));
+  const mergedHistory = Array.from(historyMap.values())
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+    .slice(0, 1000);
+
+  const logsMap = new Map<string, FetchLog>();
+  (remote.logs || []).forEach(l => l && l.id && logsMap.set(l.id, l));
+  (local.logs || []).forEach(l => l && l.id && logsMap.set(l.id, l));
+  const mergedLogs = Array.from(logsMap.values())
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+    .slice(0, 500);
+
+  const aiLogsMap = new Map<string, AiLog>();
+  (remote.aiLogs || []).forEach(al => al && al.id && aiLogsMap.set(al.id, al));
+  (local.aiLogs || []).forEach(al => al && al.id && aiLogsMap.set(al.id, al));
+  const mergedAiLogs = Array.from(aiLogsMap.values())
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+    .slice(0, 500);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const aiMeta = local.aiMeta || remote.aiMeta || defaultAiMeta;
+  if (aiMeta.lastCheckDate !== todayStr) {
+    aiMeta.checksUsedToday = 0;
+    aiMeta.lastCheckDate = todayStr;
+  }
+
+  return {
+    auth: {
+      adminPasswordHash: local.auth?.adminPasswordHash || remote.auth?.adminPasswordHash || defaultPasswordHash,
+      sessionSecret: local.auth?.sessionSecret || remote.auth?.sessionSecret || defaultSessionSecret,
+      sessions: { ...(remote.auth?.sessions || {}), ...(local.auth?.sessions || {}) },
+    },
+    reels: mergedReels,
+    providers: mergedProviders,
+    telegram: mergedTelegram,
+    aiSettings: mergedAiSettings,
+    aiMeta,
+    aiLogs: mergedAiLogs,
+    history: mergedHistory,
+    logs: mergedLogs,
+    meta: {
+      lastAutoFetchAt: local.meta?.lastAutoFetchAt || remote.meta?.lastAutoFetchAt || null,
+      deletedReelIds: Array.from(deletedSet),
+    },
+  };
+}
+
 // Setup Firebase Firestore connection
 function initFirestore() {
   if (firestoreInitialized) return firestoreDb;
@@ -143,19 +263,20 @@ function initFirestore() {
 
     console.log('[Firestore] Connected to Firebase Firestore database:', config.firestoreDatabaseId || config.projectId);
 
-    // Initial sync from Firestore asynchronously
     const docRef = doc(firestoreDb, 'dashboard_data', 'main');
+
+    // Initial async sync from Firestore
     getDoc(docRef).then((snapshot) => {
       if (snapshot.exists()) {
-        const firestoreData = snapshot.data() as DatabaseSchema;
-        console.log(`[Firestore] Synced ${firestoreData.reels?.length || 0} reels & settings from Cloud Firestore database.`);
-        cachedDb = normalizeDbSchema(firestoreData);
+        const firestoreData = snapshot.data() as Partial<DatabaseSchema>;
+        const baseLocal = cachedDb || readLocalFile() || normalizeDbSchema({});
+        cachedDb = mergeDatabaseSchemas(baseLocal, firestoreData);
         saveLocalFile(cachedDb);
+        console.log(`[Firestore] Synced & merged ${cachedDb.reels.length} reels from Cloud Firestore.`);
       } else {
         console.log('[Firestore] No existing Cloud Firestore document found. Seeding initial data...');
-        if (cachedDb) {
-          setDoc(docRef, cachedDb).catch(e => console.error('[Firestore Seed Error]', e));
-        }
+        const baseLocal = cachedDb || readLocalFile() || normalizeDbSchema({});
+        setDoc(docRef, baseLocal).catch(e => console.error('[Firestore Seed Error]', e));
       }
     }).catch(err => {
       console.error('[Firestore Fetch Error]', err);
@@ -164,8 +285,13 @@ function initFirestore() {
     // Realtime Listener
     onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
-        const data = snapshot.data() as DatabaseSchema;
-        cachedDb = normalizeDbSchema(data);
+        // Avoid overwriting very recent local writes
+        if (Date.now() - lastLocalWriteAt < 2500) {
+          return;
+        }
+        const data = snapshot.data() as Partial<DatabaseSchema>;
+        const baseLocal = cachedDb || readLocalFile() || normalizeDbSchema({});
+        cachedDb = mergeDatabaseSchemas(baseLocal, data);
         saveLocalFile(cachedDb);
       }
     }, (error) => {
@@ -180,33 +306,36 @@ function initFirestore() {
 }
 
 function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
-  const normalized: DatabaseSchema = {
-    auth: data.auth || {
+  return mergeDatabaseSchemas({
+    auth: {
       adminPasswordHash: defaultPasswordHash,
       sessionSecret: defaultSessionSecret,
       sessions: {},
     },
-    reels: Array.isArray(data.reels) ? data.reels : [],
-    providers: (Array.isArray(data.providers) && data.providers.length > 0) ? data.providers : defaultProviders,
-    telegram: data.telegram || defaultTelegram,
-    aiSettings: data.aiSettings || defaultAiSettings,
-    aiMeta: data.aiMeta || defaultAiMeta,
-    aiLogs: Array.isArray(data.aiLogs) ? data.aiLogs : [],
-    history: Array.isArray(data.history) ? data.history : [],
-    logs: Array.isArray(data.logs) ? data.logs : [],
-    meta: data.meta || { lastAutoFetchAt: null },
-  };
+    reels: [],
+    providers: defaultProviders,
+    telegram: defaultTelegram,
+    aiSettings: defaultAiSettings,
+    aiMeta: defaultAiMeta,
+    aiLogs: [],
+    history: [],
+    logs: [],
+    meta: { lastAutoFetchAt: null, deletedReelIds: [] },
+  }, data);
+}
 
-  if (!normalized.auth.sessions) normalized.auth.sessions = {};
-
-  // Reset daily check counter if new UTC day
-  const todayStr = new Date().toISOString().slice(0, 10);
-  if (normalized.aiMeta.lastCheckDate !== todayStr) {
-    normalized.aiMeta.checksUsedToday = 0;
-    normalized.aiMeta.lastCheckDate = todayStr;
+function readLocalFile(): DatabaseSchema | null {
+  const DB_FILE = getDbFilePath();
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      const data = JSON.parse(raw) as Partial<DatabaseSchema>;
+      return normalizeDbSchema(data);
+    } catch (err) {
+      console.error('Error reading local db file:', err);
+    }
   }
-
-  return normalized;
+  return null;
 }
 
 function saveLocalFile(data: DatabaseSchema): void {
@@ -242,18 +371,10 @@ export function loadDb(): DatabaseSchema {
     return cachedDb;
   }
 
-  const DB_FILE = getDbFilePath();
-  ensureDir(DB_FILE);
-
-  if (fs.existsSync(DB_FILE)) {
-    try {
-      const raw = fs.readFileSync(DB_FILE, 'utf-8');
-      const data = JSON.parse(raw) as DatabaseSchema;
-      cachedDb = normalizeDbSchema(data);
-      return cachedDb;
-    } catch (err) {
-      console.error('Error reading local db file, falling back to initial data:', err);
-    }
+  const localFile = readLocalFile();
+  if (localFile) {
+    cachedDb = localFile;
+    return cachedDb;
   }
 
   const initialData: DatabaseSchema = normalizeDbSchema({});
@@ -264,6 +385,7 @@ export function loadDb(): DatabaseSchema {
 }
 
 export function saveDb(data: DatabaseSchema): void {
+  lastLocalWriteAt = Date.now();
   cachedDb = normalizeDbSchema(data);
   saveLocalFile(cachedDb);
   saveFirestoreDoc(cachedDb);
