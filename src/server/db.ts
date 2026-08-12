@@ -245,13 +245,44 @@ function initFirestore() {
   firestoreInitialized = true;
 
   try {
+    let config: any = null;
+
+    // 1. Try reading firebase-applet-config.json
     const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
-    if (!fs.existsSync(configPath)) {
-      console.log('[Firestore] firebase-applet-config.json not found. Using local DB file.');
+    if (fs.existsSync(configPath)) {
+      try {
+        config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      } catch (e) {
+        console.warn('[Firestore] Error parsing firebase-applet-config.json:', e);
+      }
+    }
+
+    // 2. Fallback to process.env.FIREBASE_CONFIG or individual env variables
+    if (!config) {
+      if (process.env.FIREBASE_CONFIG) {
+        try {
+          config = typeof process.env.FIREBASE_CONFIG === 'string'
+            ? JSON.parse(process.env.FIREBASE_CONFIG)
+            : process.env.FIREBASE_CONFIG;
+        } catch (e) {
+          console.warn('[Firestore] Error parsing FIREBASE_CONFIG env var');
+        }
+      } else if (process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_API_KEY) {
+        config = {
+          projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
+          apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,
+          appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID,
+          firestoreDatabaseId: process.env.FIREBASE_FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || 'ai-studio-reelpulsepro-dce90b8a-4fa5-4cf5-b57a-5249a4950dda',
+          authDomain: `${process.env.FIREBASE_PROJECT_ID || 'ai-studio-applet-webapp-479fe'}.firebaseapp.com`,
+        };
+      }
+    }
+
+    if (!config || !config.projectId) {
+      console.log('[Firestore] No Firebase Firestore configuration found. Using local DB file fallback.');
       return null;
     }
 
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     const apps = getApps();
     const app = apps.length === 0 ? initializeApp(config) : apps[0];
 

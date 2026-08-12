@@ -395,6 +395,17 @@ export default function App() {
     return await res.json();
   };
 
+  // Public Uptime Route Detection
+  const [isShowingPublicUptime, setIsShowingPublicUptime] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const search = window.location.search;
+      const hash = window.location.hash;
+      return path.includes('/uptime') || search.includes('uptime') || hash.includes('uptime');
+    }
+    return false;
+  });
+
   if (isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3">
@@ -405,7 +416,19 @@ export default function App() {
   }
 
   if (!isAuthenticated) {
-    return <LoginModal onLogin={handleLogin} />;
+    if (isShowingPublicUptime) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-7xl mx-auto">
+          <UptimeTab isPublicMode={true} onOpenLogin={() => setIsShowingPublicUptime(false)} />
+        </div>
+      );
+    }
+    return (
+      <LoginModal
+        onLogin={handleLogin}
+        onViewPublicUptime={() => setIsShowingPublicUptime(true)}
+      />
+    );
   }
 
   return (

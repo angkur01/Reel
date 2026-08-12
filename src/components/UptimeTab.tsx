@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Server, Activity, Clock, Zap, Copy, Check, ExternalLink, RefreshCw, Radio, ShieldCheck, Terminal, Play } from 'lucide-react';
+import { Server, Activity, Clock, Zap, Copy, Check, ExternalLink, RefreshCw, Radio, ShieldCheck, Terminal, Lock } from 'lucide-react';
 
-export const UptimeTab: React.FC = () => {
+interface UptimeTabProps {
+  onOpenLogin?: () => void;
+  isPublicMode?: boolean;
+}
+
+export const UptimeTab: React.FC<UptimeTabProps> = ({ onOpenLogin, isPublicMode }) => {
   const [uptimeData, setUptimeData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [latency, setLatency] = useState<number | null>(null);
@@ -67,6 +72,32 @@ export const UptimeTab: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-16">
+      {/* Public Mode Navigation Header */}
+      {isPublicMode && (
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-900 border border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 text-white shadow-md">
+              <Server className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="font-extrabold text-white text-base">Reel Pulse Pro — System Status</h1>
+              <p className="text-xs text-slate-400">Public Live Uptime Monitor & Cron Endpoint Guide</p>
+            </div>
+          </div>
+
+          {onOpenLogin && (
+            <button
+              id="btn-public-admin-login"
+              onClick={onOpenLogin}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs transition cursor-pointer border border-slate-700"
+            >
+              <Lock className="w-4 h-4 text-rose-400" />
+              <span>Admin Login</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Hero Header */}
       <div className="glass-panel p-6 sm:p-8 rounded-3xl relative overflow-hidden space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">

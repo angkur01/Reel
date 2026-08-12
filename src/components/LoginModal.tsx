@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Lock, KeyRound, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Lock, KeyRound, ArrowRight, ShieldCheck, Eye, EyeOff, Server } from 'lucide-react';
 
 interface LoginModalProps {
   onLogin: (password: string) => Promise<{ success: boolean; error?: string }>;
+  onViewPublicUptime?: () => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ onLogin }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onViewPublicUptime }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +85,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 bg-gradient-to-r from-rose-500 via-rose-600 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white font-semibold rounded-2xl shadow-lg shadow-rose-500/20 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50"
+            className="w-full py-3.5 px-4 bg-gradient-to-r from-rose-500 via-rose-600 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white font-semibold rounded-2xl shadow-lg shadow-rose-500/20 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
               <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -97,7 +98,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin }) => {
           </button>
         </form>
 
+        {onViewPublicUptime && (
+          <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
+            <button
+              id="btn-public-uptime-page"
+              type="button"
+              onClick={onViewPublicUptime}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition cursor-pointer px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40"
+            >
+              <Server className="w-4 h-4 text-emerald-400" />
+              <span>View Public Uptime & System Health Page</span>
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
 };
+
