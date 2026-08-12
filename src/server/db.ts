@@ -25,6 +25,8 @@ export interface DatabaseSchema {
   meta: {
     lastAutoFetchAt: string | null;
     deletedReelIds?: string[];
+    deletedCampaignIds?: string[];
+    deletedProviderIds?: string[];
   };
 }
 
@@ -130,6 +132,14 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
     ...(local.meta?.deletedReelIds || []),
     ...(remote.meta?.deletedReelIds || []),
   ]);
+  const deletedCampaignSet = new Set<string>([
+    ...(local.meta?.deletedCampaignIds || []),
+    ...(remote.meta?.deletedCampaignIds || []),
+  ]);
+  const deletedProviderSet = new Set<string>([
+    ...(local.meta?.deletedProviderIds || []),
+    ...(remote.meta?.deletedProviderIds || []),
+  ]);
 
   const reelMap = new Map<string, Reel>();
 
@@ -168,8 +178,8 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   (local.reels || []).forEach(processReel);
 
   const campaignMap = new Map<string, CpmCampaign>();
-  (remote.cpmCampaigns || []).forEach(c => c && c.id && campaignMap.set(c.id, c));
-  (local.cpmCampaigns || []).forEach(c => c && c.id && campaignMap.set(c.id, c));
+  (remote.cpmCampaigns || []).forEach(c => c && c.id && !deletedCampaignSet.has(c.id) && campaignMap.set(c.id, c));
+  (local.cpmCampaigns || []).forEach(c => c && c.id && !deletedCampaignSet.has(c.id) && campaignMap.set(c.id, c));
   const mergedCampaigns = Array.from(campaignMap.values());
 
   const mergedReels = Array.from(reelMap.values()).filter(r => !deletedSet.has(r.id));
@@ -185,6 +195,7 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   ]);
 
   allProviderIds.forEach(id => {
+    if (deletedProviderSet.has(id)) return;
     const remoteP = (remote.providers || []).find(p => p?.id === id);
     const localP = (local.providers || []).find(p => p?.id === id);
 
@@ -308,6 +319,8 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
     meta: {
       lastAutoFetchAt: local.meta?.lastAutoFetchAt || remote.meta?.lastAutoFetchAt || null,
       deletedReelIds: Array.from(deletedSet),
+      deletedCampaignIds: Array.from(deletedCampaignSet),
+      deletedProviderIds: Array.from(deletedProviderSet),
     },
   };
 }
@@ -490,7 +503,7 @@ function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
     aiLogs: [],
     history: [],
     logs: [],
-    meta: { lastAutoFetchAt: null, deletedReelIds: [] },
+    meta: { lastAutoFetchAt: null, deletedReelIds: [], deletedCampaignIds: [], deletedProviderIds: [] },
   }, data);
 }
 

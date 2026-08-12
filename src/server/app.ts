@@ -236,6 +236,9 @@ export function createExpressApp() {
     }
 
     const deleted = db.cpmCampaigns.splice(index, 1)[0];
+    if (!db.meta) db.meta = { lastAutoFetchAt: null, deletedReelIds: [], deletedCampaignIds: [], deletedProviderIds: [] };
+    if (!db.meta.deletedCampaignIds) db.meta.deletedCampaignIds = [];
+    if (!db.meta.deletedCampaignIds.includes(id)) db.meta.deletedCampaignIds.push(id);
 
     // Detach deleted campaign from all connected reels
     for (const reel of db.reels) {
@@ -789,6 +792,9 @@ export function createExpressApp() {
     }
 
     const deleted = db.providers.splice(idx, 1)[0];
+    if (!db.meta) db.meta = { lastAutoFetchAt: null, deletedReelIds: [], deletedCampaignIds: [], deletedProviderIds: [] };
+    if (!db.meta.deletedProviderIds) db.meta.deletedProviderIds = [];
+    if (!db.meta.deletedProviderIds.includes(id)) db.meta.deletedProviderIds.push(id);
     saveDb(db);
     res.json({ success: true, message: `Provider "${deleted.name}" deleted` });
   });
