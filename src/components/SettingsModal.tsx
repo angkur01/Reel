@@ -73,15 +73,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tgTesting, setTgTesting] = useState(false);
   const [tgStatusMsg, setTgStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Keep Telegram state in sync with incoming props
-  React.useEffect(() => {
-    if (telegramSettings) {
-      if (telegramSettings.botToken) setTgToken(telegramSettings.botToken);
-      if (telegramSettings.adminTelegramId) setTgAdminId(telegramSettings.adminTelegramId);
-      if (telegramSettings.enabled !== undefined) setTgEnabled(telegramSettings.enabled);
-    }
-  }, [telegramSettings]);
-
   // Security Form State
   const [currPassword, setCurrPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -97,7 +88,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       baseUrl: p.baseUrl,
       endpointPath: p.endpointPath,
       method: p.method,
-      apiKey: p.apiKey || (p as any).apiKeyMasked || '',
+      apiKey: p.apiKey || '',
       apiKeyLocation: p.apiKeyLocation,
       urlParamName: p.urlParamName,
       headersJson: p.headersJson || '{\n  "Accept": "application/json",\n  "Content-Type": "application/json"\n}',

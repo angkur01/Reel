@@ -23,8 +23,8 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
   onGenerateDailyReport,
   isGeneratingReport,
 }) => {
-  const [geminiKey, setGeminiKey] = useState(aiSettings?.geminiApiKey || (aiSettings as any)?.geminiApiKeyMasked || '');
-  const [grokKey, setGrokKey] = useState(aiSettings?.grokApiKey || (aiSettings as any)?.grokApiKeyMasked || '');
+  const [geminiKey, setGeminiKey] = useState(aiSettings?.geminiApiKey || '');
+  const [grokKey, setGrokKey] = useState(aiSettings?.grokApiKey || '');
   const [sensitivity, setSensitivity] = useState<'low' | 'medium' | 'high'>(
     aiSettings?.alertSensitivity || 'medium'
   );
@@ -32,20 +32,6 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
     aiSettings?.modelPreference || 'auto'
   );
   const [limit, setLimit] = useState(aiSettings?.dailyCheckLimit || 50);
-
-  React.useEffect(() => {
-    if (aiSettings) {
-      if ((aiSettings as any).geminiApiKeyMasked) setGeminiKey((aiSettings as any).geminiApiKeyMasked);
-      else if (aiSettings.geminiApiKey) setGeminiKey(aiSettings.geminiApiKey);
-
-      if ((aiSettings as any).grokApiKeyMasked) setGrokKey((aiSettings as any).grokApiKeyMasked);
-      else if (aiSettings.grokApiKey) setGrokKey(aiSettings.grokApiKey);
-
-      if (aiSettings.alertSensitivity) setSensitivity(aiSettings.alertSensitivity);
-      if (aiSettings.modelPreference) setModelPref(aiSettings.modelPreference);
-      if (aiSettings.dailyCheckLimit) setLimit(aiSettings.dailyCheckLimit);
-    }
-  }, [aiSettings]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
