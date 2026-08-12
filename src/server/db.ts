@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import bcrypt from 'bcryptjs';
 import { Reel, ApiProvider, TelegramSettings, FetchLog } from '../types.js';
 
@@ -18,8 +19,33 @@ export interface DatabaseSchema {
   };
 }
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
-const DB_FILE = path.join(DATA_DIR, 'db.json');
+let activeDbPath: string | null = null;
+
+function getDbFilePath(): string {
+  if (activeDbPath) return activeDbPath;
+
+  const primaryDir = path.resolve(process.cwd(), 'data');
+  const primaryFile = path.join(primaryDir, 'db.json');
+
+  try {
+    if (!fs.existsSync(primaryDir)) {
+      fs.mkdirSync(primaryDir, { recursive: true });
+    }
+    const testFile = path.join(primaryDir, '.write-test');
+    fs.writeFileSync(testFile, 'test', 'utf-8');
+    fs.unlinkSync(testFile);
+    activeDbPath = primaryFile;
+    return activeDbPath;
+  } catch (err) {
+    console.warn('[DB] Primary data directory is read-only. Falling back to temporary directory for serverless environment.');
+    const tmpDir = path.join(os.tmpdir(), 'reel-tracker-data');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    activeDbPath = path.join(tmpDir, 'db.json');
+    return activeDbPath;
+  }
+}
 
 // Initial default configuration
 const defaultSessionSecret = Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -61,14 +87,16 @@ const defaultTelegram: TelegramSettings = {
   enabled: false,
 };
 
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+function ensureDir(filePath: string) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 }
 
 export function loadDb(): DatabaseSchema {
-  ensureDir();
+  const DB_FILE = getDbFilePath();
+  ensureDir(DB_FILE);
   if (!fs.existsSync(DB_FILE)) {
     const initialData: DatabaseSchema = {
       auth: {
@@ -115,7 +143,7 @@ export function loadDb(): DatabaseSchema {
   } catch (err) {
     console.error('Error reading database file, creating backup and starting fresh:', err);
     if (fs.existsSync(DB_FILE)) {
-      fs.renameSync(DB_FILE, `${DB_FILE}.bak.${Date.now()}`);
+      try { fs.renameSync(DB_FILE, `${DB_FILE}.bak.${Date.now()}`); } catch {}
     }
     const initialData: DatabaseSchema = {
       auth: {
@@ -136,8 +164,13 @@ export function loadDb(): DatabaseSchema {
 }
 
 export function saveDb(data: DatabaseSchema): void {
-  ensureDir();
+  const DB_FILE = getDbFilePath();
+  ensureDir(DB_FILE);
   const tmpFile = `${DB_FILE}.tmp`;
-  fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tmpFile, DB_FILE);
+  try {
+    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmpFile, DB_FILE);
+  } catch (e) {
+    console.error('[DB Save Error]', e);
+  }
 }

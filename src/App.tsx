@@ -12,6 +12,18 @@ import { SettingsModal } from './components/SettingsModal';
 import { LogsModal } from './components/LogsModal';
 import { Reel, ApiProvider, TelegramSettings, FetchLog, TestProviderResult } from './types';
 
+async function parseJsonResponse(res: Response) {
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await res.text();
+    if (res.status === 404) {
+      throw new Error('API endpoint not found (HTTP 404). Please verify backend server or serverless function deployment.');
+    }
+    throw new Error(`Server returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 60)}`);
+  }
+  return await res.json();
+}
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [reels, setReels] = useState<Reel[]>([]);
@@ -46,7 +58,7 @@ export default function App() {
   const checkAuthStatus = useCallback(async () => {
     try {
       const res = await authFetch('/api/auth/status');
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
       setIsAuthenticated(data.authenticated === true);
     } catch (e) {
       setIsAuthenticated(false);
@@ -58,7 +70,7 @@ export default function App() {
     try {
       const reelsRes = await authFetch('/api/reels');
       if (reelsRes.ok) {
-        const reelsData = await reelsRes.json();
+        const reelsData = await parseJsonResponse(reelsRes);
         if (reelsData.success) {
           setReels(reelsData.reels || []);
           if (reelsData.nextScheduledFetchAt) {
@@ -69,13 +81,13 @@ export default function App() {
 
       const provRes = await authFetch('/api/providers');
       if (provRes.ok) {
-        const provData = await provRes.json();
+        const provData = await parseJsonResponse(provRes);
         if (provData.success) setProviders(provData.providers || []);
       }
 
       const tgRes = await authFetch('/api/telegram/settings');
       if (tgRes.ok) {
-        const tgData = await tgRes.json();
+        const tgData = await parseJsonResponse(tgRes);
         if (tgData.success && tgData.telegram) {
           setTelegramSettings({
             botToken: tgData.telegram.botTokenMasked || '',
@@ -87,7 +99,7 @@ export default function App() {
 
       const logsRes = await authFetch('/api/logs');
       if (logsRes.ok) {
-        const logsData = await logsRes.json();
+        const logsData = await parseJsonResponse(logsRes);
         if (logsData.success) setLogs(logsData.logs || []);
       }
 
@@ -117,14 +129,14 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
       if (data.success && data.token) {
         localStorage.setItem('admin_token', data.token);
         setIsAuthenticated(true);
         loadDashboardData();
         return { success: true };
       }
-      return { success: false, error: data.error };
+      return { success: false, error: data.error || 'Invalid admin password' };
     } catch (e: any) {
       return { success: false, error: e.message || 'Login network error' };
     }

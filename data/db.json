@@ -5,7 +5,10 @@
     "sessions": {
       "79e1714350a8d96eb8fc4706e89acd15b91f5d5dada2890557e22c6922d5d5c3": 1786492998417,
       "4fd59348dd48ab7d81029f6891d71fe4d7f36deafe2a37e4bbf6b964aabb8faa": 1786493117133,
-      "dbe635fc7d711a4d52929aede60cdd98675d2557ba968c301b6f92ceeee3ccb4": 1786493439490
+      "dbe635fc7d711a4d52929aede60cdd98675d2557ba968c301b6f92ceeee3ccb4": 1786493439490,
+      "1358a49126acc901dec29c5e93a0712a8f9122c18f7b5a66e36462891380f469": 1786493675995,
+      "0c0c8d59808d1b07938d3592306f80592d8a4d58c58070d20fd8f211ae4776c6": 1786493859275,
+      "163584373bc617c20bb032370eaba1262d2c5bef5ad3664d22a0ba56dd0c9134": 1786494771177
     }
   },
   "reels": [],
@@ -16,7 +19,7 @@
       "baseUrl": "https://api.refetcher.com",
       "endpointPath": "/",
       "method": "POST",
-      "apiKey": "",
+      "apiKey": "pc_live_wHlUz6HkeV_D-7ewVkeF7AQp0J6AP0hY",
       "apiKeyLocation": "header_x_api_key",
       "urlParamName": "url",
       "headersJson": "{\n  \"Accept\": \"application/json\",\n  \"Content-Type\": \"application/json\"\n}",
@@ -32,15 +35,16 @@
       },
       "enabled": true,
       "priority": 1,
-      "lastTestedAt": null,
-      "lastTestStatus": null,
+      "lastTestedAt": "2026-08-12T00:18:02.206Z",
+      "lastTestStatus": "success",
       "lastTestError": null
     }
   ],
   "telegram": {
-    "botToken": "",
-    "adminTelegramId": "",
-    "enabled": false
+    "botToken": "8298177652:AAH2NF31n1M6VGtHs37VOrqrioX9LSrOOL0",
+    "adminTelegramId": "7610598304",
+    "enabled": true,
+    "lastStatus": "Connected & Verified"
   },
   "logs": [],
   "meta": {
