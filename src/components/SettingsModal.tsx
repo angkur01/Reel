@@ -19,7 +19,10 @@ import {
   Zap,
   Layers,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Database,
+  Cloud,
+  RefreshCw
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -51,7 +54,78 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onChangePassword,
   isInline = false,
 }) => {
-  const [activeTab, setActiveTab] = useState<'apis' | 'telegram' | 'security'>('apis');
+  const [activeTab, setActiveTab] = useState<'apis' | 'telegram' | 'cloud-db' | 'security'>('apis');
+
+  // Firebase Cloud DB state
+  const [fbProjectId, setFbProjectId] = useState('ai-studio-applet-webapp-479fe');
+  const [fbApiKey, setFbApiKey] = useState('');
+  const [fbAppId, setFbAppId] = useState('1:17300429211:web:a1efc53ce188b9ba90a93e');
+  const [fbFirestoreDatabaseId, setFbFirestoreDatabaseId] = useState('ai-studio-reelpulsepro-dce90b8a-4fa5-4cf5-b57a-5249a4950dda');
+  const [fbStatusMsg, setFbStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [fbSaving, setFbSaving] = useState(false);
+  const [fbTesting, setFbTesting] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'cloud-db') {
+      fetch('/api/firebase/config')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && data.rawConfig) {
+            setFbProjectId(data.rawConfig.projectId || '');
+            setFbApiKey(data.rawConfig.apiKey || '');
+            setFbAppId(data.rawConfig.appId || '');
+            setFbFirestoreDatabaseId(data.rawConfig.firestoreDatabaseId || '');
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeTab]);
+
+  const handleSaveFirebase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFbSaving(true);
+    setFbStatusMsg(null);
+    try {
+      const res = await fetch('/api/firebase/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: fbProjectId,
+          apiKey: fbApiKey,
+          appId: fbAppId,
+          firestoreDatabaseId: fbFirestoreDatabaseId,
+        }),
+      });
+      const data = await res.json();
+      setFbSaving(false);
+      if (data.success) {
+        setFbStatusMsg({ type: 'success', text: 'Firebase Cloud DB config saved and reconnected!' });
+      } else {
+        setFbStatusMsg({ type: 'error', text: data.error || 'Failed to save Firebase config.' });
+      }
+    } catch (e) {
+      setFbSaving(false);
+      setFbStatusMsg({ type: 'error', text: 'Failed to communicate with server.' });
+    }
+  };
+
+  const handleTestFirebase = async () => {
+    setFbTesting(true);
+    setFbStatusMsg(null);
+    try {
+      const res = await fetch('/api/firebase/test', { method: 'POST' });
+      const data = await res.json();
+      setFbTesting(false);
+      if (data.success) {
+        setFbStatusMsg({ type: 'success', text: `Connected! Database: ${data.databaseId} (${data.projectId})` });
+      } else {
+        setFbStatusMsg({ type: 'error', text: data.error || 'Firestore connection test failed.' });
+      }
+    } catch (e) {
+      setFbTesting(false);
+      setFbStatusMsg({ type: 'error', text: 'Failed to test Firebase connection.' });
+    }
+  };
 
   // Provider Form State
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
@@ -267,6 +341,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           <Bot className="w-4 h-4" />
           <span>Telegram Bot Integration</span>
+        </button>
+
+        <button
+          id="btn-tab-cloud-db"
+          onClick={() => setActiveTab('cloud-db')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'cloud-db'
+              ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Database className="w-4 h-4 text-emerald-400" />
+          <span>Cloud Database (Firebase)</span>
         </button>
 
         <button
@@ -895,7 +982,117 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* TAB 3: ADMIN AUTHENTICATION SECURITY */}
+        {/* TAB 3: CLOUD DATABASE (FIREBASE FIRESTORE) */}
+        {activeTab === 'cloud-db' && (
+          <div className="space-y-6">
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Database className="w-4 h-4 text-emerald-400" />
+                <span>Google Firebase Firestore Cloud Storage</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Configure your persistent Cloud Firestore database settings so your data stays saved permanently across GitHub syncs, Vercel deployments, or server restarts.
+              </p>
+            </div>
+
+            {fbStatusMsg && (
+              <div
+                className={`p-4 rounded-2xl text-xs flex items-center gap-2 border ${
+                  fbStatusMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                }`}
+              >
+                {fbStatusMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                )}
+                <span>{fbStatusMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveFirebase} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Firebase Project ID</label>
+                  <input
+                    id="input-firebase-project-id"
+                    type="text"
+                    value={fbProjectId}
+                    onChange={(e) => setFbProjectId(e.target.value)}
+                    placeholder="ai-studio-applet-webapp-479fe"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Firestore Database ID</label>
+                  <input
+                    id="input-firebase-database-id"
+                    type="text"
+                    value={fbFirestoreDatabaseId}
+                    onChange={(e) => setFbFirestoreDatabaseId(e.target.value)}
+                    placeholder="ai-studio-reelpulsepro-dce90b8a-4fa5-4cf5-b57a-5249a4950dda"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-300">Firebase API Key</label>
+                  <input
+                    id="input-firebase-api-key"
+                    type="password"
+                    value={fbApiKey}
+                    onChange={(e) => setFbApiKey(e.target.value)}
+                    placeholder="AIzaSyCQj5JOrkWHCUyJUo3PdVjj6VgU7XdRCYU"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-300">Firebase App ID</label>
+                  <input
+                    id="input-firebase-app-id"
+                    type="text"
+                    value={fbAppId}
+                    onChange={(e) => setFbAppId(e.target.value)}
+                    placeholder="1:17300429211:web:a1efc53ce188b9ba90a93e"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 placeholder-slate-600 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                <button
+                  id="btn-test-firebase-connection"
+                  type="button"
+                  onClick={handleTestFirebase}
+                  disabled={fbTesting}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer"
+                >
+                  {fbTesting ? (
+                    <span className="w-3.5 h-3.5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin"></span>
+                  ) : (
+                    <RefreshCw className="w-4 h-4 text-emerald-400" />
+                  )}
+                  <span>Test Firestore Cloud Connection</span>
+                </button>
+
+                <button
+                  id="btn-save-firebase-config"
+                  type="submit"
+                  disabled={fbSaving}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+                >
+                  {fbSaving ? 'Saving & Reconnecting...' : 'Save & Reconnect Cloud DB'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 4: ADMIN AUTHENTICATION SECURITY */}
         {activeTab === 'security' && (
           <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md mx-auto py-4">
             <div className="space-y-1">

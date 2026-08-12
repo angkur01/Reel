@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import cookieParser from 'cookie-parser';
 
-import { loadDb, saveDb } from './db.js';
+import { loadDb, saveDb, getFirebaseConfig, saveFirebaseConfig, testFirestoreConnection } from './db.js';
 import { requireAuth, verifyPassword, setPassword, createSessionToken, revokeSession, isValidSession } from './auth.js';
 import { fetchReelWithFallbackChain, testSingleProvider } from './providers.js';
 import { startTelegramBotPolling, stopTelegramBotPolling, sendTelegramMessage, notifyTelegramReelResult, getFirst3Words } from './telegram.js';
@@ -826,6 +826,62 @@ export function createExpressApp() {
       db.telegram.lastStatus = 'Connection Failed';
       saveDb(db);
       res.status(400).json({ success: false, error: 'Failed to send message. Please verify Bot Token and Admin Telegram ID.' });
+    }
+  });
+
+  // ----------------------------------------------------
+  // FIREBASE CONFIGURATION & CLOUD DB ROUTES
+  // ----------------------------------------------------
+
+  // Get Firebase Configuration
+  app.get('/api/firebase/config', requireAuth, (req: Request, res: Response) => {
+    const config = getFirebaseConfig();
+    res.json({
+      success: true,
+      config: {
+        projectId: config.projectId || '',
+        apiKey: config.apiKey ? (config.apiKey.slice(0, 6) + '••••••••' + config.apiKey.slice(-4)) : '',
+        appId: config.appId || '',
+        firestoreDatabaseId: config.firestoreDatabaseId || '',
+        authDomain: config.authDomain || '',
+      },
+      rawConfig: {
+        projectId: config.projectId || '',
+        apiKey: config.apiKey || '',
+        appId: config.appId || '',
+        firestoreDatabaseId: config.firestoreDatabaseId || '',
+      },
+    });
+  });
+
+  // Save Firebase Configuration
+  app.post('/api/firebase/config', requireAuth, (req: Request, res: Response) => {
+    const { projectId, apiKey, appId, firestoreDatabaseId } = req.body;
+    const currentConfig = getFirebaseConfig();
+
+    const finalConfig = {
+      projectId: projectId !== undefined ? projectId.trim() : currentConfig.projectId,
+      apiKey: apiKey !== undefined && !apiKey.includes('••••') ? apiKey.trim() : currentConfig.apiKey,
+      appId: appId !== undefined ? appId.trim() : currentConfig.appId,
+      firestoreDatabaseId: firestoreDatabaseId !== undefined ? firestoreDatabaseId.trim() : currentConfig.firestoreDatabaseId,
+    };
+
+    saveFirebaseConfig(finalConfig);
+
+    res.json({
+      success: true,
+      message: 'Firebase Cloud Database configuration saved and reconnected successfully!',
+      config: finalConfig,
+    });
+  });
+
+  // Test Firebase Firestore Connection
+  app.post('/api/firebase/test', requireAuth, async (req: Request, res: Response) => {
+    const result = await testFirestoreConnection();
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
     }
   });
 

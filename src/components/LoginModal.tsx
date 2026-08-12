@@ -79,7 +79,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLogin, onViewPublicUpt
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-slate-500 mt-1.5">Default password: <code className="text-amber-400 bg-slate-950 px-1.5 py-0.5 rounded">admin123</code> (Changeable in Settings)</p>
+            <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
+              <span>Default password:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPassword('admin123');
+                }}
+                className="text-amber-400 hover:text-amber-300 font-mono bg-slate-950 px-2 py-0.5 rounded border border-amber-500/20 hover:border-amber-500/50 transition cursor-pointer"
+                title="Click to fill default password"
+              >
+                admin123 (click to fill)
+              </button>
+            </div>
           </div>
 
           <button

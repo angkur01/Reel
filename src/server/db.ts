@@ -240,43 +240,109 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
 }
 
 // Setup Firebase Firestore connection
+let loadedFirebaseConfig: any = null;
+
+export function getFirebaseConfig() {
+  if (loadedFirebaseConfig) return loadedFirebaseConfig;
+
+  let config: any = null;
+  const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+
+  if (fs.existsSync(configPath)) {
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    } catch (e) {
+      console.warn('[Firestore] Error parsing firebase-applet-config.json:', e);
+    }
+  }
+
+  if (!config) {
+    if (process.env.FIREBASE_CONFIG) {
+      try {
+        config = typeof process.env.FIREBASE_CONFIG === 'string'
+          ? JSON.parse(process.env.FIREBASE_CONFIG)
+          : process.env.FIREBASE_CONFIG;
+      } catch (e) {
+        console.warn('[Firestore] Error parsing FIREBASE_CONFIG env var');
+      }
+    } else if (process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_API_KEY) {
+      config = {
+        projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
+        apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,
+        appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID,
+        firestoreDatabaseId: process.env.FIREBASE_FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || 'ai-studio-reelpulsepro-dce90b8a-4fa5-4cf5-b57a-5249a4950dda',
+        authDomain: `${process.env.FIREBASE_PROJECT_ID || 'ai-studio-applet-webapp-479fe'}.firebaseapp.com`,
+      };
+    }
+  }
+
+  // Default provisioned fallback if blank
+  if (!config) {
+    config = {
+      projectId: 'ai-studio-applet-webapp-479fe',
+      apiKey: 'AIzaSyCQj5JOrkWHCUyJUo3PdVjj6VgU7XdRCYU',
+      appId: '1:17300429211:web:a1efc53ce188b9ba90a93e',
+      firestoreDatabaseId: 'ai-studio-reelpulsepro-dce90b8a-4fa5-4cf5-b57a-5249a4950dda',
+      authDomain: 'ai-studio-applet-webapp-479fe.firebaseapp.com',
+    };
+  }
+
+  loadedFirebaseConfig = config;
+  return loadedFirebaseConfig;
+}
+
+export function saveFirebaseConfig(newConfig: any) {
+  loadedFirebaseConfig = {
+    projectId: newConfig.projectId || 'ai-studio-applet-webapp-479fe',
+    apiKey: newConfig.apiKey || '',
+    appId: newConfig.appId || '',
+    firestoreDatabaseId: newConfig.firestoreDatabaseId || 'ai-studio-reelpulsepro-dce90b8a-4fa5-4cf5-b57a-5249a4950dda',
+    authDomain: `${newConfig.projectId || 'ai-studio-applet-webapp-479fe'}.firebaseapp.com`,
+  };
+
+  const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(loadedFirebaseConfig, null, 2), 'utf-8');
+    console.log('[Firestore] Updated firebase-applet-config.json successfully');
+  } catch (e) {
+    console.warn('[Firestore] Could not write firebase-applet-config.json to disk:', e);
+  }
+
+  // Force re-init
+  firestoreInitialized = false;
+  firestoreDb = null;
+  return initFirestore();
+}
+
+export async function testFirestoreConnection() {
+  try {
+    const db = initFirestore();
+    if (!db) {
+      return { success: false, error: 'Firebase Firestore initialization failed' };
+    }
+    const docRef = doc(db, 'dashboard_data', 'main');
+    const snapshot = await getDoc(docRef);
+    return {
+      success: true,
+      message: 'Cloud Firestore connected successfully!',
+      exists: snapshot.exists(),
+      databaseId: loadedFirebaseConfig?.firestoreDatabaseId || 'default',
+      projectId: loadedFirebaseConfig?.projectId || 'unknown',
+    };
+  } catch (e: any) {
+    return {
+      success: false,
+      error: e.message || 'Failed to connect to Cloud Firestore',
+    };
+  }
+}
+
 function initFirestore() {
   if (firestoreInitialized) return firestoreDb;
   firestoreInitialized = true;
 
   try {
-    let config: any = null;
-
-    // 1. Try reading firebase-applet-config.json
-    const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
-    if (fs.existsSync(configPath)) {
-      try {
-        config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      } catch (e) {
-        console.warn('[Firestore] Error parsing firebase-applet-config.json:', e);
-      }
-    }
-
-    // 2. Fallback to process.env.FIREBASE_CONFIG or individual env variables
-    if (!config) {
-      if (process.env.FIREBASE_CONFIG) {
-        try {
-          config = typeof process.env.FIREBASE_CONFIG === 'string'
-            ? JSON.parse(process.env.FIREBASE_CONFIG)
-            : process.env.FIREBASE_CONFIG;
-        } catch (e) {
-          console.warn('[Firestore] Error parsing FIREBASE_CONFIG env var');
-        }
-      } else if (process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_API_KEY) {
-        config = {
-          projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
-          apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,
-          appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID,
-          firestoreDatabaseId: process.env.FIREBASE_FIRESTORE_DATABASE_ID || process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || 'ai-studio-reelpulsepro-dce90b8a-4fa5-4cf5-b57a-5249a4950dda',
-          authDomain: `${process.env.FIREBASE_PROJECT_ID || 'ai-studio-applet-webapp-479fe'}.firebaseapp.com`,
-        };
-      }
-    }
+    const config = getFirebaseConfig();
 
     if (!config || !config.projectId) {
       console.log('[Firestore] No Firebase Firestore configuration found. Using local DB file fallback.');
@@ -316,7 +382,6 @@ function initFirestore() {
     // Realtime Listener
     onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
-        // Avoid overwriting very recent local writes
         if (Date.now() - lastLocalWriteAt < 2500) {
           return;
         }

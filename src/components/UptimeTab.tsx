@@ -243,7 +243,7 @@ export const UptimeTab: React.FC<UptimeTabProps> = ({ onOpenLogin, isPublicMode 
             <span>Setup Guide: UptimeRobot (100% Free 24/7 Ping)</span>
           </div>
           <ol className="list-decimal list-inside space-y-2 text-xs text-slate-300 leading-relaxed">
-            <li>Create a free account on <a href="https://uptimerobot.com" target="_blank" rel="noreferrer" className="text-indigo-400 underline">UptimeRobot.com</a>.</li>
+            <li>Create a free account on <a href="https://uptimerobot.com" target="_blank" rel="noreferrer" className="text-indigo-400 underline font-semibold">UptimeRobot.com</a>.</li>
             <li>Click <b>+ Add New Monitor</b> and select <b>HTTP(s)</b>.</li>
             <li>Set <b>Friendly Name</b> to <code>Reel Command Center</code>.</li>
             <li>Paste your Uptime URL: <code className="text-emerald-300 bg-slate-900 px-1 rounded">{uptimeUrl}</code>.</li>
@@ -273,6 +273,52 @@ export const UptimeTab: React.FC<UptimeTabProps> = ({ onOpenLogin, isPublicMode 
           <p className="text-[11px] text-slate-400">
             Save this snippet as <code>vercel.json</code> in your project root when deploying to Vercel.
           </p>
+        </div>
+      </div>
+
+      {/* Recommended 24/7 Free Hosting Services Guide */}
+      <div className="glass-panel p-6 rounded-3xl space-y-4 border border-indigo-500/30">
+        <div className="flex items-center gap-2.5 text-indigo-300 font-bold text-sm">
+          <Server className="w-5 h-5 text-indigo-400" />
+          <span>Recommended Free 24/7 Node.js Hosting (Better than Vercel)</span>
+        </div>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          <b>Why Vercel struggles:</b> Vercel is a serverless platform designed for static sites. It kills long-polling Telegram bots and background timers after 10 seconds. For a full-stack Express app with Telegram bot listeners, use one of these <b>100% free continuous hosts</b>:
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+          {/* Render.com */}
+          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold text-xs text-white">1. Render.com</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Free Tier</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Runs native 24/7 Node.js processes. Connect your GitHub repo, set Build command to <code>npm run build</code>, and Start command to <code>npm run start</code>.
+            </p>
+          </div>
+
+          {/* Koyeb */}
+          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold text-xs text-white">2. Koyeb.com</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Free Instance</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Ultra-fast container hosting with zero sleeping on free tier. Automatically builds and runs Express apps directly from GitHub.
+            </p>
+          </div>
+
+          {/* Railway */}
+          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold text-xs text-white">3. Railway.app</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">Free Trial</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Zero configuration required. Connect GitHub and deploy with a single click. Ideal for background bots.
+            </p>
+          </div>
         </div>
       </div>
 
