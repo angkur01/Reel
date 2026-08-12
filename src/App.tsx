@@ -4,6 +4,7 @@ import { OverviewTab } from './components/OverviewTab';
 import { ReelsTab } from './components/ReelsTab';
 import { AiBrainTab } from './components/AiBrainTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
+import { UptimeTab } from './components/UptimeTab';
 import { SettingsModal } from './components/SettingsModal';
 import { AddReelModal } from './components/AddReelModal';
 import { LoginModal } from './components/LoginModal';
@@ -468,6 +469,8 @@ export default function App() {
         )}
 
         {activeTab === 'analytics' && <AnalyticsTab reels={reels} />}
+
+        {activeTab === 'uptime' && <UptimeTab />}
 
         {activeTab === 'settings' && (
           <SettingsModal

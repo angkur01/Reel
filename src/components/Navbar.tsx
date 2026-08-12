@@ -26,6 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'reels', label: 'Reels', icon: Film, badge: stats?.totalReels },
     { id: 'ai-brain', label: 'AI Brain', icon: Brain, badge: `${stats?.aiChecksUsedToday || 0}/${stats?.aiDailyLimit || 50}` },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'uptime', label: 'Uptime', icon: Server },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 

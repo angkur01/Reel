@@ -611,48 +611,103 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
   }
 }
 
+// Active polling lock & deduplication set
+let pollingTimeout: NodeJS.Timeout | null = null;
+let isPollingInFlight = false;
+let isFirstPoll = true;
+const processedUpdateIds = new Set<number>();
+
 // Telegram Bot Polling Loop
 export function startTelegramBotPolling() {
   if (isPollingActive) return;
   isPollingActive = true;
+  isFirstPoll = true;
 
-  console.log('[Telegram Bot] Starting background polling service...');
+  console.log('[Telegram Bot] Starting background polling service with auto-flush & de-duplication...');
 
-  pollingInterval = setInterval(async () => {
-    const db = loadDb();
-    const { botToken, adminTelegramId, enabled } = db.telegram;
-
-    if (!enabled || !botToken || !adminTelegramId) {
+  const pollCycle = async () => {
+    if (!isPollingActive) return;
+    if (isPollingInFlight) {
+      pollingTimeout = setTimeout(pollCycle, 3000);
       return;
     }
 
+    isPollingInFlight = true;
+
     try {
-      const url = `https://api.telegram.org/bot${botToken}/getUpdates?offset=${lastUpdateId + 1}&timeout=5`;
+      const db = loadDb();
+      const { botToken, adminTelegramId, enabled } = db.telegram;
+
+      if (!enabled || !botToken || !adminTelegramId) {
+        isPollingInFlight = false;
+        pollingTimeout = setTimeout(pollCycle, 5000);
+        return;
+      }
+
+      // On first poll after server boot, flush past updates from Telegram backlog to prevent replay spam
+      if (isFirstPoll) {
+        isFirstPoll = false;
+        try {
+          const flushUrl = `https://api.telegram.org/bot${botToken}/getUpdates?offset=-1&limit=1&timeout=0`;
+          const flushRes = await fetch(flushUrl);
+          if (flushRes.ok) {
+            const flushJson = (await flushRes.json()) as any;
+            if (flushJson.ok && Array.isArray(flushJson.result) && flushJson.result.length > 0) {
+              const latestUpdate = flushJson.result[flushJson.result.length - 1];
+              lastUpdateId = latestUpdate.update_id;
+              console.log(`[Telegram Bot] Flushed historical updates backlog. Set lastUpdateId to ${lastUpdateId}`);
+            }
+          }
+        } catch (e) {
+          console.warn('[Telegram Bot] Exception flushing past updates:', e);
+        }
+      }
+
+      const url = `https://api.telegram.org/bot${botToken}/getUpdates?offset=${lastUpdateId + 1}&timeout=3`;
       const res = await fetch(url);
-      if (!res.ok) return;
 
-      const json = await res.json() as any;
-      if (json.ok && Array.isArray(json.result)) {
-        for (const update of json.result) {
-          lastUpdateId = Math.max(lastUpdateId, update.update_id);
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        if (json.ok && Array.isArray(json.result)) {
+          for (const update of json.result) {
+            const updateId = update.update_id;
+            lastUpdateId = Math.max(lastUpdateId, updateId);
 
-          if (update.message) {
-            await handleTelegramMessage(botToken, adminTelegramId, update.message);
-          } else if (update.callback_query) {
-            await handleTelegramCallback(botToken, adminTelegramId, update.callback_query);
+            if (processedUpdateIds.has(updateId)) {
+              continue; // Skip duplicate update
+            }
+            processedUpdateIds.add(updateId);
+            if (processedUpdateIds.size > 500) {
+              const oldest = Array.from(processedUpdateIds)[0];
+              processedUpdateIds.delete(oldest);
+            }
+
+            if (update.message) {
+              await handleTelegramMessage(botToken, adminTelegramId, update.message);
+            } else if (update.callback_query) {
+              await handleTelegramCallback(botToken, adminTelegramId, update.callback_query);
+            }
           }
         }
       }
     } catch (err) {
       // Suppress transient polling network errors
+    } finally {
+      isPollingInFlight = false;
+      if (isPollingActive) {
+        pollingTimeout = setTimeout(pollCycle, 3000);
+      }
     }
-  }, 4000);
+  };
+
+  pollCycle();
 }
 
 export function stopTelegramBotPolling() {
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
+  if (pollingTimeout) {
+    clearTimeout(pollingTimeout);
+    pollingTimeout = null;
   }
   isPollingActive = false;
+  isPollingInFlight = false;
 }

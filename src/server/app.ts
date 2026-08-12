@@ -15,9 +15,67 @@ export function createExpressApp() {
   app.use(express.json());
   app.use(cookieParser());
 
-  // Health check endpoint
-  app.get('/api/health', (req: Request, res: Response) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  // Health & Uptime Monitoring Endpoints
+  app.get(['/api/health', '/api/uptime'], async (req: Request, res: Response) => {
+    const db = loadDb();
+    const totalReels = db.reels?.length || 0;
+    const totalViews = db.reels?.reduce((sum, r) => sum + (r.views || 0), 0) || 0;
+    const activeProviders = db.providers?.filter((p) => p.enabled).length || 0;
+
+    // Optional query triggers for external cron services (UptimeRobot, Cron-Job.org, Vercel Cron)
+    const triggerFetch = req.query.fetch === 'true' || req.query.cron === 'true';
+    const triggerAi = req.query.ai_check === 'true';
+    const triggerReport = req.query.report === 'true';
+
+    const triggeredActions: string[] = [];
+
+    if (triggerFetch) {
+      triggeredActions.push('automatic_fetch_job');
+      runAutomaticFetchJob().catch((e) => console.error('[Cron Fetch Error]', e));
+    }
+    if (triggerAi) {
+      triggeredActions.push('ai_monitoring_check');
+      runAiMonitoringCheck(false).catch((e) => console.error('[Cron AI Error]', e));
+    }
+    if (triggerReport) {
+      triggeredActions.push('daily_ai_report');
+      generateDailyAiReport().catch((e) => console.error('[Cron Report Error]', e));
+    }
+
+    res.json({
+      status: 'online',
+      service: 'Reel Command Center Pro AI',
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      telegramBot: db.telegram.enabled ? 'active' : 'disabled',
+      stats: {
+        totalReels,
+        totalViews,
+        activeProviders,
+        aiChecksUsedToday: db.aiMeta?.checksUsedToday || 0,
+        aiCheckLimit: db.aiSettings?.dailyCheckLimit || 50,
+        lastAutoFetchAt: db.meta?.lastAutoFetchAt || null,
+        nextScheduledFetchAt: getNextScheduledTime().toISOString(),
+      },
+      triggeredActions,
+    });
+  });
+
+  // Dedicated Cron Job Endpoint for Cron-Job.org / Vercel Cron
+  app.all('/api/cron', async (req: Request, res: Response) => {
+    const db = loadDb();
+    console.log('[Cron Endpoint] External ping received from Uptime/Cron service');
+
+    runAutomaticFetchJob().catch((e) => console.error('[Cron Fetch Error]', e));
+
+    res.json({
+      success: true,
+      message: 'Cron job initiated successfully',
+      timestamp: new Date().toISOString(),
+      reelsCount: db.reels?.length || 0,
+      nextScheduledFetchAt: getNextScheduledTime().toISOString(),
+    });
   });
 
   // ----------------------------------------------------
