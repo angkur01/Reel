@@ -690,10 +690,10 @@ export function createExpressApp() {
     const { botToken, adminTelegramId, enabled } = req.body;
     const db = loadDb();
 
-    if (botToken !== undefined && !botToken.includes('••••')) {
+    if (botToken !== undefined && botToken.trim() !== '' && !botToken.includes('••••')) {
       db.telegram.botToken = botToken.trim();
     }
-    if (adminTelegramId !== undefined) {
+    if (adminTelegramId !== undefined && adminTelegramId.trim() !== '') {
       db.telegram.adminTelegramId = String(adminTelegramId).trim();
     }
     if (enabled !== undefined) {
