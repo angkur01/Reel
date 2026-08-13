@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ApiProvider, TelegramSettings, TestProviderResult } from '../types';
+import { YtdlpMicroserviceTab } from './YtdlpMicroserviceTab';
 import {
   X,
   Key,
@@ -22,7 +23,9 @@ import {
   ChevronUp,
   Database,
   Cloud,
-  RefreshCw
+  RefreshCw,
+  Terminal,
+  Cpu
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -58,7 +61,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveGlobalSettings,
   isInline = false,
 }) => {
-  const [activeTab, setActiveTab] = useState<'apis' | 'telegram' | 'cloud-db' | 'global' | 'security'>('apis');
+  const [activeTab, setActiveTab] = useState<'apis' | 'ytdlp' | 'telegram' | 'cloud-db' | 'global' | 'security'>('apis');
 
   // Global Settings controls state
   const [feeInput, setFeeInput] = useState<string>(stats?.globalFeePercent?.toString() || '3');
@@ -377,6 +380,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </button>
 
         <button
+          id="btn-tab-ytdlp"
+          onClick={() => setActiveTab('ytdlp')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'ytdlp'
+              ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Cpu className="w-4 h-4 text-emerald-400" />
+          <span>🐍 Self-Hosted yt-dlp</span>
+        </button>
+
+        <button
           id="btn-tab-telegram"
           onClick={() => setActiveTab('telegram')}
           className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
@@ -522,6 +538,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="space-y-1.5 bg-slate-900/50 p-3 rounded-xl border border-slate-800/80">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Quick Presets:</span>
                   <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProviderForm({
+                          ...providerForm,
+                          name: '🐍 yt-dlp Microservice (Railway)',
+                          baseUrl: 'https://your-ytdlp-scraper.up.railway.app',
+                          endpointPath: '/fetch',
+                          method: 'GET',
+                          apiKeyLocation: 'header_x_api_key',
+                          urlParamName: 'url',
+                          headersJson: '{\n  "Accept": "application/json"\n}',
+                          customBodyJson: '',
+                          mapping: {
+                            viewsPath: 'views',
+                            likesPath: 'likes',
+                            commentsPath: 'comments',
+                            sharesPath: 'shares',
+                            captionPath: 'caption',
+                            authorPath: 'author',
+                            thumbnailPath: 'thumbnail',
+                          },
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-lg border border-emerald-500/40 transition cursor-pointer font-bold"
+                    >
+                      🐍 yt-dlp Microservice (Free)
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -956,6 +1000,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
           </div>
+        )}
+
+        {/* TAB: SELF-HOSTED YT-DLP MICROSERVICE */}
+        {activeTab === 'ytdlp' && (
+          <YtdlpMicroserviceTab
+            providers={providers}
+            onAddProvider={onAddProvider}
+            onUpdateProvider={onUpdateProvider}
+            onTestProvider={onTestProvider}
+          />
         )}
 
         {/* TAB 2: TELEGRAM BOT INTEGRATION & CONFIGURATION */}

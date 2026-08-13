@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ytdlp-scraper:
+    build: .
+    container_name: ytdlp-scraper-microservice
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - API_KEY=
+      - PROXY_URL=
+    restart: unless-stopped

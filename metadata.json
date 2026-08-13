@@ -1,6 +1,6 @@
 {
   "name": "Instagram Reel Tracker",
-  "description": "Premium AI-Powered Instagram Reel Command Center with Google Gemini & Grok fallback intelligence, milestone alerts, video upload support, and direct Telegram admin dispatch.",
+  "description": "Premium AI-Powered Instagram Reel Command Center with self-hosted yt-dlp microservice support, Google Gemini & Grok fallback intelligence, milestone alerts, and direct Telegram admin dispatch.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
