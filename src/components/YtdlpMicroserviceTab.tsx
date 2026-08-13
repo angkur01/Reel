@@ -95,7 +95,12 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    raw_port = os.getenv("PORT", "8000").strip()
+    try:
+        port = int(raw_port) if raw_port else 8000
+    except (ValueError, TypeError):
+        port = 8000
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
 `;
 
 const DOCKERFILE_CODE = `FROM python:3.11-slim
@@ -118,7 +123,7 @@ ENV PORT=8000
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "main.py"]
 `;
 
 const REQUIREMENTS_CODE = `fastapi>=0.110.0
@@ -134,14 +139,14 @@ const RAILWAY_JSON_CODE = `{
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "uvicorn main:app --host 0.0.0.0 --port $PORT",
+    "startCommand": "python main.py",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
 }
 `;
 
-const PROCFILE_CODE = `web: uvicorn main:app --host 0.0.0.0 --port $PORT
+const PROCFILE_CODE = `web: python main.py
 `;
 
 const DOCKER_COMPOSE_CODE = `version: '3.8'

@@ -18,7 +18,7 @@ A lightweight, zero-subscription Python microservice built with **FastAPI** and 
 2. Connect your repository (or Root Directory: `microservice`).
 3. Set **Runtime** to `Docker` or `Python 3`.
    - Build Command: `pip install -r requirements.txt`
-   - Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - Start Command: `python main.py`
 4. Copy your live Render URL (e.g. `https://my-ytdlp-scraper.onrender.com`).
 
 ### Option 3: Run with Docker / Docker Compose
