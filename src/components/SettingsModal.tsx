@@ -101,7 +101,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     if (activeTab === 'cloud-db') {
-      fetch('/api/firebase/config')
+      const token = localStorage.getItem('admin_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      fetch('/api/firebase/config', { headers })
         .then((r) => r.json())
         .then((data) => {
           if (data.success && data.rawConfig) {
@@ -120,9 +124,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setFbSaving(true);
     setFbStatusMsg(null);
     try {
+      const token = localStorage.getItem('admin_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/firebase/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           projectId: fbProjectId,
           apiKey: fbApiKey,
@@ -147,7 +155,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setFbTesting(true);
     setFbStatusMsg(null);
     try {
-      const res = await fetch('/api/firebase/test', { method: 'POST' });
+      const token = localStorage.getItem('admin_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/firebase/test', { method: 'POST', headers });
       const data = await res.json();
       setFbTesting(false);
       if (data.success) {
@@ -506,6 +518,97 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
 
+                {/* Quick Presets */}
+                <div className="space-y-1.5 bg-slate-900/50 p-3 rounded-xl border border-slate-800/80">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Quick Presets:</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProviderForm({
+                          ...providerForm,
+                          name: 'Refetcher API',
+                          baseUrl: 'https://api.refetcher.com',
+                          endpointPath: '/',
+                          method: 'POST',
+                          apiKeyLocation: 'header_x_api_key',
+                          urlParamName: 'url',
+                          headersJson: '{\n  "Accept": "application/json",\n  "Content-Type": "application/json"\n}',
+                          customBodyJson: '',
+                          mapping: {
+                            viewsPath: 'views',
+                            likesPath: 'likes',
+                            commentsPath: 'comments',
+                            sharesPath: 'shares',
+                            captionPath: 'caption',
+                            authorPath: 'author',
+                            thumbnailPath: 'thumbnail',
+                          },
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg border border-indigo-500/30 transition cursor-pointer"
+                    >
+                      ⚡ Refetcher API
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProviderForm({
+                          ...providerForm,
+                          name: 'RapidAPI Instagram Scraper',
+                          baseUrl: 'https://instagram-scraper-api2.p.rapidapi.com',
+                          endpointPath: '/v1/post_info',
+                          method: 'GET',
+                          apiKeyLocation: 'header_x_rapidapi_key',
+                          urlParamName: 'url_or_code',
+                          headersJson: '{\n  "Accept": "application/json"\n}',
+                          customBodyJson: '',
+                          mapping: {
+                            viewsPath: 'data.metrics.play_count',
+                            likesPath: 'data.metrics.like_count',
+                            commentsPath: 'data.metrics.comment_count',
+                            sharesPath: 'data.metrics.share_count',
+                            captionPath: 'data.caption.text',
+                            authorPath: 'data.owner.username',
+                            thumbnailPath: 'data.thumbnail_url',
+                          },
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg border border-sky-500/30 transition cursor-pointer"
+                    >
+                      🚀 RapidAPI Instagram Scraper
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProviderForm({
+                          ...providerForm,
+                          name: 'Custom Webhook / Scraper',
+                          baseUrl: 'https://your-custom-scraper.com',
+                          endpointPath: '/fetch-reel',
+                          method: 'POST',
+                          apiKeyLocation: 'header_bearer',
+                          urlParamName: 'url',
+                          headersJson: '{\n  "Content-Type": "application/json"\n}',
+                          customBodyJson: '',
+                          mapping: {
+                            viewsPath: 'views',
+                            likesPath: 'likes',
+                            commentsPath: 'comments',
+                            sharesPath: 'shares',
+                            captionPath: 'caption',
+                            authorPath: 'author',
+                            thumbnailPath: 'thumbnail',
+                          },
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-lg border border-purple-500/30 transition cursor-pointer"
+                    >
+                      🔧 Custom Scraper / Proxy
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
                     <label className="block text-slate-300 font-bold mb-1">Provider Name *</label>
@@ -572,11 +675,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       onChange={(e) => setProviderForm({ ...providerForm, apiKeyLocation: e.target.value as any })}
                       className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
                     >
-                      <option value="header_x_api_key">Header (X-API-Key: KEY)</option>
-                      <option value="header_bearer">Authorization: Bearer KEY</option>
-                      <option value="query_api_key">Query Parameter (?api_key=KEY)</option>
-                      <option value="query_key">Query Parameter (?key=KEY)</option>
-                      <option value="body_api_key">JSON Body ("api_key": "KEY")</option>
+                      <option value="header_x_api_key">Header: X-API-Key: KEY</option>
+                      <option value="header_x_rapidapi_key">Header: X-RapidAPI-Key: KEY (RapidAPI)</option>
+                      <option value="header_bearer">Header: Authorization: Bearer KEY</option>
+                      <option value="query_api_key">Query Parameter: ?api_key=KEY</option>
+                      <option value="query_key">Query Parameter: ?key=KEY</option>
+                      <option value="query_token">Query Parameter: ?token=KEY</option>
+                      <option value="body_api_key">JSON Body: "api_key": "KEY"</option>
                     </select>
                   </div>
 

@@ -37,7 +37,7 @@ function extractField(obj: any, configuredPath: string | undefined, candidateKey
     if (val !== undefined && val !== null) return val;
   }
   
-  // Search candidates at top level or inside "data", "results", "result", "response", "item", "media", "post", "reel"
+  // Search candidates across all candidate root/child object scopes
   const firstResult = Array.isArray(obj?.results) ? obj.results[0] : (Array.isArray(obj?.data) ? obj.data[0] : (Array.isArray(obj?.items) ? obj.items[0] : null));
   const scopes = [
     obj, 
@@ -50,7 +50,10 @@ function extractField(obj: any, configuredPath: string | undefined, candidateKey
     obj?.post, 
     obj?.reel,
     obj?.metrics,
-    firstResult?.metrics
+    obj?.shortcode_media,
+    obj?.graphql?.shortcode_media,
+    firstResult?.metrics,
+    firstResult?.shortcode_media,
   ];
   
   for (const scope of scopes) {
@@ -68,6 +71,57 @@ function extractField(obj: any, configuredPath: string | undefined, candidateKey
 export function sanitizeApiKey(str: string, apiKey: string): string {
   if (!apiKey || !str) return str || '';
   return str.split(apiKey).join('[REDACTED_API_KEY]');
+}
+
+// Format clean error details from raw response text
+function parseDetailedApiError(responseText: string, httpStatus: number, cleanApiKey: string): string {
+  let detailed = '';
+  try {
+    const json = JSON.parse(responseText);
+    if (json.errors) {
+      if (typeof json.errors === 'object' && json.errors !== null) {
+        const entries = Object.entries(json.errors).map(([k, v]) => {
+          if (typeof v === 'string') return v;
+          if (typeof v === 'object' && v !== null && (v as any).message) return (v as any).message;
+          return `${k}: ${JSON.stringify(v)}`;
+        });
+        detailed = entries.join(', ');
+      } else {
+        detailed = String(json.errors);
+      }
+    } else if (json.error) {
+      if (typeof json.error === 'string') {
+        detailed = json.error;
+      } else if (typeof json.error === 'object' && json.error !== null) {
+        detailed = json.error.message || json.error.msg || json.error.description || JSON.stringify(json.error);
+      }
+    } else if (json.message) {
+      detailed = String(json.message);
+    } else if (json.msg) {
+      detailed = String(json.msg);
+    } else if (json.failed) {
+      detailed = `Upstream fetch failed (code: ${json.failed})`;
+    }
+  } catch (e) {
+    // text not json
+  }
+
+  if (httpStatus === 401 || httpStatus === 403) {
+    return `HTTP ${httpStatus}: Invalid or missing API key (${detailed || 'Unauthorized'})`;
+  }
+  if (httpStatus === 429) {
+    return `HTTP 429: API rate limit or quota balance depleted (${detailed || 'Too Many Requests'})`;
+  }
+  if (httpStatus === 404) {
+    return `HTTP 404: Endpoint or Reel not found (${detailed || 'Not Found'})`;
+  }
+  if (httpStatus === 502 || httpStatus === 503 || httpStatus === 504) {
+    return `HTTP ${httpStatus} (Bad Gateway / Upstream Error): ${detailed || 'The scraping provider encountered a temporary error reaching Instagram'}`;
+  }
+  if (detailed) {
+    return `HTTP ${httpStatus}: ${detailed}`;
+  }
+  return `HTTP ${httpStatus}: ${responseText.slice(0, 160)}`;
 }
 
 // Execute request to a single provider
@@ -100,9 +154,14 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
       }
     }
 
-    // Apply API key location
+    // Apply API key location & parameters
     const urlObj = new URL(targetUrl);
     const paramName = provider.urlParamName || 'url';
+
+    // Auto-detect RapidAPI host header if calling rapidapi
+    if (urlObj.hostname.includes('rapidapi.com') && !headers['x-rapidapi-host']) {
+      headers['x-rapidapi-host'] = urlObj.hostname;
+    }
 
     if (provider.method === 'GET') {
       urlObj.searchParams.set(paramName, cleanUrl);
@@ -110,6 +169,8 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
         urlObj.searchParams.set('api_key', cleanApiKey);
       } else if (provider.apiKeyLocation === 'query_key') {
         urlObj.searchParams.set('key', cleanApiKey);
+      } else if (provider.apiKeyLocation === 'query_token') {
+        urlObj.searchParams.set('token', cleanApiKey);
       }
     }
 
@@ -124,6 +185,11 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
           if (k.toLowerCase() === 'x-api-key') delete headers[k];
         }
         headers['x-api-key'] = cleanApiKey;
+      } else if (provider.apiKeyLocation === 'header_x_rapidapi_key') {
+        for (const k of Object.keys(headers)) {
+          if (k.toLowerCase() === 'x-rapidapi-key') delete headers[k];
+        }
+        headers['x-rapidapi-key'] = cleanApiKey;
       }
     }
 
@@ -169,20 +235,11 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
     const sanitizedRawSnippet = sanitizeApiKey(responseText.slice(0, 1000), cleanApiKey);
 
     if (!response.ok) {
-      let errMsg = `HTTP ${httpStatus} ${response.statusText}`;
-      if (httpStatus === 401 || httpStatus === 403) {
-        errMsg = `HTTP ${httpStatus}: Invalid API key or permission denied`;
-      } else if (httpStatus === 429) {
-        errMsg = `HTTP 429: API quota exceeded / Out of balance`;
-      } else if (httpStatus === 404) {
-        errMsg = `HTTP 404: Endpoint or Reel not found`;
-      } else if (sanitizedRawSnippet) {
-        errMsg = `HTTP ${httpStatus}: ${sanitizedRawSnippet.slice(0, 200)}`;
-      }
+      const errMsg = parseDetailedApiError(responseText, httpStatus, cleanApiKey);
       return {
         success: false,
         httpStatus,
-        error: errMsg,
+        error: sanitizeApiKey(errMsg, cleanApiKey),
         rawSnippet: sanitizedRawSnippet,
       };
     }
@@ -201,8 +258,8 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
     }
 
     // Check if JSON response explicitly marks error/failure
-    if (json.success === false || json.status === 'error' || json.error) {
-      const apiErr = json.message || json.error || json.msg || 'API returned error status';
+    if (json.success === false || json.status === 'error' || (json.error && !json.data && !json.views)) {
+      const apiErr = json.message || (typeof json.error === 'object' ? json.error?.message : json.error) || json.msg || 'API returned error status';
       return {
         success: false,
         httpStatus,
@@ -214,13 +271,27 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
     // Extract statistics fields
     const m = provider.mapping || ({} as Partial<ApiProvider['mapping']>);
     
-    const rawViews = extractField(json, m.viewsPath, ['views', 'view_count', 'video_view_count', 'play_count', 'plays', 'playCount', 'views_count']);
-    const rawLikes = extractField(json, m.likesPath, ['likes', 'like_count', 'likes_count', 'likeCount']);
-    const rawComments = extractField(json, m.commentsPath, ['comments', 'comment_count', 'comments_count', 'commentCount']);
-    const rawShares = extractField(json, m.sharesPath, ['shares', 'share_count', 'shares_count', 'shareCount']);
-    const rawCaption = extractField(json, m.captionPath, ['caption', 'text', 'title', 'description', 'caption_text']);
-    const rawAuthor = extractField(json, m.authorPath, ['author', 'username', 'owner_username', 'user_username', 'owner', 'user']);
-    const rawThumbnail = extractField(json, m.thumbnailPath, ['thumbnail', 'display_url', 'cover', 'image_url', 'cover_url', 'thumbnail_url', 'image']);
+    const rawViews = extractField(json, m.viewsPath, [
+      'views', 'view_count', 'video_view_count', 'play_count', 'video_play_count', 'plays', 'playCount', 'views_count'
+    ]);
+    const rawLikes = extractField(json, m.likesPath, [
+      'likes', 'like_count', 'likes_count', 'likeCount', 'edge_media_preview_like.count', 'edge_liked_by.count'
+    ]);
+    const rawComments = extractField(json, m.commentsPath, [
+      'comments', 'comment_count', 'comments_count', 'commentCount', 'edge_media_to_comment.count'
+    ]);
+    const rawShares = extractField(json, m.sharesPath, [
+      'shares', 'share_count', 'shares_count', 'shareCount', 'reposts', 'repost_count'
+    ]);
+    const rawCaption = extractField(json, m.captionPath, [
+      'caption', 'text', 'title', 'description', 'caption_text', 'edge_media_to_caption.edges[0].node.text'
+    ]);
+    const rawAuthor = extractField(json, m.authorPath, [
+      'author', 'username', 'owner_username', 'user_username', 'owner.username', 'user.username', 'owner', 'user'
+    ]);
+    const rawThumbnail = extractField(json, m.thumbnailPath, [
+      'thumbnail', 'display_url', 'cover', 'image_url', 'cover_url', 'thumbnail_url', 'image', 'display_src'
+    ]);
 
     // Helper to format number
     const parseNum = (val: any): number => {
@@ -229,6 +300,9 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
         const cleaned = val.replace(/,/g, '').trim();
         const num = parseInt(cleaned, 10);
         return isNaN(num) ? 0 : Math.max(0, num);
+      }
+      if (typeof val === 'object' && val !== null && typeof val.count === 'number') {
+        return Math.max(0, val.count);
       }
       return 0;
     };
@@ -239,6 +313,7 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
       if (typeof val === 'string') return val.trim();
       if (typeof val === 'object' && val.username) return String(val.username);
       if (typeof val === 'object' && val.text) return String(val.text);
+      if (typeof val === 'object' && val.name) return String(val.name);
       return String(val);
     };
 
@@ -250,7 +325,7 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
     const author = parseStr(rawAuthor);
     let thumbnail = parseStr(rawThumbnail);
 
-    // If thumbnail is empty, we can supply a placeholder or instagram generic poster
+    // If thumbnail is empty, supply default placeholder
     if (!thumbnail) {
       thumbnail = `https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80`;
     }

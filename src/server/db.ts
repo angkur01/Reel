@@ -76,7 +76,7 @@ const defaultProviders: ApiProvider[] = [
     baseUrl: process.env.PROVIDER_BASE_URL || 'https://api.refetcher.com',
     endpointPath: '/',
     method: 'POST',
-    apiKey: process.env.PROVIDER_API_KEY || process.env.RAPIDAPI_KEY || '',
+    apiKey: process.env.PROVIDER_API_KEY || '',
     apiKeyLocation: 'header_x_api_key',
     urlParamName: 'url',
     headersJson: '{\n  "Accept": "application/json",\n  "Content-Type": "application/json"\n}',
@@ -92,6 +92,32 @@ const defaultProviders: ApiProvider[] = [
     },
     enabled: true,
     priority: 1,
+    lastTestedAt: null,
+    lastTestStatus: null,
+    lastTestError: null,
+  },
+  {
+    id: 'provider_rapidapi_default',
+    name: 'RapidAPI Instagram Scraper',
+    baseUrl: 'https://instagram-scraper-api2.p.rapidapi.com',
+    endpointPath: '/v1/post_info',
+    method: 'GET',
+    apiKey: process.env.RAPIDAPI_KEY || '',
+    apiKeyLocation: 'header_x_rapidapi_key',
+    urlParamName: 'url_or_code',
+    headersJson: '{\n  "Accept": "application/json"\n}',
+    customBodyJson: '',
+    mapping: {
+      viewsPath: 'data.metrics.play_count',
+      likesPath: 'data.metrics.like_count',
+      commentsPath: 'data.metrics.comment_count',
+      sharesPath: 'data.metrics.share_count',
+      captionPath: 'data.caption.text',
+      authorPath: 'data.owner.username',
+      thumbnailPath: 'data.thumbnail_url',
+    },
+    enabled: false,
+    priority: 2,
     lastTestedAt: null,
     lastTestStatus: null,
     lastTestError: null,
@@ -165,52 +191,19 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
     if (!r || !r.id || deletedSet.has(r.id)) return;
     const cleanUrl = normalizeInstagramUrl(r.url) || r.url;
 
-    // Check if another reel entry has the exact same canonical URL
-    const canonicalId = urlToReelIdMap.get(cleanUrl);
-    if (canonicalId && canonicalId !== r.id) {
-      const existing = reelMap.get(canonicalId);
-      if (existing) {
-        const existingTime = new Date(existing.lastUpdatedAt || existing.createdAt || 0).getTime();
-        const rTime = new Date(r.lastUpdatedAt || r.createdAt || 0).getTime();
+    // Check if we already have this reel by ID or canonical URL
+    const existingId = urlToReelIdMap.get(cleanUrl) || (reelMap.has(r.id) ? r.id : undefined);
+    const existing = existingId ? reelMap.get(existingId) : undefined;
 
-        if (rTime > existingTime || (r.views || 0) > (existing.views || 0)) {
-          deletedSet.add(canonicalId);
-          urlToReelIdMap.set(cleanUrl, r.id);
-          reelMap.delete(canonicalId);
-          reelMap.set(r.id, {
-            ...existing,
-            ...r,
-            url: cleanUrl,
-            views: Math.max(r.views || 0, existing.views || 0),
-            likes: Math.max(r.likes || 0, existing.likes || 0),
-            comments: Math.max(r.comments || 0, existing.comments || 0),
-            shares: Math.max(r.shares || 0, existing.shares || 0),
-          });
-        } else {
-          deletedSet.add(r.id);
-          reelMap.set(canonicalId, {
-            ...r,
-            ...existing,
-            url: cleanUrl,
-            views: Math.max(existing.views || 0, r.views || 0),
-            likes: Math.max(existing.likes || 0, r.likes || 0),
-            comments: Math.max(existing.comments || 0, r.comments || 0),
-            shares: Math.max(existing.shares || 0, r.shares || 0),
-          });
-        }
-        return;
-      }
-    }
-
-    const existing = reelMap.get(r.id);
     if (!existing) {
       reelMap.set(r.id, { ...r, url: cleanUrl });
       if (cleanUrl) urlToReelIdMap.set(cleanUrl, r.id);
     } else {
+      // Merge properties cleanly without deleting either ID from future additions
+      const targetId = existing.id || r.id;
       const existingTime = new Date(existing.lastUpdatedAt || existing.createdAt || 0).getTime();
       const rTime = new Date(r.lastUpdatedAt || r.createdAt || 0).getTime();
 
-      // Always preserve maximum views, engagement stats, and 24h growth across merges
       const maxViews = Math.max(r.views || 0, existing.views || 0);
       const maxLikes = Math.max(r.likes || 0, existing.likes || 0);
       const maxComments = Math.max(r.comments || 0, existing.comments || 0);
@@ -219,16 +212,26 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
 
       const dominant = rTime >= existingTime ? { ...existing, ...r } : { ...r, ...existing };
 
-      reelMap.set(r.id, {
+      const mergedReel: Reel = {
         ...dominant,
+        id: targetId,
         url: cleanUrl,
+        name: dominant.name || existing.name || r.name || 'Instagram Reel',
+        thumbnail: dominant.thumbnail || existing.thumbnail || r.thumbnail,
+        caption: dominant.caption || existing.caption || r.caption,
+        author: dominant.author || existing.author || r.author,
         views: maxViews,
         likes: maxLikes,
         comments: maxComments,
         shares: maxShares,
         growth24h: maxGrowth,
-      });
-      if (cleanUrl) urlToReelIdMap.set(cleanUrl, r.id);
+        status: (r.status === 'fetching' || existing.status === 'fetching') 
+          ? 'fetching' 
+          : (dominant.status || 'success'),
+      };
+
+      reelMap.set(targetId, mergedReel);
+      if (cleanUrl) urlToReelIdMap.set(cleanUrl, targetId);
     }
   };
 
@@ -284,6 +287,12 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   const mergedProviders = Array.from(providerMap.values());
   if (mergedProviders.length === 0) {
     mergedProviders.push(...defaultProviders);
+  } else {
+    for (const dp of defaultProviders) {
+      if (!mergedProviders.some(p => p.id === dp.id) && !deletedProviderSet.has(dp.id)) {
+        mergedProviders.push(dp);
+      }
+    }
   }
 
   const bestTelegramToken = (local.telegram?.botToken && !local.telegram?.botToken.includes('••••'))

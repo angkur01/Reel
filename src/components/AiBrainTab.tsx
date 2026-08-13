@@ -61,9 +61,13 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
     setIsTestingGroq(true);
     setTestResult(null);
     try {
+      const token = localStorage.getItem('admin_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/ai/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ apiKey: groqKey, model: 'groq' }),
       });
       const data = await res.json();

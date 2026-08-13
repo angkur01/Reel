@@ -99,6 +99,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     token = authHeader.substring(7).trim();
   } else if (req.cookies && req.cookies.admin_session) {
     token = req.cookies.admin_session;
+  } else if (req.query && typeof req.query.token === 'string') {
+    token = req.query.token.trim();
   }
 
   if (isValidSession(token)) {

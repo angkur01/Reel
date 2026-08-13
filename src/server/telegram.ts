@@ -305,7 +305,8 @@ async function handleTelegramMessage(botToken: string, adminTelegramId: string, 
       const db = loadDb();
       const existing = db.reels.find(r => normalizeInstagramUrl(r.url) === reelUrl);
       if (existing) {
-        await sendTelegramMessage(botToken, chatId, `⚠️ <b>Reel Already Exists:</b> ${existing.name} (${existing.views} views)\nUse ⚡ Force Refresh to update stats.`);
+        await sendTelegramMessage(botToken, chatId, `🔄 <b>Reel "${existing.name}" is already tracked (${(existing.views || 0).toLocaleString()} views).</b>\nRefreshing statistics now...`);
+        executeTelegramForceRefresh(existing.id, chatId).catch(() => {});
         return;
       }
 

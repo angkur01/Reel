@@ -312,14 +312,33 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           {/* Export Stats Button */}
-          <a
-            href="/api/reels/export?format=csv"
-            download="reels_analytics.csv"
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const token = localStorage.getItem('admin_token');
+                const headers: Record<string, string> = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                const res = await fetch(`/api/reels/export?format=csv${token ? `&token=${encodeURIComponent(token)}` : ''}`, { headers });
+                if (!res.ok) throw new Error('Failed to export CSV');
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `reels_analytics_${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+              } catch (e: any) {
+                alert('Could not export CSV: ' + (e.message || 'Unknown error'));
+              }
+            }}
             className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500 text-slate-200 text-xs font-bold transition cursor-pointer"
           >
             <Download className="w-4 h-4 text-indigo-400" />
             <span>Export Analytics CSV</span>
-          </a>
+          </button>
         </div>
 
       </div>

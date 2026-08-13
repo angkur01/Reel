@@ -13,7 +13,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ reels }) => {
   const [selectedReelId, setSelectedReelId] = useState<string>('all');
 
   useEffect(() => {
-    fetch('/api/reels/history')
+    const token = localStorage.getItem('admin_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    fetch('/api/reels/history', { headers })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {

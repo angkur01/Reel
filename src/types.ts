@@ -69,7 +69,7 @@ export interface ApiProvider {
   endpointPath: string; // e.g. /v1/instagram/reel
   method: 'GET' | 'POST';
   apiKey: string; // Kept server side, sent as header or query param
-  apiKeyLocation: 'header_bearer' | 'header_x_api_key' | 'query_api_key' | 'query_key' | 'body_api_key';
+  apiKeyLocation: 'header_bearer' | 'header_x_api_key' | 'header_x_rapidapi_key' | 'query_api_key' | 'query_key' | 'query_token' | 'body_api_key';
   urlParamName: string; // parameter name for the instagram reel URL, e.g. "url" or "link"
   headersJson?: string; // custom headers JSON string if needed
   customBodyJson?: string; // custom payload template if needed
