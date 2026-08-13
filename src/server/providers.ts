@@ -1,4 +1,5 @@
 import { ApiProvider, TestProviderResult } from '../types.js';
+import { logSystemEvent } from './logger.js';
 
 export interface FetchedReelData {
   views: number;
@@ -219,6 +220,7 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
     }
 
     // Log attempt (sanitized)
+    const startTime = Date.now();
     const sanitizedUrl = sanitizeApiKey(urlObj.toString(), cleanApiKey);
     console.log(`[Provider Attempt] Calling ${provider.name} -> ${sanitizedUrl}`);
 
@@ -229,6 +231,7 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
 
     const response = await fetch(urlObj.toString(), fetchOptions);
     clearTimeout(timeoutId);
+    const durationMs = Date.now() - startTime;
 
     const httpStatus = response.status;
     const responseText = await response.text();
@@ -236,6 +239,14 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
 
     if (!response.ok) {
       const errMsg = parseDetailedApiError(responseText, httpStatus, cleanApiKey);
+      logSystemEvent(
+        'error',
+        'provider',
+        `Provider ${provider.name} returned HTTP ${httpStatus}`,
+        { error: errMsg, url: sanitizedUrl, snippet: sanitizedRawSnippet },
+        { providerName: provider.name, httpStatus, url: sanitizedUrl },
+        durationMs
+      );
       return {
         success: false,
         httpStatus,
@@ -254,6 +265,15 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
         ? 'Provider returned an HTML web page instead of JSON API response. This occurs when the deployed Railway/Render service is running the root Web Frontend instead of the Python microservice in "/microservice". In Railway: go to Settings -> Build -> set "Root Directory" to "/microservice" and redeploy.'
         : `Provider response was not valid JSON: ${sanitizedRawSnippet.slice(0, 150)}`;
 
+      logSystemEvent(
+        'error',
+        'provider',
+        `Provider ${provider.name} response JSON parsing error`,
+        { error: errorDetail, rawSnippet: sanitizedRawSnippet },
+        { providerName: provider.name, httpStatus, url: sanitizedUrl },
+        durationMs
+      );
+
       return {
         success: false,
         httpStatus,
@@ -265,6 +285,14 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
     // Check if JSON response explicitly marks error/failure
     if (json.success === false || json.status === 'error' || (json.error && !json.data && !json.views)) {
       const apiErr = json.message || (typeof json.error === 'object' ? json.error?.message : json.error) || json.msg || 'API returned error status';
+      logSystemEvent(
+        'warn',
+        'provider',
+        `Provider ${provider.name} returned API error status`,
+        { error: apiErr, raw: sanitizedRawSnippet },
+        { providerName: provider.name, httpStatus, url: sanitizedUrl },
+        durationMs
+      );
       return {
         success: false,
         httpStatus,
@@ -345,6 +373,20 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
       thumbnail,
     };
 
+    logSystemEvent(
+      'success',
+      'provider',
+      `Extracted stats via ${provider.name}: ${views.toLocaleString()} views, ${likes.toLocaleString()} likes`,
+      { views, likes, comments, shares, author, captionSnippet: caption.slice(0, 100) },
+      {
+        providerName: provider.name,
+        httpStatus,
+        url: sanitizedUrl,
+        stats: { views, likes, comments, shares },
+      },
+      durationMs
+    );
+
     return {
       success: true,
       httpStatus,
@@ -357,6 +399,15 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
     const errMessage = err?.name === 'AbortError' 
       ? 'Request timed out (20s timeout exceeded)' 
       : (err?.message || 'Network request failed');
+
+    logSystemEvent(
+      'error',
+      'provider',
+      `Provider ${provider.name} network exception: ${errMessage}`,
+      { error: errMessage, url: reelUrl },
+      { providerName: provider.name, url: reelUrl }
+    );
+
     return {
       success: false,
       httpStatus: 0,

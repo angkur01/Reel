@@ -5,6 +5,7 @@ import { ReelsTab } from './components/ReelsTab';
 import { CpmCampaignsTab } from './components/CpmCampaignsTab';
 import { AiBrainTab } from './components/AiBrainTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
+import { LogsTab } from './components/LogsTab';
 import { UptimeTab } from './components/UptimeTab';
 import { SettingsModal } from './components/SettingsModal';
 import { AddReelModal } from './components/AddReelModal';
@@ -599,6 +600,8 @@ export default function App() {
         )}
 
         {activeTab === 'analytics' && <AnalyticsTab reels={reels} />}
+
+        {activeTab === 'logs' && <LogsTab authFetch={authFetch} />}
 
         {activeTab === 'uptime' && <UptimeTab />}
 

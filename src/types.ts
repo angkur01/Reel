@@ -159,6 +159,43 @@ export interface TestProviderResult {
   };
 }
 
+export interface SystemLogEntry {
+  id: string;
+  timestamp: string;
+  level: 'info' | 'warn' | 'error' | 'success';
+  category: 'scraper' | 'provider' | 'telegram' | 'ai' | 'auth' | 'scheduler' | 'database' | 'http';
+  message: string;
+  details?: string;
+  durationMs?: number;
+  metadata?: {
+    reelId?: string;
+    reelName?: string;
+    providerName?: string;
+    httpStatus?: number;
+    url?: string;
+    model?: string;
+    chatId?: string;
+    stats?: {
+      views?: number;
+      likes?: number;
+      comments?: number;
+      shares?: number;
+    };
+  };
+}
+
+export interface SystemLogsResponse {
+  success: boolean;
+  logs: SystemLogEntry[];
+  total: number;
+  metrics: {
+    total: number;
+    errors: number;
+    successes: number;
+    scrapers: number;
+  };
+}
+
 export interface SystemStats {
   totalReels: number;
   totalViews: number;

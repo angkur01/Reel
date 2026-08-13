@@ -9,7 +9,8 @@ import { getNextScheduledTime, runAutomaticFetchJob } from './scheduler.js';
 import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi, generateGroqTitle } from './ai.js';
 import { calculateReelCpm, applyCpmToReel, recalculateAllDbReelsCpm, getDbCpmTotals } from './cpm.js';
 import { updateReelWithFetchResult, recalculateAllReelsGrowthAndCpm, generateTwoWordTitleFromCaption } from './statsHelper.js';
-import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign } from '../types.js';
+import { logSystemEvent, getSystemLogs, clearSystemLogs } from './logger.js';
+import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign, SystemLogEntry } from '../types.js';
 
 export function createExpressApp() {
   const app = express();
@@ -1001,6 +1002,44 @@ export function createExpressApp() {
   app.get('/api/logs', requireAuth, (req: Request, res: Response) => {
     const db = loadDb();
     res.json({ success: true, logs: db.logs || [] });
+  });
+
+  // Get Live Comprehensive System & Scraper Logs
+  app.get('/api/system/logs', requireAuth, (req: Request, res: Response) => {
+    const category = req.query.category as string | undefined;
+    const level = req.query.level as string | undefined;
+    const search = req.query.search as string | undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 300;
+    const sinceTimestamp = req.query.since as string | undefined;
+
+    const data = getSystemLogs({
+      category,
+      level,
+      search,
+      limit,
+      sinceTimestamp,
+    });
+
+    res.json({
+      success: true,
+      logs: data.logs,
+      total: data.total,
+      metrics: data.metrics,
+    });
+  });
+
+  // Clear System Logs
+  app.post('/api/system/logs/clear', requireAuth, (req: Request, res: Response) => {
+    clearSystemLogs();
+    res.json({ success: true, message: 'All system logs cleared successfully' });
+  });
+
+  // Export System Logs
+  app.get('/api/system/logs/export', requireAuth, (req: Request, res: Response) => {
+    const data = getSystemLogs({ limit: 1000 });
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=reel-command-logs-${new Date().toISOString().slice(0, 10)}.json`);
+    res.send(JSON.stringify(data.logs, null, 2));
   });
 
   // Get Enhanced System Stats
