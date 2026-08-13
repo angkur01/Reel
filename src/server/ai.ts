@@ -405,9 +405,9 @@ EXACT PRE-CALCULATED DATA (DO NOT CHANGE OR RECALCULATE ANY NUMBERS):
 - Campaign Name: ${campaignName}
 - Reel Name: ${reelName}
 - Current Views: ${views.toLocaleString()}
-- Total CPM Earnings (before 3% fee): $${cpmEarnings.toFixed(2)}
-- 3% Processing Fee: $${fee3Percent.toFixed(2)}
-- Estimated Payout (after 3% fee): $${estimatedPayout.toFixed(2)}
+- Total CPM Earnings (before 8% fee): $${cpmEarnings.toFixed(2)}
+- 8% Processing Fee: $${fee3Percent.toFixed(2)}
+- Estimated Payout (after 8% fee): $${estimatedPayout.toFixed(2)}
 
 INSTRUCTIONS:
 1. Write a hyped, energetic, natural message (e.g., starting with "🚀 YOOO! ${campaignName} is moving! 🔥" or "🔥 Huge update for ${campaignName}!").
@@ -415,7 +415,7 @@ INSTRUCTIONS:
    - Campaign Name: ${campaignName}
    - Current Views: ${views.toLocaleString()}
    - CPM Earnings: $${cpmEarnings.toFixed(2)}
-   - Estimated Payout: $${estimatedPayout.toFixed(2)} (explicitly mentioning it is after the 3% fee)
+   - Estimated Payout: $${estimatedPayout.toFixed(2)} (explicitly mentioning it is after the 8% fee)
 3. Do NOT invent or recalculate any numbers. Use ONLY the exact numbers provided.
 4. Keep it under 5 sentences, using appropriate creator emojis (🔥, 🚀, 👀, 💰, 📈).
 5. Do NOT use markdown code blocks or json wrappers. Return raw plain text.`;
@@ -428,7 +428,7 @@ INSTRUCTIONS:
   // Fallback energetic message if AI model call is disabled/fails
   return `🚀 YOOO! ${campaignName} is moving! 🔥
 That Reel '${reelName}' just hit ${views.toLocaleString()} views! 👀
-You're sitting at $${cpmEarnings.toFixed(2)} CPM earnings, which puts your estimated payout at $${estimatedPayout.toFixed(2)} after the 3% fee. 💰
+You're sitting at $${cpmEarnings.toFixed(2)} CPM earnings, which puts your estimated payout at $${estimatedPayout.toFixed(2)} after the 8% fee. 💰
 Let's keep it climbing! 📈`;
 }
 

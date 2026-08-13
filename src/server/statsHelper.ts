@@ -128,7 +128,7 @@ export function updateReelWithFetchResult(
   }
 
   // 3. Recalculate CPM earnings & payout
-  applyCpmToReel(reel, db.cpmCampaigns || [], db.meta?.globalFeePercent ?? 3);
+  applyCpmToReel(reel, db.cpmCampaigns || [], 8);
 
   return { viewGain, isNewGrowth: viewGain > 0 };
 }
@@ -139,7 +139,7 @@ export function updateReelWithFetchResult(
 export function recalculateAllReelsGrowthAndCpm(db: DatabaseSchema) {
   const now = Date.now();
   const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
-  const feePercent = db.meta?.globalFeePercent ?? 3;
+  const feePercent = 8;
 
   for (const reel of db.reels) {
     const reelHistory = (db.history || []).filter(h => h.reelId === reel.id);

@@ -79,12 +79,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setGlobalSaving(true);
     setGlobalStatusMsg(null);
     try {
-      const parsedFee = parseFloat(feeInput);
       await onSaveGlobalSettings({
-        globalFeePercent: isNaN(parsedFee) ? 3 : Math.max(0, parsedFee),
         scheduleIntervalHours: intervalChoice,
       });
-      setGlobalStatusMsg({ type: 'success', text: 'Global CPM Fee % and Schedule Interval updated successfully!' });
+      setGlobalStatusMsg({ type: 'success', text: 'Auto-Fetch Schedule Interval updated successfully!' });
     } catch (err: any) {
       setGlobalStatusMsg({ type: 'error', text: err.message || 'Failed to save global settings' });
     } finally {
@@ -1147,10 +1145,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Zap className="w-4 h-4 text-amber-400" />
-                <span>Global CPM Platform Fee % & Scheduler Interval Controls</span>
+                <span>Global CPM Platform Fee & Scheduler Interval Controls</span>
               </h3>
               <p className="text-xs text-slate-400">
-                Directly configure your app's global fee deduction % across all campaigns and adjust the automatic cron refresh gap (1 hour, 2 hours, 4 hours, 6 hours, or 12 hours).
+                Platform fee is fixed at 8% across all CPM campaigns. Adjust the automatic cron refresh gap below (1 hour, 2 hours, 4 hours, 6 hours, or 12 hours).
               </p>
             </div>
 
@@ -1168,50 +1166,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             <form onSubmit={handleSaveGlobal} className="space-y-6">
-              {/* Section 1: Global Fee % */}
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+              {/* Section 1: Global Fee % (Fixed 8%) */}
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-200 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-emerald-400" />
                     <span>Global CPM Platform Fee %</span>
                   </label>
                   <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                    Active: {feeInput}% Fee
+                    Fixed 8% Fee Active
                   </span>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-slate-400 mr-2">Quick Presets:</span>
-                  {[3, 5, 9, 10].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setFeeInput(preset.toString())}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
-                        feeInput === preset.toString()
-                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-extrabold shadow-md shadow-emerald-500/20'
-                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      {preset}% Fee
-                    </button>
-                  ))}
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400">Custom Fee Percentage (%):</label>
-                  <input
-                    id="input-custom-global-fee"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={feeInput}
-                    onChange={(e) => setFeeInput(e.target.value)}
-                    placeholder="3"
-                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 font-mono text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+                <p className="text-xs text-slate-400">
+                  Standard 8% platform fee automatically deducted from all CPM earnings.
+                </p>
               </div>
 
               {/* Section 2: Schedule Gap */}

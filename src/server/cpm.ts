@@ -14,17 +14,17 @@ export interface CpmCalculationResult {
 }
 
 /**
- * Calculates CPM earnings, 3% processing fee, and estimated payout for a reel's views.
+ * Calculates CPM earnings, 8% processing fee, and estimated payout for a reel's views.
  *
  * Rules:
  * - If views < minViews: eligibleViews = 0, status = 'below_minimum', CPM earnings = $0
  * - If views >= minViews and views <= maxViews (or maxViews === 0): eligibleViews = actual views, status = 'eligible'
  * - If maxViews > 0 and views > maxViews: eligibleViews = maxViews, status = 'capped_at_max'
  * - CPM Earnings = (eligibleViews / 1000) * cpmRate
- * - 3% Fee = cpmEarnings * 0.03
- * - Estimated Payout = cpmEarnings - 3% Fee
+ * - 8% Fee = cpmEarnings * 0.08
+ * - Estimated Payout = cpmEarnings - 8% Fee
  */
-export function calculateReelCpm(views: number, campaign?: CpmCampaign | null, globalFeePercent: number = 3): CpmCalculationResult {
+export function calculateReelCpm(views: number, campaign?: CpmCampaign | null, globalFeePercent: number = 8): CpmCalculationResult {
   if (!campaign || !campaign.enabled) {
     return {
       campaignId: campaign?.id || null,
@@ -60,7 +60,7 @@ export function calculateReelCpm(views: number, campaign?: CpmCampaign | null, g
   }
 
   // Exact monetary calculations with 2 decimal place safety using dynamic global fee %
-  const feePercent = (typeof globalFeePercent === 'number' && !isNaN(globalFeePercent) && globalFeePercent >= 0) ? globalFeePercent : 3;
+  const feePercent = (typeof globalFeePercent === 'number' && !isNaN(globalFeePercent) && globalFeePercent >= 0) ? globalFeePercent : 8;
   const rawEarnings = (eligibleViews / 1000) * cpm;
   const cpmEarnings = Math.round(rawEarnings * 100) / 100;
   const fee3Percent = Math.round(cpmEarnings * (feePercent / 100) * 100) / 100;
@@ -83,7 +83,7 @@ export function calculateReelCpm(views: number, campaign?: CpmCampaign | null, g
 /**
  * Recalculates CPM metrics directly on a Reel object in-place.
  */
-export function applyCpmToReel(reel: Reel, campaigns: CpmCampaign[], globalFeePercent: number = 3): Reel {
+export function applyCpmToReel(reel: Reel, campaigns: CpmCampaign[], globalFeePercent: number = 8): Reel {
   if (!reel.campaignId) {
     reel.campaignName = null;
     reel.cpmRate = 0;
@@ -116,7 +116,7 @@ export function applyCpmToReel(reel: Reel, campaigns: CpmCampaign[], globalFeePe
 /**
  * Recalculates CPM for all reels in a database instance.
  */
-export function recalculateAllDbReelsCpm(reels: Reel[], campaigns: CpmCampaign[], globalFeePercent: number = 3): void {
+export function recalculateAllDbReelsCpm(reels: Reel[], campaigns: CpmCampaign[], globalFeePercent: number = 8): void {
   for (const reel of reels) {
     applyCpmToReel(reel, campaigns, globalFeePercent);
   }

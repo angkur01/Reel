@@ -1036,21 +1036,19 @@ export function createExpressApp() {
         total3PercentFees: cpmTotals.total3PercentFees,
         totalEstimatedPayout: cpmTotals.totalEstimatedPayout,
         totalCampaignsCount: (db.cpmCampaigns || []).length,
-        globalFeePercent: db.meta?.globalFeePercent ?? 3,
+        globalFeePercent: 8,
         scheduleIntervalHours: db.meta?.scheduleIntervalHours ?? 6,
       },
     });
   });
 
-  // Save Global Settings (Fee % and Schedule Gap)
+  // Save Global Settings (Schedule Gap)
   app.post('/api/settings/global', requireAuth, (req: Request, res: Response) => {
-    const { globalFeePercent, scheduleIntervalHours } = req.body;
+    const { scheduleIntervalHours } = req.body;
     const db = loadDb();
     if (!db.meta) db.meta = { lastAutoFetchAt: null, deletedReelIds: [] };
 
-    if (globalFeePercent !== undefined && !isNaN(Number(globalFeePercent))) {
-      db.meta.globalFeePercent = Math.max(0, Number(globalFeePercent));
-    }
+    db.meta.globalFeePercent = 8;
     if (scheduleIntervalHours !== undefined && !isNaN(Number(scheduleIntervalHours))) {
       db.meta.scheduleIntervalHours = Math.max(1, Math.min(24, Math.floor(Number(scheduleIntervalHours))));
     }
@@ -1061,7 +1059,7 @@ export function createExpressApp() {
     res.json({
       success: true,
       message: 'Global settings updated successfully!',
-      globalFeePercent: db.meta.globalFeePercent,
+      globalFeePercent: 8,
       scheduleIntervalHours: db.meta.scheduleIntervalHours,
     });
   });

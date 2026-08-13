@@ -180,7 +180,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Net earnings after applying active CPM rates and automatic 3% platform fee deduction.
+              Net earnings after applying active CPM rates and automatic 8% platform fee deduction.
             </p>
           </div>
         </div>

@@ -184,7 +184,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
             </h2>
             <p className="text-sm text-slate-300 leading-relaxed">
               Create CPM campaigns with custom rates ($/1,000 views), minimum eligibility thresholds, and maximum view caps.
-              Payouts automatically calculate net earnings with an instant 3% processing fee deduction.
+              Payouts automatically calculate net earnings with an instant 8% processing fee deduction.
             </p>
           </div>
 
@@ -215,10 +215,10 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
           <p className="text-[11px] text-slate-400 mt-1">Gross CPM payout before fees</p>
         </div>
 
-        {/* Metric 2: Dynamic Platform Fee Deduction */}
+        {/* Metric 2: Fixed Platform Fee Deduction */}
         <div className="glass-panel p-5 rounded-2xl border border-amber-500/20 bg-slate-900/60">
           <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-            <span>{stats?.globalFeePercent ?? 3}% Platform Fee</span>
+            <span>8% Platform Fee</span>
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
               <ShieldAlert className="w-4 h-4" />
             </div>
@@ -226,7 +226,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
           <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-tight">
             -${totalFees.toFixed(2)}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Automatic {stats?.globalFeePercent ?? 3}% global fee deduction</p>
+          <p className="text-[11px] text-slate-400 mt-1">Automatic 8% global fee deduction</p>
         </div>
 
         {/* Metric 3: Net Estimated Payout */}
@@ -258,72 +258,35 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
         </div>
       </div>
 
-      {/* Global Fee % and Schedule Gap Adjustment Panel */}
+      {/* Scheduler Gap Adjustment Panel */}
       <div className="glass-panel rounded-3xl p-6 border border-amber-500/20 bg-slate-900/80 space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
             <h3 className="text-base font-extrabold text-white flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-400" />
-              <span>Global Fee % & Auto-Refresh Interval Controls</span>
+              <span>Platform Fee & Auto-Refresh Interval Controls</span>
             </h3>
             <p className="text-xs text-slate-400">
-              Customize the single global platform fee % across all CPM campaigns and configure the automatic scheduler gap (1h, 2h, 4h, 6h, 12h).
+              Platform fee is fixed at 8%. Adjust the automatic scheduler gap (1h, 2h, 4h, 6h, 12h) below.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Global Fee % Section */}
-          <div className="space-y-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+          {/* Global Fee % Display */}
+          <div className="space-y-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-amber-400" />
                 <span>Platform Fee Percentage (%):</span>
               </span>
-              <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                {stats?.globalFeePercent ?? 3}% Fee Active
+              <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                Fixed 8% Fee Active
               </span>
             </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1.5 overflow-x-auto py-1">
-                {[3, 5, 9, 10].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => handleQuickFee(preset)}
-                    disabled={isSavingFee}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
-                      (stats?.globalFeePercent ?? 3) === preset
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-md shadow-amber-500/20'
-                        : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    {preset}%
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2 ml-auto shrink-0">
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={feeInputValue}
-                  onChange={(e) => setFeeInputValue(e.target.value)}
-                  className="w-16 px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono text-center focus:outline-none focus:border-amber-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveFee}
-                  disabled={isSavingFee}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition cursor-pointer"
-                >
-                  {isSavingFee ? 'Saving...' : 'Set Fee'}
-                </button>
-              </div>
-            </div>
+            <p className="text-[11px] text-slate-400">
+              Standard 8% global processing fee automatically deducted from all CPM earnings.
+            </p>
           </div>
 
           {/* Schedule Interval Section */}
@@ -465,7 +428,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
               <DollarSign className="w-5 h-5 text-emerald-400" />
               <span>Reel Campaign & Payout Breakdown</span>
             </h3>
-            <p className="text-xs text-slate-400">Live view counts, eligible views, CPM earnings, 3% fees, and net payouts</p>
+            <p className="text-xs text-slate-400">Live view counts, eligible views, CPM earnings, 8% fees, and net payouts</p>
           </div>
         </div>
 
@@ -482,7 +445,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
                   <th className="p-3 text-right">Eligible Views</th>
                   <th className="p-3 text-right">CPM Rate</th>
                   <th className="p-3 text-right">CPM Earnings</th>
-                  <th className="p-3 text-right">3% Fee</th>
+                  <th className="p-3 text-right">8% Fee</th>
                   <th className="p-3 text-right">Estimated Payout</th>
                   <th className="p-3 text-center">Eligibility Status</th>
                 </tr>
@@ -542,7 +505,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
                         ${(reel.cpmEarnings || 0).toFixed(2)}
                       </td>
 
-                      {/* 3% Fee */}
+                      {/* 8% Fee */}
                       <td className="p-3 text-right text-amber-400 font-medium">
                         -${(reel.fee3Percent || 0).toFixed(2)}
                       </td>

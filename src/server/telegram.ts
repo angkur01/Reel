@@ -92,7 +92,7 @@ export async function notifyTelegramReelResult(reel: Reel, logType: 'automatic' 
     lines.push(`🎬 <b>Reel:</b> ${reel.name}`);
     lines.push(`👀 <b>Views:</b> ${formattedViews} | ❤️ <b>Likes:</b> ${formattedLikes}`);
     lines.push(`💰 <b>CPM Earnings:</b> $${(reel.cpmEarnings || 0).toFixed(2)}`);
-    lines.push(`💸 <b>3% Fee:</b> $${(reel.fee3Percent || 0).toFixed(2)} | 💵 <b>Est. Payout:</b> $${(reel.estimatedPayout || 0).toFixed(2)}`);
+    lines.push(`💸 <b>8% Fee:</b> $${(reel.fee3Percent || 0).toFixed(2)} | 💵 <b>Est. Payout:</b> $${(reel.estimatedPayout || 0).toFixed(2)}`);
   } else {
     lines.push(`<b>Video:</b> ${titleWords}`);
     lines.push(`📌 <b>Reel Name:</b> ${reel.name}`);
@@ -366,7 +366,7 @@ async function sendDashboardSummary(botToken: string, chatId: string) {
     `🚀 <b>24h View Gain:</b> +${total24hGain.toLocaleString()}`,
     ``,
     `💰 <b>CPM Earnings:</b> $${totalCpmEarnings.toFixed(2)}`,
-    `💸 <b>3% Processing Fee:</b> $${totalFees.toFixed(2)}`,
+    `💸 <b>8% Processing Fee:</b> $${totalFees.toFixed(2)}`,
     `💵 <b>Estimated Payout:</b> $${totalPayout.toFixed(2)}`,
     ``,
     `🔌 <b>Active Providers:</b> ${activeProviders}`,
