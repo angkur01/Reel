@@ -24,15 +24,21 @@ async function parseJsonResponse(res: Response) {
   return await res.json();
 }
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000) {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 30000) {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+  const id = setTimeout(() => {
+    controller.abort(new Error(`Timeout of ${Math.round(timeoutMs / 1000)}s exceeded`));
+  }, timeoutMs);
+
   try {
     const res = await fetch(url, { ...options, signal: controller.signal });
     clearTimeout(id);
     return res;
-  } catch (err) {
+  } catch (err: any) {
     clearTimeout(id);
+    if (err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} seconds. Background tasks may still be completing.`);
+    }
     throw err;
   }
 }
@@ -67,7 +73,7 @@ export default function App() {
   const [selectedReelForModal, setSelectedReelForModal] = useState<Reel | null>(null);
 
   // Authenticated Fetch Wrapper
-  const authFetch = useCallback(async (url: string, options: RequestInit = {}, timeoutMs = 8000) => {
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}, timeoutMs = 30000) => {
     const token = localStorage.getItem('admin_token');
     const headers = new Headers(options.headers || {});
     if (token && token !== 'null' && token !== 'undefined') {
@@ -221,7 +227,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, customName, campaignId }),
-      });
+      }, 60000);
       const data = await res.json();
       if (data.reel) {
         setReels((prev) => [data.reel, ...prev.filter((r) => r.id !== data.reel.id)]);
@@ -244,6 +250,19 @@ export default function App() {
     const data = await res.json();
     if (!data.success) {
       throw new Error(data.error || 'Failed to create campaign');
+    }
+    await loadDashboardData();
+  };
+
+  const handleSaveGlobalSettings = async (settings: { globalFeePercent?: number; scheduleIntervalHours?: number }) => {
+    const res = await authFetch('/api/settings/global', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to save global settings');
     }
     await loadDashboardData();
   };
@@ -285,7 +304,7 @@ export default function App() {
   const handleRefreshReel = async (id: string) => {
     setRefreshingReelIds((prev) => new Set(prev).add(id));
     try {
-      await authFetch(`/api/reels/${id}/fetch`, { method: 'POST' });
+      await authFetch(`/api/reels/${id}/fetch`, { method: 'POST' }, 60000);
       await loadDashboardData();
     } finally {
       setRefreshingReelIds((prev) => {
@@ -299,10 +318,11 @@ export default function App() {
   const handleBatchRefresh = async () => {
     setIsRefreshingAll(true);
     try {
-      await authFetch('/api/reels/refresh-all', { method: 'POST' });
+      await authFetch('/api/reels/refresh-all', { method: 'POST' }, 180000);
       await loadDashboardData();
-    } catch (e) {
+    } catch (e: any) {
       console.error('[Batch Refresh Error]', e);
+      alert(`Batch refresh note: ${e.message || 'Operation timed out, but background fetches are completing.'}`);
     } finally {
       setIsRefreshingAll(false);
     }
@@ -311,17 +331,16 @@ export default function App() {
   const handleRetryFailed = async () => {
     setIsRetryingFailed(true);
     try {
-      await authFetch('/api/reels/retry-failed', { method: 'POST' });
+      await authFetch('/api/reels/retry-failed', { method: 'POST' }, 180000);
       await loadDashboardData();
+    } catch (e: any) {
+      console.error('[Retry Failed Error]', e);
     } finally {
       setIsRetryingFailed(false);
     }
   };
 
-  const handleEditReelName = async (id: string, currentName: string) => {
-    const newName = prompt('Enter new custom name for this Reel:', currentName);
-    if (!newName || !newName.trim()) return;
-
+  const handleEditReelName = async (id: string, newName: string) => {
     setReels((prev) => prev.map((r) => (r.id === id ? { ...r, name: newName.trim() } : r)));
 
     try {
@@ -335,6 +354,21 @@ export default function App() {
       console.error('Error renaming reel:', e);
     }
   };
+
+  const handleGroqRenameReel = async (id: string): Promise<string> => {
+    const res = await authFetch(`/api/reels/${id}/groq-rename`, {
+      method: 'POST',
+    });
+    const data = await res.json();
+    if (data.success && data.newTitle) {
+      setReels((prev) => prev.map((r) => (r.id === id ? { ...r, name: data.newTitle } : r)));
+      await loadDashboardData();
+      return data.newTitle;
+    } else {
+      throw new Error(data.error || 'Groq AI rename failed');
+    }
+  };
+
 
   const handleDeleteReel = async (id: string) => {
     if (!confirm('Are you sure you want to delete this Reel?')) return;
@@ -351,7 +385,7 @@ export default function App() {
   const handleRunAiCheck = async () => {
     setIsRunningAiCheck(true);
     try {
-      const res = await authFetch('/api/ai/check', { method: 'POST' });
+      const res = await authFetch('/api/ai/check', { method: 'POST' }, 60000);
       const data = await res.json();
       if (!data.success) {
         alert(data.error || 'AI Check failed.');
@@ -365,7 +399,7 @@ export default function App() {
   const handleGenerateDailyReport = async () => {
     setIsGeneratingReport(true);
     try {
-      const res = await authFetch('/api/ai/daily-report', { method: 'POST' });
+      const res = await authFetch('/api/ai/daily-report', { method: 'POST' }, 60000);
       const data = await res.json();
       if (data.success) {
         alert('Daily Report generated & sent to Telegram successfully!');
@@ -527,6 +561,7 @@ export default function App() {
             reels={reels}
             onRefreshReel={handleRefreshReel}
             onEditReelName={handleEditReelName}
+            onGroqRenameReel={handleGroqRenameReel}
             onDeleteReel={handleDeleteReel}
             onOpenAddModal={() => setIsAddModalOpen(true)}
             onRetryFailed={handleRetryFailed}
@@ -546,6 +581,7 @@ export default function App() {
             onUpdateCampaign={handleUpdateCpmCampaign}
             onDeleteCampaign={handleDeleteCpmCampaign}
             onEditReelCampaign={handleEditReelCampaign}
+            onSaveGlobalSettings={handleSaveGlobalSettings}
           />
         )}
 
@@ -572,6 +608,7 @@ export default function App() {
             onClose={() => setActiveTab('overview')}
             providers={providers}
             telegramSettings={telegramSettings}
+            stats={stats}
             onAddProvider={handleAddProvider}
             onUpdateProvider={handleUpdateProvider}
             onDeleteProvider={handleDeleteProvider}
@@ -579,6 +616,7 @@ export default function App() {
             onSaveTelegram={handleSaveTelegram}
             onTestTelegram={handleTestTelegram}
             onChangePassword={handleChangePassword}
+            onSaveGlobalSettings={handleSaveGlobalSettings}
             isInline={true}
           />
         )}

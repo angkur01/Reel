@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { DollarSign, Plus, Edit2, Trash2, CheckCircle2, AlertCircle, Layers, TrendingUp, ShieldAlert, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { DollarSign, Plus, Edit2, Trash2, CheckCircle2, AlertCircle, Layers, TrendingUp, ShieldAlert, Sparkles, Zap, RefreshCw } from 'lucide-react';
 import { CpmCampaign, Reel, SystemStats } from '../types';
 
 interface CpmCampaignsTabProps {
@@ -10,6 +10,7 @@ interface CpmCampaignsTabProps {
   onUpdateCampaign: (id: string, campaign: Partial<CpmCampaign>) => Promise<void>;
   onDeleteCampaign: (id: string) => Promise<void>;
   onEditReelCampaign: (reelId: string, campaignId: string | null) => Promise<void>;
+  onSaveGlobalSettings?: (settings: { globalFeePercent?: number; scheduleIntervalHours?: number }) => Promise<void>;
 }
 
 export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
@@ -20,9 +21,50 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
   onUpdateCampaign,
   onDeleteCampaign,
   onEditReelCampaign,
+  onSaveGlobalSettings,
 }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<CpmCampaign | null>(null);
+
+  // Global Settings state
+  const [feeInputValue, setFeeInputValue] = useState(stats?.globalFeePercent?.toString() || '3');
+  const [isSavingFee, setIsSavingFee] = useState(false);
+  const [isSavingInterval, setIsSavingInterval] = useState(false);
+
+  useEffect(() => {
+    if (stats?.globalFeePercent !== undefined) {
+      setFeeInputValue(stats.globalFeePercent.toString());
+    }
+  }, [stats?.globalFeePercent]);
+
+  const handleSaveFee = async () => {
+    if (!onSaveGlobalSettings) return;
+    const val = parseFloat(feeInputValue);
+    if (isNaN(val) || val < 0) return;
+    setIsSavingFee(true);
+    try {
+      await onSaveGlobalSettings({ globalFeePercent: val });
+    } catch (e) {}
+    setIsSavingFee(false);
+  };
+
+  const handleQuickFee = async (val: number) => {
+    if (!onSaveGlobalSettings) return;
+    setIsSavingFee(true);
+    try {
+      await onSaveGlobalSettings({ globalFeePercent: val });
+    } catch (e) {}
+    setIsSavingFee(false);
+  };
+
+  const handleSaveInterval = async (interval: number) => {
+    if (!onSaveGlobalSettings) return;
+    setIsSavingInterval(true);
+    try {
+      await onSaveGlobalSettings({ scheduleIntervalHours: interval });
+    } catch (e) {}
+    setIsSavingInterval(false);
+  };
 
   // Form State
   const [name, setName] = useState('');
@@ -173,10 +215,10 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
           <p className="text-[11px] text-slate-400 mt-1">Gross CPM payout before fees</p>
         </div>
 
-        {/* Metric 2: 3% Fee Deduction */}
+        {/* Metric 2: Dynamic Platform Fee Deduction */}
         <div className="glass-panel p-5 rounded-2xl border border-amber-500/20 bg-slate-900/60">
           <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-            <span>3% Platform Fee</span>
+            <span>{stats?.globalFeePercent ?? 3}% Platform Fee</span>
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
               <ShieldAlert className="w-4 h-4" />
             </div>
@@ -184,7 +226,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
           <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-tight">
             -${totalFees.toFixed(2)}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Automatic 3% fee deduction</p>
+          <p className="text-[11px] text-slate-400 mt-1">Automatic {stats?.globalFeePercent ?? 3}% global fee deduction</p>
         </div>
 
         {/* Metric 3: Net Estimated Payout */}
@@ -213,6 +255,107 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
             {campaigns.filter(c => c.enabled).length} <span className="text-xs text-slate-500 font-normal">/ {campaigns.length} total</span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1">{campaignConnectedReelsCount} Reels connected</p>
+        </div>
+      </div>
+
+      {/* Global Fee % and Schedule Gap Adjustment Panel */}
+      <div className="glass-panel rounded-3xl p-6 border border-amber-500/20 bg-slate-900/80 space-y-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div>
+            <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-400" />
+              <span>Global Fee % & Auto-Refresh Interval Controls</span>
+            </h3>
+            <p className="text-xs text-slate-400">
+              Customize the single global platform fee % across all CPM campaigns and configure the automatic scheduler gap (1h, 2h, 4h, 6h, 12h).
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Global Fee % Section */}
+          <div className="space-y-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4 text-amber-400" />
+                <span>Platform Fee Percentage (%):</span>
+              </span>
+              <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                {stats?.globalFeePercent ?? 3}% Fee Active
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5 overflow-x-auto py-1">
+                {[3, 5, 9, 10].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => handleQuickFee(preset)}
+                    disabled={isSavingFee}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                      (stats?.globalFeePercent ?? 3) === preset
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-md shadow-amber-500/20'
+                        : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    {preset}%
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 ml-auto shrink-0">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  value={feeInputValue}
+                  onChange={(e) => setFeeInputValue(e.target.value)}
+                  className="w-16 px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono text-center focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveFee}
+                  disabled={isSavingFee}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  {isSavingFee ? 'Saving...' : 'Set Fee'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Schedule Interval Section */}
+          <div className="space-y-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4 text-indigo-400" />
+                <span>Auto-Fetch Scheduler Interval:</span>
+              </span>
+              <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                Every {stats?.scheduleIntervalHours ?? 6} Hours
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {[1, 2, 4, 6, 12].map((gap) => (
+                <button
+                  key={gap}
+                  type="button"
+                  onClick={() => handleSaveInterval(gap)}
+                  disabled={isSavingInterval}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                    (stats?.scheduleIntervalHours ?? 6) === gap
+                      ? 'bg-indigo-600 text-white border-indigo-400 font-extrabold shadow-md shadow-indigo-500/20'
+                      : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  {gap}h Gap
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

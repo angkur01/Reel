@@ -6,6 +6,7 @@ interface ReelsTabProps {
   reels: Reel[];
   onRefreshReel: (id: string) => void;
   onEditReelName: (id: string, currentName: string) => void;
+  onGroqRenameReel?: (id: string) => Promise<string>;
   onDeleteReel: (id: string) => void;
   onOpenAddModal: () => void;
   onRetryFailed: () => void;
@@ -19,6 +20,7 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   reels,
   onRefreshReel,
   onEditReelName,
+  onGroqRenameReel,
   onDeleteReel,
   onOpenAddModal,
   onRetryFailed,
@@ -31,6 +33,12 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   const [filterMode, setFilterMode] = useState<'all' | 'viral' | 'stalled' | 'failed' | 'success'>('all');
   const [sortBy, setSortBy] = useState<'views' | 'growth' | 'likes' | 'newest'>('views');
   const [activeVideoModalUrl, setActiveVideoModalUrl] = useState<string | null>(null);
+
+  // Rename modal state
+  const [renameTargetReel, setRenameTargetReel] = useState<Reel | null>(null);
+  const [manualTitleInput, setManualTitleInput] = useState<string>('');
+  const [isGeneratingGroqTitle, setIsGeneratingGroqTitle] = useState<boolean>(false);
+  const [renameStatusMsg, setRenameStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Filter logic
   const filteredReels = reels.filter((r) => {
@@ -245,9 +253,13 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
                         {reel.name}
                       </h3>
                       <button
-                        onClick={() => onEditReelName(reel.id, reel.name)}
+                        onClick={() => {
+                          setRenameTargetReel(reel);
+                          setManualTitleInput(reel.name);
+                          setRenameStatusMsg(null);
+                        }}
                         className="text-slate-300 hover:text-white p-1 rounded hover:bg-slate-800/80 cursor-pointer"
-                        title="Edit Custom Name"
+                        title="Rename Reel (Manual or Groq AI)"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -360,6 +372,113 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
               </button>
             </div>
             <video src={activeVideoModalUrl} controls autoPlay className="w-full rounded-2xl max-h-[70vh] object-contain bg-black" />
+          </div>
+        </div>
+      )}
+
+      {/* Dual-Option Rename Modal (Manual & Groq AI) */}
+      {renameTargetReel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-lg glass-panel p-6 rounded-3xl space-y-6 border border-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+                  <Edit2 className="w-4 h-4 text-amber-400" />
+                  <span>Rename Reel Title</span>
+                </h3>
+                <p className="text-xs text-slate-400">Manual Rename or 🤖 Groq AI Auto-Rename from Caption</p>
+              </div>
+              <button
+                onClick={() => setRenameTargetReel(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {renameStatusMsg && (
+              <div className={`p-3.5 rounded-2xl text-xs font-semibold border flex items-center gap-2 ${
+                renameStatusMsg.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+              }`}>
+                {renameStatusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span>{renameStatusMsg.text}</span>
+              </div>
+            )}
+
+            {/* Option 1: Manual Rename */}
+            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+              <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <span>1. Manual Custom Title</span>
+              </label>
+              <input
+                id="input-manual-rename"
+                type="text"
+                value={manualTitleInput}
+                onChange={(e) => setManualTitleInput(e.target.value)}
+                placeholder="Enter custom reel title..."
+                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+              />
+              <div className="flex justify-end">
+                <button
+                  id="btn-save-manual-rename"
+                  onClick={async () => {
+                    if (!manualTitleInput.trim()) return;
+                    await onEditReelName(renameTargetReel.id, manualTitleInput.trim());
+                    setRenameStatusMsg({ type: 'success', text: `Title updated to "${manualTitleInput.trim()}"!` });
+                    setTimeout(() => setRenameTargetReel(null), 800);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  Save Custom Title
+                </button>
+              </div>
+            </div>
+
+            {/* Option 2: Groq AI Auto-Rename */}
+            <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-indigo-300 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-400" />
+                  <span>2. Groq AI Auto-Rename (Uses Caption)</span>
+                </label>
+                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-mono px-2 py-0.5 rounded-full border border-indigo-500/30">
+                  Max 2 Words
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Groq LLM inspects the Instagram reel caption and generates a punchy, viral 2-word title automatically.
+              </p>
+              {renameTargetReel.caption && (
+                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-[10px] text-slate-400 line-clamp-2 italic">
+                  "{renameTargetReel.caption}"
+                </div>
+              )}
+              <button
+                id="btn-trigger-groq-rename"
+                onClick={async () => {
+                  if (!onGroqRenameReel) return;
+                  setIsGeneratingGroqTitle(true);
+                  setRenameStatusMsg(null);
+                  try {
+                    const newTitle = await onGroqRenameReel(renameTargetReel.id);
+                    setManualTitleInput(newTitle);
+                    setRenameStatusMsg({ type: 'success', text: `✨ Groq AI generated title: "${newTitle}"!` });
+                    setTimeout(() => setRenameTargetReel(null), 1200);
+                  } catch (err: any) {
+                    setRenameStatusMsg({ type: 'error', text: err.message || 'Groq AI title generation failed.' });
+                  } finally {
+                    setIsGeneratingGroqTitle(false);
+                  }
+                }}
+                disabled={isGeneratingGroqTitle}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold rounded-xl text-xs shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Sparkles className={`w-4 h-4 ${isGeneratingGroqTitle ? 'animate-spin' : ''}`} />
+                <span>{isGeneratingGroqTitle ? 'Generating Groq AI Title...' : '🤖 Generate Groq AI Title'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

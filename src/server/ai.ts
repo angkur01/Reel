@@ -298,17 +298,21 @@ Instructions:
   if (aiResult) {
     modelUsed = aiResult.modelUsed;
     db.aiMeta.activeModelUsed = modelUsed;
-    try {
-      // Clean JSON string
-      const raw = aiResult.text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(raw);
-      if (parsed.headline) headline = parsed.headline;
-      if (parsed.message) messageText = parsed.message;
-      if (parsed.type) type = parsed.type;
-      if (parsed.reelName) reelName = parsed.reelName;
-    } catch (e) {
-      // Fallback text if not JSON
-      messageText = aiResult.text.slice(0, 300);
+    
+    // Extract JSON block cleanly using regex to eliminate any leading text/numbering
+    const jsonMatch = aiResult.text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.headline) headline = parsed.headline;
+        if (parsed.message) messageText = parsed.message;
+        if (parsed.type) type = parsed.type;
+        if (parsed.reelName) reelName = parsed.reelName;
+      } catch (e) {
+        messageText = aiResult.text.replace(/```[a-z]*/gi, '').replace(/```/g, '').trim();
+      }
+    } else {
+      messageText = aiResult.text.replace(/```[a-z]*/gi, '').replace(/```/g, '').trim();
     }
   }
 
@@ -316,7 +320,7 @@ Instructions:
   let sentToTelegram = false;
   if (db.telegram.enabled && db.telegram.botToken && db.telegram.adminTelegramId) {
     const modelLabel = modelUsed === 'groq' ? 'Groq Llama-3.3' : modelUsed === 'gemini' ? 'Google Gemini' : 'Grok AI';
-    const telegramMsg = `<b>${headline}</b>\n\n${messageText}\n\n<i>🤖 Powered by ${modelLabel} (Check ${db.aiMeta.checksUsedToday}/${limit} used today)</i>`;
+    const telegramMsg = `🔥 <b>${headline}</b>\n\n${messageText}\n\n<i>🤖 Powered by ${modelLabel} (Check ${db.aiMeta.checksUsedToday}/${limit} used today)</i>`;
     sentToTelegram = await sendTelegramMessage(db.telegram.botToken, db.telegram.adminTelegramId, telegramMsg);
   }
 
@@ -427,3 +431,70 @@ That Reel '${reelName}' just hit ${views.toLocaleString()} views! 👀
 You're sitting at $${cpmEarnings.toFixed(2)} CPM earnings, which puts your estimated payout at $${estimatedPayout.toFixed(2)} after the 3% fee. 💰
 Let's keep it climbing! 📈`;
 }
+
+import { generateTwoWordTitleFromCaption } from './statsHelper.js';
+
+// Chat interactively with the AI model about posts, performance, ideas, and CPM
+export async function talkToAi(userQuestion: string): Promise<string> {
+  const db = loadDb();
+  const reelsSummary = db.reels.map(r => ({
+    name: r.name,
+    views: r.views,
+    growth24h: r.growth24h || 0,
+    cpmEarnings: r.cpmEarnings || 0,
+    estimatedPayout: r.estimatedPayout || 0,
+    status: r.status,
+  }));
+
+  const totalViews = db.reels.reduce((sum, r) => sum + (r.views || 0), 0);
+  const totalPayout = db.reels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
+
+  const prompt = `You are an elite Instagram Reels AI Strategist & Analytics Brain chatting directly with the content creator on Telegram.
+User Question: "${userQuestion}"
+
+Creator's Reel Database Context:
+- Total Saved Reels: ${db.reels.length}
+- Total Lifetime Views: ${totalViews.toLocaleString()}
+- Total Estimated Payout: $${totalPayout.toFixed(2)}
+- Reel Performance List:
+${JSON.stringify(reelsSummary, null, 2)}
+
+Instructions:
+1. Provide a direct, professional, exciting, helpful, concise answer (under 250 words).
+2. Refer to specific reels by name and exact view counts if relevant.
+3. Use emojis, bold titles, bullet points, and actionable creator tips.
+4. Do NOT output raw JSON or codeblocks. Output clean Telegram HTML formatted text (<b>bold</b>, <i>italic</i>, bullet points).`;
+
+  const aiResult = await generateAiInsight(prompt);
+  if (aiResult && aiResult.text) {
+    return aiResult.text.replace(/```[a-z]*/gi, '').replace(/```/g, '').trim();
+  }
+
+  return `📊 <b>AI Analysis:</b>\nCurrently tracking ${db.reels.length} reels with ${totalViews.toLocaleString()} views and $${totalPayout.toFixed(2)} total net payout. Ask me any question about your reels growth or strategy!`;
+}
+
+// Generate Groq AI 2-Word Title from caption
+export async function generateGroqTitle(caption: string): Promise<string> {
+  if (!caption || caption.trim().length === 0) return 'Viral Reel';
+
+  const prompt = `Generate a catchy, punchy, maximum 2-word title (e.g. "Viral Surge", "Fitness Grind", "Crypto Spike", "Daily Focus") based on this Instagram reel caption: "${caption.slice(0, 500)}".
+
+INSTRUCTIONS:
+- Maximum 2 words.
+- Return ONLY the 2 words, no punctuation, no quotes, no extra conversational filler.`;
+
+  const result = await callGroqApi(prompt);
+  if (result.text) {
+    const cleanText = result.text
+      .replace(/["'`.!?:;,]/g, '')
+      .replace(/\n/g, ' ')
+      .trim();
+    const words = cleanText.split(/\s+/).filter(w => w.length > 0);
+    if (words.length >= 1) {
+      return words.slice(0, 2).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+  }
+
+  return generateTwoWordTitleFromCaption(caption);
+}
+

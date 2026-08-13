@@ -30,6 +30,7 @@ interface SettingsModalProps {
   onClose: () => void;
   providers: ApiProvider[];
   telegramSettings: TelegramSettings;
+  stats?: any;
   onAddProvider: (p: Partial<ApiProvider>) => Promise<{ success: boolean; error?: string }>;
   onUpdateProvider: (id: string, p: Partial<ApiProvider>) => Promise<{ success: boolean; error?: string }>;
   onDeleteProvider: (id: string) => Promise<boolean>;
@@ -37,6 +38,7 @@ interface SettingsModalProps {
   onSaveTelegram: (t: Partial<TelegramSettings>) => Promise<boolean>;
   onTestTelegram: () => Promise<{ success: boolean; message?: string; error?: string }>;
   onChangePassword: (curr: string, next: string) => Promise<{ success: boolean; error?: string }>;
+  onSaveGlobalSettings?: (settings: { globalFeePercent?: number; scheduleIntervalHours?: number }) => Promise<void>;
   isInline?: boolean;
 }
 
@@ -45,6 +47,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   providers,
   telegramSettings,
+  stats,
   onAddProvider,
   onUpdateProvider,
   onDeleteProvider,
@@ -52,9 +55,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveTelegram,
   onTestTelegram,
   onChangePassword,
+  onSaveGlobalSettings,
   isInline = false,
 }) => {
-  const [activeTab, setActiveTab] = useState<'apis' | 'telegram' | 'cloud-db' | 'security'>('apis');
+  const [activeTab, setActiveTab] = useState<'apis' | 'telegram' | 'cloud-db' | 'global' | 'security'>('apis');
+
+  // Global Settings controls state
+  const [feeInput, setFeeInput] = useState<string>(stats?.globalFeePercent?.toString() || '3');
+  const [intervalChoice, setIntervalChoice] = useState<number>(stats?.scheduleIntervalHours || 6);
+  const [globalStatusMsg, setGlobalStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [globalSaving, setGlobalSaving] = useState(false);
+
+  useEffect(() => {
+    if (stats) {
+      if (stats.globalFeePercent !== undefined) setFeeInput(stats.globalFeePercent.toString());
+      if (stats.scheduleIntervalHours !== undefined) setIntervalChoice(stats.scheduleIntervalHours);
+    }
+  }, [stats]);
+
+  const handleSaveGlobal = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!onSaveGlobalSettings) return;
+    setGlobalSaving(true);
+    setGlobalStatusMsg(null);
+    try {
+      const parsedFee = parseFloat(feeInput);
+      await onSaveGlobalSettings({
+        globalFeePercent: isNaN(parsedFee) ? 3 : Math.max(0, parsedFee),
+        scheduleIntervalHours: intervalChoice,
+      });
+      setGlobalStatusMsg({ type: 'success', text: 'Global CPM Fee % and Schedule Interval updated successfully!' });
+    } catch (err: any) {
+      setGlobalStatusMsg({ type: 'error', text: err.message || 'Failed to save global settings' });
+    } finally {
+      setGlobalSaving(false);
+    }
+  };
 
   // Firebase Cloud DB state
   const [fbProjectId, setFbProjectId] = useState('ai-studio-applet-webapp-479fe');
@@ -354,6 +390,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           <Database className="w-4 h-4 text-emerald-400" />
           <span>Cloud Database (Firebase)</span>
+        </button>
+
+        <button
+          id="btn-tab-global"
+          onClick={() => setActiveTab('global')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'global'
+              ? 'border-amber-500 text-amber-400 bg-amber-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Zap className="w-4 h-4 text-amber-400" />
+          <span>Global CPM & Schedule</span>
         </button>
 
         <button
@@ -1092,7 +1141,127 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* TAB 4: ADMIN AUTHENTICATION SECURITY */}
+        {/* TAB 4: GLOBAL CPM FEE % & SCHEDULER INTERVAL */}
+        {activeTab === 'global' && (
+          <div className="space-y-6">
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>Global CPM Platform Fee % & Scheduler Interval Controls</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Directly configure your app's global fee deduction % across all campaigns and adjust the automatic cron refresh gap (1 hour, 2 hours, 4 hours, 6 hours, or 12 hours).
+              </p>
+            </div>
+
+            {globalStatusMsg && (
+              <div
+                className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-center gap-2 ${
+                  globalStatusMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                }`}
+              >
+                {globalStatusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span>{globalStatusMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveGlobal} className="space-y-6">
+              {/* Section 1: Global Fee % */}
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <span>Global CPM Platform Fee %</span>
+                  </label>
+                  <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                    Active: {feeInput}% Fee
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-slate-400 mr-2">Quick Presets:</span>
+                  {[3, 5, 9, 10].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setFeeInput(preset.toString())}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                        feeInput === preset.toString()
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-extrabold shadow-md shadow-emerald-500/20'
+                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      {preset}% Fee
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-400">Custom Fee Percentage (%):</label>
+                  <input
+                    id="input-custom-global-fee"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={feeInput}
+                    onChange={(e) => setFeeInput(e.target.value)}
+                    placeholder="3"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-slate-100 font-mono text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: Schedule Gap */}
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 text-indigo-400" />
+                    <span>Auto-Fetch Scheduler Interval Gap</span>
+                  </label>
+                  <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
+                    Every {intervalChoice} Hour{intervalChoice > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[1, 2, 4, 6, 12].map((gap) => (
+                    <button
+                      key={gap}
+                      type="button"
+                      onClick={() => setIntervalChoice(gap)}
+                      className={`py-2.5 px-3 rounded-2xl text-xs font-bold transition border flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                        intervalChoice === gap
+                          ? 'bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-500/25'
+                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <span className="text-sm font-extrabold">{gap}h</span>
+                      <span className="text-[10px] opacity-75">
+                        {gap === 1 ? 'Hourly' : `${24 / gap}x daily`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  id="btn-save-global-settings"
+                  type="submit"
+                  disabled={globalSaving}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-slate-950 font-extrabold rounded-2xl text-xs shadow-xl shadow-amber-500/20 transition cursor-pointer"
+                >
+                  {globalSaving ? 'Saving Global Settings...' : 'Save Global Settings'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 5: ADMIN AUTHENTICATION SECURITY */}
         {activeTab === 'security' && (
           <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md mx-auto py-4">
             <div className="space-y-1">

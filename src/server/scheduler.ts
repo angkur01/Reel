@@ -5,21 +5,23 @@ import { notifyTelegramReelResult } from './telegram.js';
 import { updateReelWithFetchResult } from './statsHelper.js';
 import { FetchLog } from '../types.js';
 
-const FIXED_HOURS = [0, 6, 12, 18];
-
-/**
- * Calculate the exact next scheduled update timestamp.
- * FIXED hours: 00:00, 06:00, 12:00, 18:00 UTC
- */
 export function getNextScheduledTime(fromDate: Date = new Date()): Date {
+  const db = loadDb();
+  const intervalHours = db.meta?.scheduleIntervalHours || 6;
+  
+  // Calculate target hours for the interval
+  const targetHours: number[] = [];
+  for (let h = 0; h < 24; h += intervalHours) {
+    targetHours.push(h);
+  }
+
   const year = fromDate.getUTCFullYear();
   const month = fromDate.getUTCMonth();
   const date = fromDate.getUTCDate();
   const currentHour = fromDate.getUTCHours();
   const currentMinute = fromDate.getUTCMinutes();
 
-  // Find next hour in FIXED_HOURS strictly greater than current hour (or equal if minutes = 0)
-  for (const targetHour of FIXED_HOURS) {
+  for (const targetHour of targetHours) {
     if (targetHour > currentHour || (targetHour === currentHour && currentMinute === 0)) {
       const nextTime = new Date(Date.UTC(year, month, date, targetHour, 0, 0, 0));
       if (nextTime.getTime() > fromDate.getTime()) {
@@ -28,8 +30,8 @@ export function getNextScheduledTime(fromDate: Date = new Date()): Date {
     }
   }
 
-  // Next slot is 00:00 UTC tomorrow
-  return new Date(Date.UTC(year, month, date + 1, 0, 0, 0, 0));
+  // Next slot is targetHours[0] UTC tomorrow
+  return new Date(Date.UTC(year, month, date + 1, targetHours[0] || 0, 0, 0, 0));
 }
 
 // Global active automatic fetch guard
@@ -151,16 +153,22 @@ export function initializeScheduler() {
     return;
   }
   isSchedulerInitialized = true;
-  console.log('[Scheduler] Initializing fixed time cron (00:00, 06:00, 12:00, 18:00 UTC)...');
+  console.log('[Scheduler] Initializing dynamic hourly cron check...');
 
-  // Node-cron pattern for 00:00, 06:00, 12:00, 18:00
-  cron.schedule('0 0,6,12,18 * * *', () => {
-    // Introduce random jitter to prevent concurrent container execution race condition on Cloud Run
-    const jitterMs = Math.floor(Math.random() * 45000) + 5000; // 5 to 50 seconds delay
-    console.log(`[Scheduler] Cron triggered. Delaying execution by ${jitterMs}ms to avoid concurrent container race...`);
-    setTimeout(() => {
-      runAutomaticFetchJob(false).catch(err => console.error('[Scheduler Error]', err));
-    }, jitterMs);
+  // Check every hour at minute 0
+  cron.schedule('0 * * * *', () => {
+    const db = loadDb();
+    const intervalHours = db.meta?.scheduleIntervalHours || 6;
+    const currentHour = new Date().getUTCHours();
+
+    if (currentHour % intervalHours === 0) {
+      // Introduce random jitter to prevent concurrent container execution race condition on Cloud Run
+      const jitterMs = Math.floor(Math.random() * 45000) + 5000; // 5 to 50 seconds delay
+      console.log(`[Scheduler] Cron interval (${intervalHours}h) triggered at UTC hour ${currentHour}. Delaying execution by ${jitterMs}ms...`);
+      setTimeout(() => {
+        runAutomaticFetchJob(false).catch(err => console.error('[Scheduler Error]', err));
+      }, jitterMs);
+    }
   }, {
     timezone: 'UTC',
   });

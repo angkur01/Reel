@@ -179,5 +179,7 @@ export interface SystemStats {
   total3PercentFees: number;
   totalEstimatedPayout: number;
   totalCampaignsCount: number;
+  globalFeePercent?: number;
+  scheduleIntervalHours?: number;
 }
 

@@ -6,6 +6,25 @@ export interface ProcessFetchOptions {
   providerName?: string;
 }
 
+export function generateTwoWordTitleFromCaption(caption: string): string {
+  if (!caption) return 'Viral Reel';
+  // Strip URLs, hashtags, mentions, emojis, special symbols
+  const clean = caption
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/#\w+/g, '')
+    .replace(/@\w+/g, '')
+    .replace(/[^\w\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const words = clean.split(' ').filter(w => w.length > 1);
+  if (words.length === 0) return 'Viral Reel';
+  
+  // Take maximum 2 words
+  const selected = words.slice(0, 2).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  return selected.join(' ');
+}
+
 /**
  * Safely updates a Reel with newly fetched API data,
  * records a point in db.history, calculates 24h view growth from history,
@@ -36,7 +55,13 @@ export function updateReelWithFetchResult(
   if (typeof fetchResult.data.shares === 'number' && fetchResult.data.shares >= 0) {
     reel.shares = fetchResult.data.shares;
   }
-  if (fetchResult.data.caption) reel.caption = fetchResult.data.caption;
+  if (fetchResult.data.caption) {
+    reel.caption = fetchResult.data.caption;
+    // Auto-generate punchy max 2-word AI title if name is raw/default
+    if (!reel.name || reel.name.startsWith('Reel ') || reel.name.startsWith('reel_') || reel.name.toLowerCase().includes('instagram') || reel.name.length > 25) {
+      reel.name = generateTwoWordTitleFromCaption(reel.caption);
+    }
+  }
   if (fetchResult.data.author) reel.author = fetchResult.data.author;
   if (fetchResult.data.thumbnail) reel.thumbnail = fetchResult.data.thumbnail;
 
@@ -103,7 +128,7 @@ export function updateReelWithFetchResult(
   }
 
   // 3. Recalculate CPM earnings & payout
-  applyCpmToReel(reel, db.cpmCampaigns || []);
+  applyCpmToReel(reel, db.cpmCampaigns || [], db.meta?.globalFeePercent ?? 3);
 
   return { viewGain, isNewGrowth: viewGain > 0 };
 }
@@ -114,6 +139,7 @@ export function updateReelWithFetchResult(
 export function recalculateAllReelsGrowthAndCpm(db: DatabaseSchema) {
   const now = Date.now();
   const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
+  const feePercent = db.meta?.globalFeePercent ?? 3;
 
   for (const reel of db.reels) {
     const reelHistory = (db.history || []).filter(h => h.reelId === reel.id);
@@ -124,6 +150,6 @@ export function recalculateAllReelsGrowthAndCpm(db: DatabaseSchema) {
     } else {
       reel.growth24h = reel.growth24h || 0;
     }
-    applyCpmToReel(reel, db.cpmCampaigns || []);
+    applyCpmToReel(reel, db.cpmCampaigns || [], feePercent);
   }
 }

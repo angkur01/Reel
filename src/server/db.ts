@@ -24,6 +24,8 @@ export interface DatabaseSchema {
   logs: FetchLog[];
   meta: {
     lastAutoFetchAt: string | null;
+    globalFeePercent?: number;
+    scheduleIntervalHours?: number;
     deletedReelIds?: string[];
     deletedCampaignIds?: string[];
     deletedProviderIds?: string[];
@@ -208,33 +210,33 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
       const existingTime = new Date(existing.lastUpdatedAt || existing.createdAt || 0).getTime();
       const rTime = new Date(r.lastUpdatedAt || r.createdAt || 0).getTime();
 
-      if (rTime >= existingTime) {
-        reelMap.set(r.id, {
-          ...existing,
-          ...r,
-          url: cleanUrl,
-          views: Math.max(r.views || 0, existing.views || 0),
-          likes: Math.max(r.likes || 0, existing.likes || 0),
-          comments: Math.max(r.comments || 0, existing.comments || 0),
-          shares: Math.max(r.shares || 0, existing.shares || 0),
-        });
-      } else {
-        reelMap.set(r.id, {
-          ...r,
-          ...existing,
-          url: cleanUrl,
-          views: Math.max(existing.views || 0, r.views || 0),
-          likes: Math.max(existing.likes || 0, r.likes || 0),
-          comments: Math.max(existing.comments || 0, r.comments || 0),
-          shares: Math.max(existing.shares || 0, r.shares || 0),
-        });
-      }
+      // Always preserve maximum views, engagement stats, and 24h growth across merges
+      const maxViews = Math.max(r.views || 0, existing.views || 0);
+      const maxLikes = Math.max(r.likes || 0, existing.likes || 0);
+      const maxComments = Math.max(r.comments || 0, existing.comments || 0);
+      const maxShares = Math.max(r.shares || 0, existing.shares || 0);
+      const maxGrowth = Math.max(r.growth24h || 0, existing.growth24h || 0);
+
+      const dominant = rTime >= existingTime ? { ...existing, ...r } : { ...r, ...existing };
+
+      reelMap.set(r.id, {
+        ...dominant,
+        url: cleanUrl,
+        views: maxViews,
+        likes: maxLikes,
+        comments: maxComments,
+        shares: maxShares,
+        growth24h: maxGrowth,
+      });
       if (cleanUrl) urlToReelIdMap.set(cleanUrl, r.id);
     }
   };
 
   (remote.reels || []).forEach(processReel);
   (local.reels || []).forEach(processReel);
+
+  const globalFeePercent = local.meta?.globalFeePercent ?? remote.meta?.globalFeePercent ?? 3;
+  const scheduleIntervalHours = local.meta?.scheduleIntervalHours ?? remote.meta?.scheduleIntervalHours ?? 6;
 
   const campaignMap = new Map<string, CpmCampaign>();
   (remote.cpmCampaigns || []).forEach(c => c && c.id && !deletedCampaignSet.has(c.id) && campaignMap.set(c.id, c));
@@ -244,8 +246,8 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   const mergedReels = Array.from(reelMap.values()).filter(r => !deletedSet.has(r.id));
   mergedReels.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
-  // Automatically recalculate CPM for all reels based on campaigns
-  recalculateAllDbReelsCpm(mergedReels, mergedCampaigns);
+  // Automatically recalculate CPM for all reels based on campaigns and global fee %
+  recalculateAllDbReelsCpm(mergedReels, mergedCampaigns, globalFeePercent);
 
   const providerMap = new Map<string, ApiProvider>();
   const allProviderIds = new Set<string>([
@@ -377,6 +379,8 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
     logs: mergedLogs,
     meta: {
       lastAutoFetchAt: local.meta?.lastAutoFetchAt || remote.meta?.lastAutoFetchAt || null,
+      globalFeePercent,
+      scheduleIntervalHours,
       deletedReelIds: Array.from(deletedSet),
       deletedCampaignIds: Array.from(deletedCampaignSet),
       deletedProviderIds: Array.from(deletedProviderSet),
@@ -562,7 +566,14 @@ function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
     aiLogs: [],
     history: [],
     logs: [],
-    meta: { lastAutoFetchAt: null, deletedReelIds: [], deletedCampaignIds: [], deletedProviderIds: [] },
+    meta: { 
+      lastAutoFetchAt: null, 
+      deletedReelIds: [], 
+      deletedCampaignIds: [], 
+      deletedProviderIds: [],
+      globalFeePercent: 3,
+      scheduleIntervalHours: 6,
+    },
   }, data);
 }
 

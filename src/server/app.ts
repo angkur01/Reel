@@ -6,9 +6,9 @@ import { requireAuth, verifyPassword, setPassword, createSessionToken, revokeSes
 import { fetchReelWithFallbackChain, testSingleProvider } from './providers.js';
 import { startTelegramBotPolling, stopTelegramBotPolling, sendTelegramMessage, notifyTelegramReelResult, getFirst3Words } from './telegram.js';
 import { getNextScheduledTime, runAutomaticFetchJob } from './scheduler.js';
-import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi } from './ai.js';
+import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi, generateGroqTitle } from './ai.js';
 import { calculateReelCpm, applyCpmToReel, recalculateAllDbReelsCpm, getDbCpmTotals } from './cpm.js';
-import { updateReelWithFetchResult, recalculateAllReelsGrowthAndCpm } from './statsHelper.js';
+import { updateReelWithFetchResult, recalculateAllReelsGrowthAndCpm, generateTwoWordTitleFromCaption } from './statsHelper.js';
 import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign } from '../types.js';
 
 export function createExpressApp() {
@@ -381,8 +381,8 @@ export function createExpressApp() {
     const caption = fetchResult.data?.caption || 'Instagram Reel';
 
     if (!reelName) {
-      reelName = getFirst3Words(caption).slice(0, 10);
-      if (!reelName) reelName = 'Reel ' + newId.slice(-4);
+      reelName = generateTwoWordTitleFromCaption(caption);
+      if (!reelName || reelName === 'Viral Reel') reelName = 'Reel ' + newId.slice(-4);
     }
 
     const newReel: Reel = {
@@ -487,6 +487,29 @@ export function createExpressApp() {
 
   app.patch(['/api/reels/:id/edit', '/api/reels/:id'], requireAuth, editReelHandler);
   app.put(['/api/reels/:id/edit', '/api/reels/:id'], requireAuth, editReelHandler);
+
+  // Groq AI Rename Reel based on caption
+  app.post('/api/reels/:id/groq-rename', requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const db = loadDb();
+    const reel = db.reels.find(r => r.id === id);
+    if (!reel) {
+      res.status(404).json({ success: false, error: 'Reel not found' });
+      return;
+    }
+
+    const newTitle = await generateGroqTitle(reel.caption || reel.name || '');
+    reel.name = newTitle;
+    saveDb(db);
+
+    res.json({
+      success: true,
+      reel,
+      newTitle,
+      message: `Reel renamed to "${newTitle}" via Groq AI!`
+    });
+  });
+
 
   // Delete Reel
   app.delete('/api/reels/:id', requireAuth, (req: Request, res: Response) => {
@@ -1013,7 +1036,33 @@ export function createExpressApp() {
         total3PercentFees: cpmTotals.total3PercentFees,
         totalEstimatedPayout: cpmTotals.totalEstimatedPayout,
         totalCampaignsCount: (db.cpmCampaigns || []).length,
+        globalFeePercent: db.meta?.globalFeePercent ?? 3,
+        scheduleIntervalHours: db.meta?.scheduleIntervalHours ?? 6,
       },
+    });
+  });
+
+  // Save Global Settings (Fee % and Schedule Gap)
+  app.post('/api/settings/global', requireAuth, (req: Request, res: Response) => {
+    const { globalFeePercent, scheduleIntervalHours } = req.body;
+    const db = loadDb();
+    if (!db.meta) db.meta = { lastAutoFetchAt: null, deletedReelIds: [] };
+
+    if (globalFeePercent !== undefined && !isNaN(Number(globalFeePercent))) {
+      db.meta.globalFeePercent = Math.max(0, Number(globalFeePercent));
+    }
+    if (scheduleIntervalHours !== undefined && !isNaN(Number(scheduleIntervalHours))) {
+      db.meta.scheduleIntervalHours = Math.max(1, Math.min(24, Math.floor(Number(scheduleIntervalHours))));
+    }
+
+    recalculateAllReelsGrowthAndCpm(db);
+    saveDb(db);
+
+    res.json({
+      success: true,
+      message: 'Global settings updated successfully!',
+      globalFeePercent: db.meta.globalFeePercent,
+      scheduleIntervalHours: db.meta.scheduleIntervalHours,
     });
   });
 

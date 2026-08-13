@@ -1,8 +1,8 @@
 import { loadDb, saveDb, normalizeInstagramUrl } from './db.js';
 import { fetchReelWithFallbackChain } from './providers.js';
-import { runAiMonitoringCheck, generateDailyAiReport, generateAiCpmTelegramMessage } from './ai.js';
+import { runAiMonitoringCheck, generateDailyAiReport, generateAiCpmTelegramMessage, talkToAi } from './ai.js';
 import { applyCpmToReel } from './cpm.js';
-import { updateReelWithFetchResult } from './statsHelper.js';
+import { updateReelWithFetchResult, generateTwoWordTitleFromCaption } from './statsHelper.js';
 import { Reel, FetchLog } from '../types.js';
 
 // Global set of reel IDs currently being fetched to prevent duplicate simultaneous fetches
@@ -28,7 +28,7 @@ export const mainAdminKeyboard = {
   keyboard: [
     [{ text: '📊 Dashboard' }, { text: '🎬 Reels' }],
     [{ text: '⚡ Force Refresh' }, { text: '🧠 AI Status' }],
-    [{ text: '📈 Daily Report' }],
+    [{ text: '💬 Talk to AI' }, { text: '📈 Daily Report' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -254,8 +254,25 @@ async function handleTelegramMessage(botToken: string, adminTelegramId: string, 
     return;
   }
 
-  if (text === '🧠 AI Status' || text === '/ai') {
+  if (text === '🧠 AI Status') {
     await sendAiStatusSummary(botToken, chatId);
+    return;
+  }
+
+  if (text === '💬 Talk to AI' || text === '/talk' || text === '/chat') {
+    const msg = [
+      `💬 <b>Talk to AI Strategist Active!</b>`,
+      ``,
+      `Ask me anything about your reels, view counts, CPM payouts, or content strategies!`,
+      ``,
+      `<b>Try asking:</b>`,
+      `• <i>"How are my reels performing today?"</i>`,
+      `• <i>"Which reel is earning the most?"</i>`,
+      `• <i>"Give me 3 viral ideas for my next reel."</i>`,
+      ``,
+      `<i>Simply reply with your question or send a message starting with <b>/ai</b>!</i>`
+    ].join('\n');
+    await sendTelegramMessage(botToken, chatId, msg);
     return;
   }
 
@@ -266,6 +283,17 @@ async function handleTelegramMessage(botToken: string, adminTelegramId: string, 
       await sendTelegramMessage(botToken, chatId, `⚠️ ${result.reportText}`);
     }
     return;
+  }
+
+  // Handle direct AI chat questions if message starts with /ai or is a natural question
+  if (text.toLowerCase().startsWith('/ai ') || text.toLowerCase().startsWith('/chat ') || (!text.startsWith('/') && !text.startsWith('http://') && !text.startsWith('https://') && !['📊 Dashboard', '🎬 Reels', '⚡ Force Refresh', '🧠 AI Status', '💬 Talk to AI', '📈 Daily Report'].includes(text))) {
+    const userQuestion = text.replace(/^\/(ai|chat)\s*/i, '').trim() || text;
+    if (userQuestion.length > 2) {
+      await sendTelegramMessage(botToken, chatId, '🧠 <i>AI is analyzing your query...</i>');
+      const aiReply = await talkToAi(userQuestion);
+      await sendTelegramMessage(botToken, chatId, aiReply);
+      return;
+    }
   }
 
   // Check if text is an Instagram URL sent directly in message
@@ -358,7 +386,7 @@ async function sendAiStatusSummary(botToken: string, chatId: string) {
 
   const inlineButtons = [
     [{ text: `🤖 Run AI Check Now (${checksUsed}/${limit})`, callback_data: 'trigger_ai_check' }],
-    [{ text: '📈 Send Daily Report', callback_data: 'send_daily_report' }],
+    [{ text: '💬 Talk to AI', callback_data: 'prompt_talk_to_ai' }, { text: '📈 Send Daily Report', callback_data: 'send_daily_report' }],
   ];
 
   const msg = [
@@ -448,6 +476,24 @@ async function handleTelegramCallback(botToken: string, adminTelegramId: string,
     return;
   }
 
+  if (data === 'prompt_talk_to_ai') {
+    await answerCallbackQuery(botToken, callbackQueryId);
+    const msg = [
+      `💬 <b>Talk to AI Strategist Active!</b>`,
+      ``,
+      `Ask me anything about your reels, view counts, CPM payouts, or content strategies!`,
+      ``,
+      `<b>Try asking:</b>`,
+      `• <i>"How are my reels performing today?"</i>`,
+      `• <i>"Which reel is earning the most?"</i>`,
+      `• <i>"Give me 3 viral ideas for my next reel."</i>`,
+      ``,
+      `<i>Simply reply with your question or send a message starting with <b>/ai</b>!</i>`
+    ].join('\n');
+    await sendTelegramMessage(botToken, chatId, msg);
+    return;
+  }
+
   if (data === 'send_daily_report') {
     await answerCallbackQuery(botToken, callbackQueryId, 'Generating Report...');
     await generateDailyAiReport();
@@ -529,8 +575,8 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
     if (fetchResult.success && fetchResult.data) {
       updateReelWithFetchResult(target, fetchResult, currentDb);
 
-      if (!target.name || target.name.startsWith('Reel ')) {
-        target.name = getFirst3Words(target.caption).slice(0, 10);
+      if (!target.name || target.name.startsWith('Reel ') || target.name.startsWith('reel_')) {
+        target.name = generateTwoWordTitleFromCaption(target.caption || '');
       }
 
       // Check milestone thresholds
