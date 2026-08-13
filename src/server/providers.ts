@@ -249,10 +249,15 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
     try {
       json = JSON.parse(responseText);
     } catch (e) {
+      const isHtml = responseText.trim().toLowerCase().startsWith('<!doctype html') || responseText.trim().toLowerCase().startsWith('<html');
+      const errorDetail = isHtml
+        ? 'Provider returned an HTML web page instead of JSON API response. This occurs when the deployed Railway/Render service is running the root Web Frontend instead of the Python microservice in "/microservice". In Railway: go to Settings -> Build -> set "Root Directory" to "/microservice" and redeploy.'
+        : `Provider response was not valid JSON: ${sanitizedRawSnippet.slice(0, 150)}`;
+
       return {
         success: false,
         httpStatus,
-        error: `Provider response was not valid JSON: ${sanitizedRawSnippet.slice(0, 150)}`,
+        error: errorDetail,
         rawSnippet: sanitizedRawSnippet,
       };
     }

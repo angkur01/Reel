@@ -222,7 +222,8 @@ export const YtdlpMicroserviceTab: React.FC<YtdlpMicroserviceTabProps> = ({
 
   // Test custom or temporary provider configuration
   const handleTestMicroservice = async () => {
-    if (!serviceUrl || !serviceUrl.startsWith('http')) {
+    const cleanBaseUrl = serviceUrl.trim().replace(/\/+$/, '');
+    if (!cleanBaseUrl || !cleanBaseUrl.startsWith('http')) {
       setStatusMsg({ type: 'error', text: 'Please enter a valid HTTP/HTTPS URL for your microservice.' });
       return;
     }
@@ -234,7 +235,7 @@ export const YtdlpMicroserviceTab: React.FC<YtdlpMicroserviceTabProps> = ({
     const tempProvider: ApiProvider = {
       id: existingProvider?.id || 'temp_ytdlp_test',
       name: '🐍 yt-dlp Microservice',
-      baseUrl: serviceUrl.trim(),
+      baseUrl: cleanBaseUrl,
       endpointPath: '/fetch',
       method: 'GET',
       apiKey: apiKey.trim(),
@@ -301,7 +302,8 @@ export const YtdlpMicroserviceTab: React.FC<YtdlpMicroserviceTabProps> = ({
 
   // Save as Primary Active Provider
   const handleSaveAndActivate = async () => {
-    if (!serviceUrl || !serviceUrl.startsWith('http')) {
+    const cleanBaseUrl = serviceUrl.trim().replace(/\/+$/, '');
+    if (!cleanBaseUrl || !cleanBaseUrl.startsWith('http')) {
       setStatusMsg({ type: 'error', text: 'Please enter a valid HTTP/HTTPS URL for your microservice.' });
       return;
     }
@@ -311,7 +313,7 @@ export const YtdlpMicroserviceTab: React.FC<YtdlpMicroserviceTabProps> = ({
 
     const providerPayload: Partial<ApiProvider> = {
       name: '🐍 yt-dlp Microservice (Railway / Docker)',
-      baseUrl: serviceUrl.trim(),
+      baseUrl: cleanBaseUrl,
       endpointPath: '/fetch',
       method: 'GET',
       apiKey: apiKey.trim(),
@@ -599,25 +601,36 @@ export const YtdlpMicroserviceTab: React.FC<YtdlpMicroserviceTabProps> = ({
         {deployTab === 'railway' && (
           <div className="space-y-3 text-xs text-slate-300 leading-relaxed">
             <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-200">
-              <b>Railway Deployment Steps:</b>
+              <strong className="block text-sm text-purple-300 font-bold mb-1">Railway Deployment Steps:</strong>
+              <span>Deploying the scraper takes 60 seconds. Follow these exact steps:</span>
             </div>
             <ol className="list-decimal list-inside space-y-2.5 ml-1">
               <li>
                 Create an account at <a href="https://railway.app" target="_blank" rel="noreferrer" className="text-purple-400 underline font-bold">Railway.app</a>.
               </li>
               <li>
-                Click <b>+ New Project</b> &rarr; <b>Deploy from GitHub repo</b> (Select your repository or upload the files from <code>/microservice</code>).
+                Click <b>+ New Project</b> &rarr; <b>Deploy from GitHub repo</b> (Select your repository).
               </li>
               <li>
-                Railway will automatically detect the <code>Dockerfile</code> and <code>railway.json</code> configuration.
+                <strong className="text-amber-300">CRITICAL STEP:</strong> Click your newly created service in Railway &rarr; go to <b>Settings</b> &rarr; <b>Build</b> &rarr; Set <b>Root Directory</b> to <code className="text-emerald-300 bg-slate-900 px-1.5 py-0.5 rounded">/microservice</code> (or <code className="text-emerald-300 bg-slate-900 px-1.5 py-0.5 rounded">microservice</code>).
+                <p className="text-[11px] text-slate-400 ml-4 mt-1">
+                  💡 <i>Why? Because this repository contains both this Node dashboard and the Python scraper. Setting Root Directory to <code>/microservice</code> tells Railway to build the Python <code>yt-dlp</code> microservice!</i>
+                </p>
               </li>
               <li>
-                Go to your project's <b>Settings</b> &rarr; <b>Networking</b> &rarr; Click <b>Generate Domain</b>.
+                In Railway <b>Settings</b> &rarr; <b>Networking</b> &rarr; Click <b>Generate Domain</b>.
               </li>
               <li>
-                Copy the generated domain (e.g., <code>https://ytdlp-scraper-production.up.railway.app</code>) and paste it into the URL field above!
+                Copy the generated domain (e.g. <code className="text-emerald-300">https://ytdlp-scraper-production.up.railway.app</code>) and paste it into the URL field above!
               </li>
             </ol>
+
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-200 text-[11px]">
+              <strong>⚠️ Seeing &quot;Provider response was not valid JSON: &lt;!doctype html&gt;&quot;?</strong>
+              <p className="mt-0.5 text-amber-300/90">
+                This means Railway deployed the root frontend website instead of the Python microservice. Fix it in 5 seconds by setting <b>Root Directory: <code>/microservice</code></b> in Railway Settings &rarr; Build &rarr; Redeploy!
+              </p>
+            </div>
           </div>
         )}
 
