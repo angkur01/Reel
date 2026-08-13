@@ -620,6 +620,15 @@ export default function App() {
             onTestTelegram={handleTestTelegram}
             onChangePassword={handleChangePassword}
             onSaveGlobalSettings={handleSaveGlobalSettings}
+            aiSettings={aiSettings}
+            aiMeta={aiMeta}
+            aiLogs={aiLogs}
+            onSaveAiSettings={handleSaveAiSettings}
+            onRunAiCheck={handleRunAiCheck}
+            isRunningAiCheck={isRunningAiCheck}
+            onGenerateDailyReport={handleGenerateDailyReport}
+            isGeneratingReport={isGeneratingReport}
+            authFetch={authFetch}
             isInline={true}
           />
         )}

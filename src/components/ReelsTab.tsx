@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search, Filter, RefreshCw, Trash2, Edit2, ExternalLink, Play, Eye, Heart, MessageSquare, Flame, AlertCircle, CheckCircle2, Video, ArrowUpDown, Sparkles } from 'lucide-react';
+import { Search, Filter, RefreshCw, Trash2, Edit2, ExternalLink, Play, Eye, Heart, MessageSquare, Flame, AlertCircle, CheckCircle2, Video, ArrowUpDown, Sparkles, BarChart3, LayoutGrid } from 'lucide-react';
 import { Reel } from '../types';
+import { AnalyticsTab } from './AnalyticsTab';
 
 interface ReelsTabProps {
   reels: Reel[];
@@ -14,6 +15,7 @@ interface ReelsTabProps {
   refreshingReelIds: Set<string>;
   onRefreshAll: () => void;
   isRefreshingAll: boolean;
+  initialViewMode?: 'grid' | 'analytics';
 }
 
 export const ReelsTab: React.FC<ReelsTabProps> = ({
@@ -28,7 +30,9 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   refreshingReelIds,
   onRefreshAll,
   isRefreshingAll,
+  initialViewMode = 'grid',
 }) => {
+  const [viewMode, setViewMode] = useState<'grid' | 'analytics'>(initialViewMode);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'viral' | 'stalled' | 'failed' | 'success'>('all');
   const [sortBy, setSortBy] = useState<'views' | 'growth' | 'likes' | 'newest'>('views');
@@ -84,7 +88,35 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {failedCount > 0 && (
+          {/* View Mode Toggle: Grid vs Analytics */}
+          <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-2xl">
+            <button
+              id="btn-view-reels-grid"
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                viewMode === 'grid'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Reels Grid</span>
+            </button>
+            <button
+              id="btn-view-reels-analytics"
+              onClick={() => setViewMode('analytics')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                viewMode === 'analytics'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-purple-300" />
+              <span>Analysis</span>
+            </button>
+          </div>
+
+          {failedCount > 0 && viewMode === 'grid' && (
             <button
               id="btn-retry-failed-reels"
               onClick={onRetryFailed}
@@ -118,8 +150,15 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
         </div>
       </div>
 
-      {/* Search, Filter & Sort Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+      {/* View Mode: Analysis vs Grid */}
+      {viewMode === 'analytics' ? (
+        <div className="space-y-4">
+          <AnalyticsTab reels={reels} />
+        </div>
+      ) : (
+        <>
+          {/* Search, Filter & Sort Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
         
         {/* Search Input */}
         <div className="md:col-span-5 relative">
@@ -356,6 +395,8 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       {/* Video Modal Player */}

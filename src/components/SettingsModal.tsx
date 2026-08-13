@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ApiProvider, TelegramSettings, TestProviderResult } from '../types';
-import { YtdlpMicroserviceTab } from './YtdlpMicroserviceTab';
+import { ApiProvider, TelegramSettings, TestProviderResult, AiSettings, AiMeta, AiLog } from '../types';
+import { AiBrainTab } from './AiBrainTab';
+import { UptimeTab } from './UptimeTab';
+import { LogsTab } from './LogsTab';
 import {
   X,
   Key,
@@ -25,7 +27,9 @@ import {
   Cloud,
   RefreshCw,
   Terminal,
-  Cpu
+  Cpu,
+  Brain,
+  Server
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -43,6 +47,18 @@ interface SettingsModalProps {
   onChangePassword: (curr: string, next: string) => Promise<{ success: boolean; error?: string }>;
   onSaveGlobalSettings?: (settings: { globalFeePercent?: number; scheduleIntervalHours?: number }) => Promise<void>;
   isInline?: boolean;
+  initialSubTab?: 'apis' | 'ai-brain' | 'uptime' | 'logs' | 'telegram' | 'cloud-db' | 'global' | 'security';
+  // AI Brain props
+  aiSettings?: AiSettings | null;
+  aiMeta?: AiMeta | null;
+  aiLogs?: AiLog[];
+  onSaveAiSettings?: (settings: Partial<AiSettings>) => Promise<void>;
+  onRunAiCheck?: () => Promise<void>;
+  isRunningAiCheck?: boolean;
+  onGenerateDailyReport?: () => Promise<void>;
+  isGeneratingReport?: boolean;
+  // Auth fetch for LogsTab
+  authFetch?: (url: string, options?: RequestInit, timeoutMs?: number) => Promise<Response>;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -60,8 +76,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onChangePassword,
   onSaveGlobalSettings,
   isInline = false,
+  initialSubTab = 'apis',
+  aiSettings = null,
+  aiMeta = null,
+  aiLogs = [],
+  onSaveAiSettings,
+  onRunAiCheck,
+  isRunningAiCheck = false,
+  onGenerateDailyReport,
+  isGeneratingReport = false,
+  authFetch,
 }) => {
-  const [activeTab, setActiveTab] = useState<'apis' | 'ytdlp' | 'telegram' | 'cloud-db' | 'global' | 'security'>('apis');
+  const [activeTab, setActiveTab] = useState<'apis' | 'ytdlp' | 'ai-brain' | 'uptime' | 'logs' | 'telegram' | 'cloud-db' | 'global' | 'security'>(initialSubTab);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   // Global Settings controls state
   const [feeInput, setFeeInput] = useState<string>(stats?.globalFeePercent?.toString() || '3');
@@ -380,16 +412,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </button>
 
         <button
-          id="btn-tab-ytdlp"
-          onClick={() => setActiveTab('ytdlp')}
+          id="btn-tab-ai-brain"
+          onClick={() => setActiveTab('ai-brain')}
           className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-            activeTab === 'ytdlp'
-              ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+            activeTab === 'ai-brain'
+              ? 'border-purple-500 text-purple-400 bg-purple-500/10'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Cpu className="w-4 h-4 text-emerald-400" />
-          <span>🐍 Self-Hosted yt-dlp</span>
+          <Brain className="w-4 h-4 text-purple-400" />
+          <span>🧠 AI Brain</span>
+        </button>
+
+        <button
+          id="btn-tab-uptime"
+          onClick={() => setActiveTab('uptime')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'uptime'
+              ? 'border-sky-500 text-sky-400 bg-sky-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Server className="w-4 h-4 text-sky-400" />
+          <span>⚡ Uptime</span>
+        </button>
+
+        <button
+          id="btn-tab-logs"
+          onClick={() => setActiveTab('logs')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'logs'
+              ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Terminal className="w-4 h-4 text-indigo-400" />
+          <span>📜 System Logs</span>
         </button>
 
         <button
@@ -402,7 +460,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           }`}
         >
           <Bot className="w-4 h-4" />
-          <span>Telegram Bot Integration</span>
+          <span>Telegram Bot</span>
         </button>
 
         <button
@@ -543,9 +601,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       onClick={() => {
                         setProviderForm({
                           ...providerForm,
-                          name: '🐍 yt-dlp Microservice (Railway)',
-                          baseUrl: 'https://your-ytdlp-scraper.up.railway.app',
-                          endpointPath: '/fetch',
+                          name: 'Custom External Scraper API',
+                          baseUrl: 'https://your-custom-api.com',
+                          endpointPath: '/fetch-reel',
                           method: 'GET',
                           apiKeyLocation: 'header_x_api_key',
                           urlParamName: 'url',
@@ -564,7 +622,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }}
                       className="px-2.5 py-1 text-[11px] bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-lg border border-emerald-500/40 transition cursor-pointer font-bold"
                     >
-                      🐍 yt-dlp Microservice (Free)
+                      🌐 Custom External Scraper
                     </button>
                     <button
                       type="button"
@@ -1002,16 +1060,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* TAB: SELF-HOSTED YT-DLP MICROSERVICE */}
-        {activeTab === 'ytdlp' && (
-          <YtdlpMicroserviceTab
-            providers={providers}
-            onAddProvider={onAddProvider}
-            onUpdateProvider={onUpdateProvider}
-            onTestProvider={onTestProvider}
-          />
-        )}
-
         {/* TAB 2: TELEGRAM BOT INTEGRATION & CONFIGURATION */}
         {activeTab === 'telegram' && (
           <div className="space-y-6">
@@ -1385,6 +1433,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* TAB: AI BRAIN */}
+        {activeTab === 'ai-brain' && (
+          <div className="space-y-4">
+            <AiBrainTab
+              aiSettings={aiSettings}
+              aiMeta={aiMeta}
+              aiLogs={aiLogs}
+              onSaveAiSettings={onSaveAiSettings || (async () => {})}
+              onRunAiCheck={onRunAiCheck || (async () => {})}
+              isRunningAiCheck={isRunningAiCheck}
+              onGenerateDailyReport={onGenerateDailyReport || (async () => {})}
+              isGeneratingReport={isGeneratingReport}
+            />
+          </div>
+        )}
+
+        {/* TAB: UPTIME MONITOR */}
+        {activeTab === 'uptime' && (
+          <div className="space-y-4">
+            <UptimeTab />
+          </div>
+        )}
+
+        {/* TAB: LIVE SYSTEM LOGS */}
+        {activeTab === 'logs' && (
+          <div className="space-y-4">
+            <LogsTab authFetch={authFetch || (async (url: string, opts?: RequestInit) => fetch(url, opts))} />
           </div>
         )}
 
