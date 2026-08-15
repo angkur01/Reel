@@ -243,6 +243,7 @@ export function createExpressApp() {
 
     // Detach deleted campaign from all connected reels
     for (const reel of db.reels) {
+      if (reel.category === 'paid') continue;
       if (reel.campaignId === id) {
         reel.campaignId = null;
       }
@@ -284,7 +285,8 @@ export function createExpressApp() {
 
     if (format === 'csv') {
       const headers = ['ID', 'Name', 'Views', 'Likes', 'Comments', 'Shares', '24h Gain', 'Author', 'Status', 'URL', 'Last Updated'];
-      const rows = db.reels.map(r => [
+      const activeReels = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid');
+      const rows = activeReels.map(r => [
         `"${r.id}"`,
         `"${r.name.replace(/"/g, '""')}"`,
         r.views,
@@ -321,7 +323,7 @@ export function createExpressApp() {
   // Retry Failed Reels
   app.post('/api/reels/retry-failed', requireAuth, async (req: Request, res: Response) => {
     const db = loadDb();
-    const failedReels = db.reels.filter(r => r.status === 'failed');
+    const failedReels = db.reels.filter(r => r.status === 'failed' && r.category !== 'archived' && r.category !== 'paid');
 
     if (failedReels.length === 0) {
       res.json({ success: true, message: 'No failed reels found to retry.' });
@@ -512,6 +514,33 @@ export function createExpressApp() {
   });
 
 
+  
+  // Update Reel Category (Archive/Paid/Active)
+  app.post('/api/reels/:id/category', requireAuth, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { category } = req.body;
+    
+    if (!['active', 'archived', 'paid'].includes(category)) {
+      res.status(400).json({ success: false, error: 'Invalid category' });
+      return;
+    }
+    
+    const db = loadDb();
+    const reel = db.reels.find(r => r.id === id);
+    if (!reel) {
+      res.status(404).json({ success: false, error: 'Reel not found' });
+      return;
+    }
+    
+    reel.category = category;
+    if (category === 'paid') {
+      reel.paidAt = new Date().toISOString();
+    }
+    
+    saveDb(db);
+    res.json({ success: true, reel, message: `Reel moved to ${category}` });
+  });
+
   // Delete Reel
   app.delete('/api/reels/:id', requireAuth, (req: Request, res: Response) => {
     const { id } = req.params;
@@ -540,6 +569,11 @@ export function createExpressApp() {
 
     if (!reel) {
       res.status(404).json({ success: false, error: 'Reel not found' });
+      return;
+    }
+
+    if (reel.category === 'archived' || reel.category === 'paid') {
+      res.status(400).json({ success: false, error: 'Cannot fetch an archived or paid reel.' });
       return;
     }
 
@@ -1048,17 +1082,18 @@ export function createExpressApp() {
     recalculateAllReelsGrowthAndCpm(db);
     const nextFetch = getNextScheduledTime().toISOString();
 
-    const totalViews = db.reels.reduce((sum, r) => sum + (r.views || 0), 0);
-    const totalLikes = db.reels.reduce((sum, r) => sum + (r.likes || 0), 0);
-    const total24hGrowth = db.reels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
-    const viralCount = db.reels.filter(r => r.isViral).length;
-    const stalledCount = db.reels.filter(r => r.isStalled).length;
-    const cpmTotals = getDbCpmTotals(db.reels);
+    const activeReels = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid');
+    const totalViews = activeReels.reduce((sum, r) => sum + (r.views || 0), 0);
+    const totalLikes = activeReels.reduce((sum, r) => sum + (r.likes || 0), 0);
+    const total24hGrowth = activeReels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
+    const viralCount = activeReels.filter(r => r.isViral).length;
+    const stalledCount = activeReels.filter(r => r.isStalled).length;
+    const cpmTotals = getDbCpmTotals(activeReels);
 
     res.json({
       success: true,
       stats: {
-        totalReels: db.reels.length,
+        totalReels: activeReels.length,
         totalViews,
         totalLikes,
         total24hGrowth,

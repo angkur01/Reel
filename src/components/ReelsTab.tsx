@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, RefreshCw, Trash2, Edit2, ExternalLink, Play, Eye, Heart, MessageSquare, Flame, AlertCircle, CheckCircle2, Video, ArrowUpDown, Sparkles, BarChart3, LayoutGrid } from 'lucide-react';
+import { Search, Filter, RefreshCw, Trash2, Edit2, ExternalLink, Play, Eye, Heart, MessageSquare, Flame, AlertCircle, CheckCircle2, Video, ArrowUpDown, Sparkles, BarChart3, LayoutGrid, Archive } from 'lucide-react';
 import { Reel } from '../types';
 import { AnalyticsTab } from './AnalyticsTab';
 
@@ -15,6 +15,7 @@ interface ReelsTabProps {
   refreshingReelIds: Set<string>;
   onRefreshAll: () => void;
   isRefreshingAll: boolean;
+  onChangeCategory?: (id: string, category: 'active' | 'archived' | 'paid') => void;
   initialViewMode?: 'grid' | 'analytics';
 }
 
@@ -30,6 +31,7 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   refreshingReelIds,
   onRefreshAll,
   isRefreshingAll,
+  onChangeCategory,
   initialViewMode = 'grid',
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'analytics'>(initialViewMode);
@@ -381,6 +383,23 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
 
+                    {/* Archive Reel */}
+                    <button
+                      onClick={() => onChangeCategory && onChangeCategory(reel.id, 'archived')}
+                      className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-amber-400 hover:border-amber-500/40 transition cursor-pointer"
+                      title="Archive Reel"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                    </button>
+                    {/* Mark as Paid */}
+                    <button
+                      onClick={() => onChangeCategory && onChangeCategory(reel.id, 'paid')}
+                      className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 hover:border-emerald-500/40 transition cursor-pointer"
+                      title="Mark as Paid"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </button>
+                    
                     {/* Delete Reel */}
                     <button
                       onClick={() => onDeleteReel(reel.id)}

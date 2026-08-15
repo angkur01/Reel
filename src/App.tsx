@@ -376,9 +376,17 @@ export default function App() {
     setReels((prev) => prev.filter((r) => r.id !== id));
     try {
       const res = await authFetch(`/api/reels/${id}`, { method: 'DELETE' });
-      if (res.ok) loadDashboardData();
-    } catch (e) {
+      if (res.ok) {
+        await loadDashboardData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Failed to delete reel');
+        await loadDashboardData();
+      }
+    } catch (e: any) {
       console.error('Error deleting reel:', e);
+      alert('Error deleting reel: ' + (e.message || e));
+      await loadDashboardData();
     }
   };
 
@@ -523,7 +531,25 @@ export default function App() {
     );
   }
 
-  return (
+  
+  const activeReels = reels.filter(r => r.category !== 'archived' && r.category !== 'paid');
+  const archivedReels = reels.filter(r => r.category === 'archived');
+  const paidReels = reels.filter(r => r.category === 'paid');
+  
+  const handleChangeCategory = async (id: string, category: 'active' | 'archived' | 'paid') => {
+    setReels(prev => prev.map(r => r.id === id ? { ...r, category, paidAt: category === 'paid' ? new Date().toISOString() : r.paidAt } : r));
+    try {
+      await authFetch(`/api/reels/${id}/category`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category })
+      });
+      await loadDashboardData();
+    } catch (e) {
+      console.error('Failed to change category', e);
+    }
+  };
+return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
       
       {/* Top Navbar Header */}
@@ -542,7 +568,7 @@ export default function App() {
         {activeTab === 'overview' && (
           <OverviewTab
             stats={stats}
-            reels={reels}
+            reels={activeReels}
             aiLogs={aiLogs}
             onOpenAddModal={() => setIsAddModalOpen(true)}
             onRefreshAll={handleBatchRefresh}
@@ -559,7 +585,7 @@ export default function App() {
 
         {activeTab === 'reels' && (
           <ReelsTab
-            reels={reels}
+            reels={activeReels} onChangeCategory={handleChangeCategory}
             onRefreshReel={handleRefreshReel}
             onEditReelName={handleEditReelName}
             onGroqRenameReel={handleGroqRenameReel}
@@ -574,7 +600,7 @@ export default function App() {
         )}
 
         {activeTab === 'cpm-campaigns' && (
-          <CpmCampaignsTab
+          <CpmCampaignsTab onChangeCategory={handleChangeCategory}
             campaigns={cpmCampaigns}
             reels={reels}
             stats={stats}
@@ -599,14 +625,14 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'analytics' && <AnalyticsTab reels={reels} />}
+        {activeTab === 'analytics' && <AnalyticsTab reels={activeReels} />}
 
         {activeTab === 'logs' && <LogsTab authFetch={authFetch} />}
 
         {activeTab === 'uptime' && <UptimeTab />}
 
         {activeTab === 'settings' && (
-          <SettingsModal
+          <SettingsModal archivedReels={archivedReels} onChangeCategory={handleChangeCategory}
             isOpen={true}
             onClose={() => setActiveTab('overview')}
             providers={providers}

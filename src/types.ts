@@ -60,6 +60,9 @@ export interface Reel {
   fee3Percent?: number;
   estimatedPayout?: number;
   cpmEligibilityStatus?: 'eligible' | 'below_minimum' | 'capped_at_max' | 'no_campaign';
+
+  category?: 'active' | 'archived' | 'paid';
+  paidAt?: string;
 }
 
 export interface ApiProvider {

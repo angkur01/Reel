@@ -3,7 +3,7 @@ import path from 'path';
 import os from 'os';
 import bcrypt from 'bcryptjs';
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, terminate } from 'firebase/firestore';
 import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint, CpmCampaign } from '../types.js';
 import { recalculateAllDbReelsCpm } from './cpm.js';
 
@@ -35,6 +35,7 @@ export interface DatabaseSchema {
 let activeDbPath: string | null = null;
 let firestoreDb: any = null;
 let firestoreInitialized = false;
+let firestoreQuotaExceeded = false;
 let cachedDb: DatabaseSchema | null = null;
 let lastLocalWriteAt = 0;
 
@@ -521,7 +522,35 @@ export async function testFirestoreConnection() {
   }
 }
 
+function isQuotaError(err: any): boolean {
+  if (!err) return false;
+  const code = err.code;
+  const msg = err.message || String(err);
+  return (
+    code === 8 ||
+    code === '8' ||
+    String(code).toLowerCase() === 'resource_exhausted' ||
+    msg.includes('RESOURCE_EXHAUSTED') ||
+    msg.includes('Quota exceeded') ||
+    msg.includes('quota')
+  );
+}
+
+function handleQuotaExceeded() {
+  if (!firestoreQuotaExceeded) {
+    firestoreQuotaExceeded = true;
+    console.warn('[Firestore] Free daily quota exceeded. Terminating connection and falling back to local JSON storage.');
+    if (firestoreDb) {
+      try {
+        terminate(firestoreDb).catch(e => console.warn('Error terminating firestore:', e));
+      } catch (e) {}
+    }
+    firestoreDb = null;
+  }
+}
+
 function initFirestore() {
+  if (firestoreQuotaExceeded) return null;
   if (firestoreInitialized) return firestoreDb;
   firestoreInitialized = true;
 
@@ -548,6 +577,7 @@ function initFirestore() {
 
     // Initial async sync from Firestore
     getDoc(docRef).then((snapshot) => {
+      if (firestoreQuotaExceeded) return;
       if (snapshot.exists()) {
         const firestoreData = snapshot.data() as Partial<DatabaseSchema>;
         const baseLocal = cachedDb || readLocalFile() || normalizeDbSchema({});
@@ -557,14 +587,25 @@ function initFirestore() {
       } else {
         console.log('[Firestore] No existing Cloud Firestore document found. Seeding initial data...');
         const baseLocal = cachedDb || readLocalFile() || normalizeDbSchema({});
-        setDoc(docRef, baseLocal).catch(e => console.error('[Firestore Seed Error]', e));
+        setDoc(docRef, baseLocal).catch(e => {
+          if (isQuotaError(e)) {
+            handleQuotaExceeded();
+          } else {
+            console.error('[Firestore Seed Error]', e);
+          }
+        });
       }
     }).catch(err => {
-      console.error('[Firestore Fetch Error]', err);
+      if (isQuotaError(err)) {
+        handleQuotaExceeded();
+      } else {
+        console.error('[Firestore Fetch Error]', err);
+      }
     });
 
     // Realtime Listener
     onSnapshot(docRef, (snapshot) => {
+      if (firestoreQuotaExceeded) return;
       if (snapshot.exists()) {
         if (Date.now() - lastLocalWriteAt < 2500) {
           return;
@@ -575,12 +616,21 @@ function initFirestore() {
         saveLocalFile(cachedDb);
       }
     }, (error) => {
-      console.warn('[Firestore Listener Warning]', error);
+      if (isQuotaError(error)) {
+        handleQuotaExceeded();
+      } else {
+        console.warn('[Firestore Listener Warning]', error);
+      }
     });
 
     return firestoreDb;
-  } catch (err) {
-    console.error('[Firestore Init Error]', err);
+  } catch (err: any) {
+    if (isQuotaError(err)) {
+      handleQuotaExceeded();
+    } else {
+      console.error('[Firestore Init Error]', err);
+    }
+    firestoreDb = null;
     return null;
   }
 }
@@ -639,6 +689,7 @@ function saveLocalFile(data: DatabaseSchema): void {
 }
 
 function saveFirestoreDoc(data: DatabaseSchema): void {
+  if (firestoreQuotaExceeded) return;
   try {
     const db = initFirestore();
     if (db) {
@@ -653,17 +704,32 @@ function saveFirestoreDoc(data: DatabaseSchema): void {
       };
 
       setDoc(docRef, firestorePayload, { merge: true }).catch((err) => {
-        console.error('[Firestore Cloud Save Error]', err);
+        if (isQuotaError(err)) {
+          if (!firestoreQuotaExceeded) {
+            handleQuotaExceeded();
+          }
+        } else {
+          console.error('[Firestore Cloud Save Error]', err);
+        }
       });
     }
-  } catch (e) {
-    console.error('[Firestore Sync Trigger Error]', e);
+  } catch (e: any) {
+    if (isQuotaError(e)) {
+      handleQuotaExceeded();
+    } else {
+      console.error('[Firestore Sync Trigger Error]', e);
+    }
   }
 }
 
 export async function loadDbFresh(): Promise<DatabaseSchema> {
-  initFirestore();
   const localBase = readLocalFile() || normalizeDbSchema({});
+  if (firestoreQuotaExceeded) {
+    firestoreDb = null;
+    cachedDb = localBase;
+    return cachedDb;
+  }
+  initFirestore();
   try {
     const config = getFirebaseConfig();
     if (config && config.projectId) {
@@ -681,7 +747,11 @@ export async function loadDbFresh(): Promise<DatabaseSchema> {
       }
     }
   } catch (e: any) {
-    console.error('[Firestore] Error force-loading fresh db:', e);
+    if (isQuotaError(e)) {
+      handleQuotaExceeded();
+    } else {
+      console.error('[Firestore] Error force-loading fresh db:', e);
+    }
   }
   cachedDb = localBase;
   return cachedDb;

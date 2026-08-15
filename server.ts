@@ -13,6 +13,7 @@ async function startServer() {
 
   // Initialize DB & Scheduler & Telegram Polling
   loadDb();
+  
   initializeScheduler();
   startTelegramBotPolling();
 

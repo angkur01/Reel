@@ -234,7 +234,7 @@ export async function runAiMonitoringCheck(isManualTrigger = false): Promise<{ s
     };
   }
 
-  if (db.reels.length === 0) {
+  if (db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length === 0) {
     return { success: false, message: 'No reels saved in database to analyze.' };
   }
 
@@ -244,7 +244,7 @@ export async function runAiMonitoringCheck(isManualTrigger = false): Promise<{ s
   saveDb(db);
 
   // Prepare structured performance data for AI
-  const reelsSummary = db.reels.map((r) => {
+  const reelsSummary = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').map((r) => {
     return {
       id: r.id,
       name: r.name,
@@ -259,12 +259,12 @@ export async function runAiMonitoringCheck(isManualTrigger = false): Promise<{ s
     };
   });
 
-  const totalViews = db.reels.reduce((acc, r) => acc + (r.views || 0), 0);
-  const total24hGain = db.reels.reduce((acc, r) => acc + (r.growth24h || 0), 0);
+  const totalViews = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').reduce((acc, r) => acc + (r.views || 0), 0);
+  const total24hGain = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').reduce((acc, r) => acc + (r.growth24h || 0), 0);
 
   const prompt = `Analyze these Instagram Reels performance statistics and generate 1-2 punchy, highly relevant insights or alerts.
 Sensitivity setting: ${db.aiSettings.alertSensitivity || 'medium'}.
-Total Reels: ${db.reels.length} | Total Views: ${totalViews} | 24h Total Gain: +${total24hGain} views.
+Total Reels: ${db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length} | Total Views: ${totalViews} | 24h Total Gain: +${total24hGain} views.
 
 Reels Data:
 ${JSON.stringify(reelsSummary, null, 2)}
@@ -290,7 +290,7 @@ Instructions:
   const aiResult = await generateAiInsight(prompt);
 
   let headline = '🧠 AI Performance Analysis Complete';
-  let messageText = `Analyzed ${db.reels.length} reels (${totalViews.toLocaleString()} total views, +${total24hGain.toLocaleString()} 24h gain).`;
+  let messageText = `Analyzed ${db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length} reels (${totalViews.toLocaleString()} total views, +${total24hGain.toLocaleString()} 24h gain).`;
   let type: AiLog['type'] = isManualTrigger ? 'manual_audit' : 'viral';
   let reelName: string | undefined = undefined;
   let modelUsed: 'gemini' | 'groq' | 'grok' = 'groq';
@@ -350,20 +350,20 @@ Instructions:
 // Generate Daily Performance Report and Send to Telegram
 export async function generateDailyAiReport(): Promise<{ success: boolean; reportText: string }> {
   const db = loadDb();
-  if (db.reels.length === 0) {
+  if (db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length === 0) {
     return { success: false, reportText: 'No reels saved to generate daily report.' };
   }
 
-  const totalViews = db.reels.reduce((sum, r) => sum + (r.views || 0), 0);
-  const totalLikes = db.reels.reduce((sum, r) => sum + (r.likes || 0), 0);
-  const total24hGain = db.reels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
+  const totalViews = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').reduce((sum, r) => sum + (r.views || 0), 0);
+  const totalLikes = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').reduce((sum, r) => sum + (r.likes || 0), 0);
+  const total24hGain = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').reduce((sum, r) => sum + (r.growth24h || 0), 0);
 
-  const topReels = [...db.reels].sort((a, b) => b.views - a.views).slice(0, 3);
-  const topGainers = [...db.reels].sort((a, b) => (b.growth24h || 0) - (a.growth24h || 0)).slice(0, 3);
+  const topReels = [...db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid')].sort((a, b) => b.views - a.views).slice(0, 3);
+  const topGainers = [...db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid')].sort((a, b) => (b.growth24h || 0) - (a.growth24h || 0)).slice(0, 3);
 
   const prompt = `Generate a daily executive performance summary report for an Instagram Reel Command Center.
 Stats:
-- Total Reels: ${db.reels.length}
+- Total Reels: ${db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length}
 - Total Views: ${totalViews.toLocaleString()}
 - Total Likes: ${totalLikes.toLocaleString()}
 - 24h Growth: +${total24hGain.toLocaleString()} views
@@ -376,7 +376,7 @@ Format in crisp Markdown with emojis. Keep under 200 words.`;
   const aiResult = await generateAiInsight(prompt);
   const reportContent =
     aiResult?.text ||
-    `📊 <b>Daily Reel Performance Summary</b>\n\n• Total Reels: ${db.reels.length}\n• Total Views: ${totalViews.toLocaleString()}\n• 24h Growth: +${total24hGain.toLocaleString()} views\n\n<b>Top Performer:</b> ${topReels[0]?.name || 'N/A'} (${topReels[0]?.views.toLocaleString()} views)`;
+    `📊 <b>Daily Reel Performance Summary</b>\n\n• Total Reels: ${db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length}\n• Total Views: ${totalViews.toLocaleString()}\n• 24h Growth: +${total24hGain.toLocaleString()} views\n\n<b>Top Performer:</b> ${topReels[0]?.name || 'N/A'} (${topReels[0]?.views.toLocaleString()} views)`;
 
   // Send to Telegram if enabled
   if (db.telegram.enabled && db.telegram.botToken && db.telegram.adminTelegramId) {
@@ -437,7 +437,7 @@ import { generateTwoWordTitleFromCaption } from './statsHelper.js';
 // Chat interactively with the AI model about posts, performance, ideas, and CPM
 export async function talkToAi(userQuestion: string): Promise<string> {
   const db = loadDb();
-  const reelsSummary = db.reels.map(r => ({
+  const reelsSummary = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').map(r => ({
     name: r.name,
     views: r.views,
     growth24h: r.growth24h || 0,
@@ -446,14 +446,14 @@ export async function talkToAi(userQuestion: string): Promise<string> {
     status: r.status,
   }));
 
-  const totalViews = db.reels.reduce((sum, r) => sum + (r.views || 0), 0);
-  const totalPayout = db.reels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
+  const totalViews = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').reduce((sum, r) => sum + (r.views || 0), 0);
+  const totalPayout = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
 
   const prompt = `You are an elite Instagram Reels AI Strategist & Analytics Brain chatting directly with the content creator on Telegram.
 User Question: "${userQuestion}"
 
 Creator's Reel Database Context:
-- Total Saved Reels: ${db.reels.length}
+- Total Saved Reels: ${db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length}
 - Total Lifetime Views: ${totalViews.toLocaleString()}
 - Total Estimated Payout: $${totalPayout.toFixed(2)}
 - Reel Performance List:
@@ -470,7 +470,7 @@ Instructions:
     return aiResult.text.replace(/```[a-z]*/gi, '').replace(/```/g, '').trim();
   }
 
-  return `📊 <b>AI Analysis:</b>\nCurrently tracking ${db.reels.length} reels with ${totalViews.toLocaleString()} views and $${totalPayout.toFixed(2)} total net payout. Ask me any question about your reels growth or strategy!`;
+  return `📊 <b>AI Analysis:</b>\nCurrently tracking ${db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length} reels with ${totalViews.toLocaleString()} views and $${totalPayout.toFixed(2)} total net payout. Ask me any question about your reels growth or strategy!`;
 }
 
 // Generate Groq AI 2-Word Title from caption

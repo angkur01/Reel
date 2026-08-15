@@ -73,71 +73,75 @@ export async function runAutomaticFetchJob(isManualForce = false): Promise<{ suc
   }
 
   const nextScheduledIso = getNextScheduledTime().toISOString();
-  const totalReels = db.reels.length;
-
+  const activeReels = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid');
+  const totalReels = activeReels.length;
   for (let i = 0; i < totalReels; i++) {
-    const reel = db.reels[i];
-    console.log(`[Automatic Scheduler] Fetching Reel (${i + 1}/${totalReels}): ${reel.name} -> ${reel.url}`);
-
+    let currentDb = loadDb();
+    if (i >= currentDb.reels.length) continue;
+    const reelId = activeReels[i].id;
+    const targetReel = currentDb.reels.find(r => r.id === reelId);
+    if (!targetReel) continue;
+    
+    console.log(`[Automatic Scheduler] Fetching Reel (${i + 1}/${totalReels}): ${targetReel.name} -> ${targetReel.url}`);
+    
     // Mark status
-    reel.status = 'fetching';
-    reel.nextScheduledAt = nextScheduledIso;
-    saveDb(db);
-
-    const fetchResult = await fetchReelWithFallbackChain(db.providers, reel.url);
-
+    targetReel.status = 'fetching';
+    targetReel.nextScheduledAt = nextScheduledIso;
+    saveDb(currentDb);
+    
+    const providers = currentDb.providers;
+    const fetchResult = await fetchReelWithFallbackChain(providers, targetReel.url);
+    
     // Reload db to prevent race conditions
-    const currentDb = loadDb();
-    const targetReel = currentDb.reels.find(r => r.id === reel.id);
-
-    if (targetReel) {
+    currentDb = loadDb();
+    const reloadReel = currentDb.reels.find(r => r.id === reelId);
+    
+    if (reloadReel) {
       if (fetchResult.success && fetchResult.data) {
-        updateReelWithFetchResult(targetReel, fetchResult, currentDb);
-        targetReel.nextScheduledAt = nextScheduledIso;
-
+        updateReelWithFetchResult(reloadReel, fetchResult, currentDb);
+        reloadReel.nextScheduledAt = nextScheduledIso;
+        
         const logEntry: FetchLog = {
           id: 'log_auto_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-          reelId: targetReel.id,
-          reelName: targetReel.name,
+          reelId: reloadReel.id,
+          reelName: reloadReel.name,
           timestamp: new Date().toISOString(),
           type: isManualForce ? 'manual_web' : 'automatic',
           status: 'success',
           providerName: fetchResult.providerName || 'Unknown Provider',
           statsAdded: {
-            views: targetReel.views,
-            likes: targetReel.likes,
-            comments: targetReel.comments,
+            views: reloadReel.views,
+            likes: reloadReel.likes,
+            comments: reloadReel.comments,
           },
         };
         currentDb.logs.unshift(logEntry);
         saveDb(currentDb);
-
-        // Send Telegram completed result
-        await notifyTelegramReelResult(targetReel, isManualForce ? 'manual_web' : 'automatic');
-
+        
+        await notifyTelegramReelResult(reloadReel, isManualForce ? 'manual_web' : 'automatic');
       } else {
-        // Failed fetch: NEVER erase previously valid statistics
-        targetReel.status = 'failed';
-        targetReel.lastError = fetchResult.error || 'Failed to fetch from all providers';
-        targetReel.nextScheduledAt = nextScheduledIso;
-
+        reloadReel.status = 'failed';
+        reloadReel.lastError = fetchResult.error || 'Failed to fetch from all providers';
+        reloadReel.nextScheduledAt = nextScheduledIso;
+        
         const logEntry: FetchLog = {
           id: 'log_auto_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-          reelId: targetReel.id,
-          reelName: targetReel.name,
+          reelId: reloadReel.id,
+          reelName: reloadReel.name,
           timestamp: new Date().toISOString(),
           type: isManualForce ? 'manual_web' : 'automatic',
           status: 'failed',
           providerName: 'All Providers Failed',
-          errorMessage: targetReel.lastError,
+          errorMessage: reloadReel.lastError,
         };
         currentDb.logs.unshift(logEntry);
         saveDb(currentDb);
       }
     }
   }
-
+  
   const finalDb = loadDb();
+  if (!finalDb.meta) finalDb.meta = { lastAutoFetchAt: null, deletedReelIds: [] };
   finalDb.meta.lastAutoFetchAt = new Date().toISOString();
   saveDb(finalDb);
 

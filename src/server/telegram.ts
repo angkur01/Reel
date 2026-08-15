@@ -345,14 +345,15 @@ async function handleTelegramMessage(botToken: string, adminTelegramId: string, 
 // Send Dashboard Summary via Telegram
 async function sendDashboardSummary(botToken: string, chatId: string) {
   const db = loadDb();
-  const totalReels = db.reels.length;
-  const totalViews = db.reels.reduce((sum, r) => sum + (r.views || 0), 0);
-  const totalLikes = db.reels.reduce((sum, r) => sum + (r.likes || 0), 0);
-  const total24hGain = db.reels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
+  const activeReels = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid');
+  const totalReels = activeReels.length;
+  const totalViews = activeReels.reduce((sum, r) => sum + (r.views || 0), 0);
+  const totalLikes = activeReels.reduce((sum, r) => sum + (r.likes || 0), 0);
+  const total24hGain = activeReels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
 
-  const totalCpmEarnings = db.reels.reduce((sum, r) => sum + (r.cpmEarnings || 0), 0);
-  const totalFees = db.reels.reduce((sum, r) => sum + (r.fee3Percent || 0), 0);
-  const totalPayout = db.reels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
+  const totalCpmEarnings = activeReels.reduce((sum, r) => sum + (r.cpmEarnings || 0), 0);
+  const totalFees = activeReels.reduce((sum, r) => sum + (r.fee3Percent || 0), 0);
+  const totalPayout = activeReels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
 
   const activeProviders = db.providers.filter(p => p.enabled).length;
   const aiChecksUsed = db.aiMeta?.checksUsedToday || 0;
@@ -409,8 +410,9 @@ async function sendAiStatusSummary(botToken: string, chatId: string) {
 // Send force refresh menu showing all saved reels as inline buttons
 async function sendForceRefreshMenu(botToken: string, chatId: string) {
   const db = loadDb();
-  if (db.reels.length === 0) {
-    await sendTelegramMessage(botToken, chatId, '⚠️ <b>No Reels saved yet.</b> Add reels or send links/videos here.');
+  const activeReels = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid');
+  if (activeReels.length === 0) {
+    await sendTelegramMessage(botToken, chatId, '⚠️ <b>No active Reels found.</b> Add reels or send links/videos here.');
     return;
   }
 
@@ -418,7 +420,7 @@ async function sendForceRefreshMenu(botToken: string, chatId: string) {
     [{ text: '⚡ 🚀 FORCE REFRESH ALL REELS 🚀 ⚡', callback_data: 'force_refresh_all_reels' }]
   ];
 
-  db.reels.forEach((reel) => {
+  activeReels.forEach((reel) => {
     const title = reel.name || getFirst3Words(reel.caption);
     buttons.push([{ text: `🎬 ${title} (${reel.views.toLocaleString()} views)`, callback_data: `select_reel:${reel.id}` }]);
   });
@@ -556,6 +558,10 @@ export async function executeTelegramForceRefresh(reelId: string, targetChatId?:
   }
 
   const reel = db.reels[reelIndex];
+
+  if (reel.category === 'archived' || reel.category === 'paid') {
+    return { success: false, message: 'Cannot fetch an archived or paid reel.' };
+  }
   activeFetchingReelIds.add(reelId);
   reel.status = 'fetching';
   saveDb(db);

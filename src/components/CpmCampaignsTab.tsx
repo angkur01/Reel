@@ -10,6 +10,7 @@ interface CpmCampaignsTabProps {
   onUpdateCampaign: (id: string, campaign: Partial<CpmCampaign>) => Promise<void>;
   onDeleteCampaign: (id: string) => Promise<void>;
   onEditReelCampaign: (reelId: string, campaignId: string | null) => Promise<void>;
+  onChangeCategory?: (id: string, category: 'active' | 'archived' | 'paid') => Promise<void>;
   onSaveGlobalSettings?: (settings: { globalFeePercent?: number; scheduleIntervalHours?: number }) => Promise<void>;
 }
 
@@ -22,7 +23,10 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
   onDeleteCampaign,
   onEditReelCampaign,
   onSaveGlobalSettings,
+  onChangeCategory,
 }) => {
+  const [subTab, setSubTab] = useState<'campaigns' | 'paid'>('campaigns');
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<CpmCampaign | null>(null);
 
@@ -164,14 +168,102 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
     }
   };
 
-  const totalCpmEarnings = reels.reduce((sum, r) => sum + (r.cpmEarnings || 0), 0);
-  const totalFees = reels.reduce((sum, r) => sum + (r.fee3Percent || 0), 0);
-  const totalPayout = reels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
+  const activeReels = reels.filter(r => r.category !== 'archived' && r.category !== 'paid');
+  const paidReels = reels.filter(r => r.category === 'paid');
+  const totalCpmEarnings = activeReels.reduce((sum, r) => sum + (r.cpmEarnings || 0), 0);
+  const totalFees = activeReels.reduce((sum, r) => sum + (r.fee3Percent || 0), 0);
+  const totalPayout = activeReels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
   const campaignConnectedReelsCount = reels.filter(r => r.campaignId).length;
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header Banner */}
+
+      <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-xl w-fit border border-slate-800">
+        <button
+          onClick={() => setSubTab('campaigns')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+            subTab === 'campaigns'
+              ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          Active Campaigns
+        </button>
+        <button
+          onClick={() => setSubTab('paid')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+            subTab === 'paid'
+              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          Paid Reels
+        </button>
+      </div>
+      
+      {subTab === 'paid' && (
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="p-4 border-b border-slate-800 bg-emerald-500/10 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Paid Reels History</h3>
+              <p className="text-xs text-slate-400">Reels that have been marked as paid are hidden from active totals.</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-slate-400 bg-slate-900/50 border-b border-slate-800 uppercase font-bold">
+                <tr>
+                  <th className="px-4 py-3">Reel Name</th>
+                  <th className="px-4 py-3">Campaign</th>
+                  <th className="px-4 py-3 text-right">Views</th>
+                  <th className="px-4 py-3 text-right">CPM Earnings</th>
+                  <th className="px-4 py-3 text-right">Fee (8%)</th>
+                  <th className="px-4 py-3 text-right">Payout</th>
+                  <th className="px-4 py-3 text-right">Paid Date</th>
+                  <th className="px-4 py-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {paidReels.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                      No reels have been marked as paid yet.
+                    </td>
+                  </tr>
+                ) : (
+                  paidReels.map(reel => (
+                    <tr key={reel.id} className="hover:bg-slate-900/50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-white">{reel.name}</td>
+                      <td className="px-4 py-3 text-indigo-400">{reel.campaignName || '—'}</td>
+                      <td className="px-4 py-3 text-right text-slate-300">{(reel.views || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-emerald-400 font-medium">${(reel.cpmEarnings || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right text-amber-400">-${(reel.fee3Percent || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right text-white font-bold">${(reel.estimatedPayout || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right text-slate-400 text-xs">{reel.paidAt ? new Date(reel.paidAt).toLocaleDateString() : 'Unknown'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => onChangeCategory && onChangeCategory(reel.id, 'active')}
+                          className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg transition-colors"
+                        >
+                          Unmark Paid
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      
+      {subTab === 'campaigns' && (
+        <div className="space-y-8">
+
+{/* Header Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/90 to-emerald-950/80 border border-indigo-500/30 p-6 sm:p-8 shadow-2xl">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
@@ -544,6 +636,9 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
           </div>
         )}
       </div>
+
+      </div>
+      )}
 
       {/* Create / Edit Campaign Modal */}
       {isCreateModalOpen && (

@@ -1,395 +1,201 @@
 {
   "auth": {
-    "adminPasswordHash": "$2b$10$T11yYW5D6G2sbrPlUyXNuO.rS75rOTVisXgTMrB/u9Z6mhMpSaFT.",
-    "sessionSecret": "6ipg92h5u58msrvs4sp",
+    "adminPasswordHash": "$2b$10$Z0fej1n2fzQk0Ud5wDy1peLrjpwl2ie0zVz0fNi75mG3.4Lk.lXse",
+    "sessionSecret": "z429x5re5g9mss4lvs0",
     "sessions": {
+      "0c0c8d59808d1b07938d3592306f80592d8a4d58c58070d20fd8f211ae4776c6": 1786493859275,
+      "1786560727711:a3631141a4976a79:JTSvqGOO3a:7508480e90f59632f3d2e6694b65020d423957b69887f7e2b93a386b2989f216": 1786560727711,
+      "1786495998596:0b1531c3ffeb14ae:Hi7Nle83Si:af7054967817810b4ff4608a70471db28aaa5d4675f9e361ae21afbd50b7e4ee": 1786495998596,
+      "1786659559118:d29efe21e50a6dac:YzuAqz9V8u:1ff3029b6cec4b35885b7be309434d0910613166804c4f768dce4833504b1312": 1786659559118,
+      "1786657919714:6f945aefa6f930f6:YzuAqz9V8u:09e5670affb3d3628461a5de805e48b811d13efddfb837a26e4b8ea3f0b70b29": 1786657919714,
+      "1358a49126acc901dec29c5e93a0712a8f9122c18f7b5a66e36462891380f469": 1786493675995,
       "1786560237260:aef726e51cb5d811:Z/BVvglcly:b0caf45692804c0841324bf34436f2b01811cdf7f8d27c9d8c384b04a1a1fa29": 1786560237260,
       "79e1714350a8d96eb8fc4706e89acd15b91f5d5dada2890557e22c6922d5d5c3": 1786492998417,
-      "1358a49126acc901dec29c5e93a0712a8f9122c18f7b5a66e36462891380f469": 1786493675995,
-      "1786560727711:a3631141a4976a79:JTSvqGOO3a:7508480e90f59632f3d2e6694b65020d423957b69887f7e2b93a386b2989f216": 1786560727711,
-      "0c0c8d59808d1b07938d3592306f80592d8a4d58c58070d20fd8f211ae4776c6": 1786493859275,
       "dbe635fc7d711a4d52929aede60cdd98675d2557ba968c301b6f92ceeee3ccb4": 1786493439490,
-      "163584373bc617c20bb032370eaba1262d2c5bef5ad3664d22a0ba56dd0c9134": 1786494771177,
-      "1786495998596:0b1531c3ffeb14ae:Hi7Nle83Si:af7054967817810b4ff4608a70471db28aaa5d4675f9e361ae21afbd50b7e4ee": 1786495998596,
-      "4fd59348dd48ab7d81029f6891d71fe4d7f36deafe2a37e4bbf6b964aabb8faa": 1786493117133
+      "4fd59348dd48ab7d81029f6891d71fe4d7f36deafe2a37e4bbf6b964aabb8faa": 1786493117133,
+      "163584373bc617c20bb032370eaba1262d2c5bef5ad3664d22a0ba56dd0c9134": 1786494771177
     }
   },
   "reels": [
     {
-      "shares": 0,
-      "minViews": 2000,
-      "estimatedPayout": 0,
-      "cpmEligibilityStatus": "below_minimum",
-      "cpmEarnings": 0,
-      "lastError": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502: {\n  \"success\": false,\n  \"requestId\": \"d3a42156-9f28-431a-800f-dfd51452ec3b\",\n  \"summary\": {\n    \"total\": 1,\n    \"succeeded\": 0,\n    \"failed\": 1,\n    \"errors\": {\n      \"blocked_or_challenge\": 1\n    }\n ",
-      "lastProviderUsed": null,
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
+      "id": "reel_1786654526970_eux1",
+      "url": "https://www.instagram.com/reel/Db_pB6oEmh1",
+      "name": "Real Time",
+      "views": 1858,
       "likes": 0,
-      "status": "fetching",
-      "author": "Instagram User",
-      "growth24h": 0,
-      "campaignName": "AXE Australia",
-      "caption": "Instagram Reel",
-      "createdAt": "2026-08-13T17:55:00.252Z",
-      "name": "Reel 12",
-      "maxViews": 400000,
       "comments": 0,
-      "eligibleViews": 0,
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
       "lastUpdatedAt": null,
-      "campaignId": "camp_1786561369164_dobe",
-      "url": "https://www.instagram.com/reel/Db_M_lWAuQ6",
-      "views": 0,
-      "id": "reel_1786643700251_fgnc",
-      "fee3Percent": 0,
-      "cpmRate": 0.5
-    },
-    {
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
       "lastError": null,
-      "views": 260,
-      "maxViews": 400000,
-      "campaignId": "camp_1786561369164_dobe",
-      "estimatedPayout": 0,
-      "eligibleViews": 0,
-      "comments": 0,
-      "url": "https://www.instagram.com/reel/Db_Fdqrj6Ex",
-      "growth24h": 260,
-      "cpmEarnings": 0,
-      "isStalled": false,
-      "lastUpdatedAt": "2026-08-13T16:40:56.846Z",
-      "cpmRate": 0.5,
-      "growth1h": 62,
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "fee3Percent": 0,
-      "lastProviderUsed": "Refetcher API (Default)",
-      "author": "[object Object]",
-      "cpmEligibilityStatus": "below_minimum",
-      "status": "fetching",
-      "minViews": 2000,
-      "likes": 1,
-      "id": "reel_1786636186618_26gh",
-      "createdAt": "2026-08-13T15:49:46.618Z",
-      "name": "Instagram Reel",
-      "caption": "Instagram Reel",
-      "shares": 0,
-      "campaignName": "AXE Australia"
+      "lastProviderUsed": null
     },
     {
-      "lastError": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502: {\n  \"success\": false,\n  \"requestId\": \"adab9c53-20bf-46c8-87be-7a7c2ef184dd\",\n  \"summary\": {\n    \"total\": 1,\n    \"succeeded\": 0,\n    \"failed\": 1,\n    \"errors\": {\n      \"blocked_or_challenge\": 1\n    }\n ",
-      "author": "Instagram User",
-      "campaignId": "camp_1786561369164_dobe",
-      "status": "fetching",
-      "cpmEligibilityStatus": "below_minimum",
-      "lastUpdatedAt": null,
-      "caption": "Instagram Reel",
-      "campaignName": "AXE Australia",
-      "estimatedPayout": 0,
-      "growth24h": 0,
-      "shares": 0,
-      "minViews": 2000,
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "eligibleViews": 0,
-      "fee3Percent": 0,
-      "views": 0,
-      "url": "https://www.instagram.com/reel/Db8cb7ZAubc",
-      "createdAt": "2026-08-13T15:37:31.209Z",
-      "cpmEarnings": 0,
-      "cpmRate": 0.5,
-      "name": "Reel 10",
-      "lastProviderUsed": null,
-      "maxViews": 400000,
+      "id": "reel_1786636186618_26gh",
+      "url": "https://www.instagram.com/reel/Db_Fdqrj6Ex",
+      "name": "Real Time",
+      "views": 86600,
       "likes": 0,
       "comments": 0,
-      "id": "reel_1786635451209_egnm",
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z"
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
+      "lastError": null,
+      "lastProviderUsed": null
     },
     {
       "id": "reel_1786634870529_ekrz",
-      "lastUpdatedAt": "2026-08-13T15:50:10.316Z",
-      "growth1h": 598,
-      "caption": "Instagram Reel",
-      "campaignId": "camp_1786561369164_dobe",
-      "cpmEligibilityStatus": "below_minimum",
-      "fee3Percent": 0,
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "comments": 0,
-      "maxViews": 400000,
-      "eligibleViews": 0,
-      "likes": 17,
-      "createdAt": "2026-08-13T15:27:50.529Z",
-      "isViral": true,
       "url": "https://www.instagram.com/reel/Db_AcB1EV3_",
-      "cpmRate": 0.5,
-      "isStalled": false,
-      "growth24h": 1332,
-      "name": "Instagram Reel",
-      "lastProviderUsed": "Refetcher API (Default)",
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "author": "[object Object]",
-      "status": "fetching",
-      "minViews": 2000,
-      "lastError": null,
-      "cpmEarnings": 0,
-      "shares": 0,
-      "views": 1522,
-      "campaignName": "AXE Australia",
-      "estimatedPayout": 0
-    },
-    {
-      "growth1h": 2,
-      "caption": "Instagram Reel",
-      "createdAt": "2026-08-12T21:47:04.463Z",
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "cpmEarnings": 0,
-      "campaignName": "AXE Australia",
-      "name": "Instagram Reel",
-      "shares": 0,
-      "comments": 0,
-      "maxViews": 400000,
-      "views": 401,
-      "author": "[object Object]",
-      "status": "fetching",
-      "cpmRate": 0.5,
-      "lastProviderUsed": "Refetcher API (Default)",
-      "url": "https://www.instagram.com/reel/Db9J2W8DVyn",
-      "cpmEligibilityStatus": "below_minimum",
-      "estimatedPayout": 0,
-      "lastUpdatedAt": "2026-08-13T12:22:55.029Z",
-      "lastError": null,
-      "fee3Percent": 0,
-      "minViews": 2000,
-      "campaignId": "camp_1786561369164_dobe",
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "id": "reel_1786571224463_xixd",
-      "eligibleViews": 0,
-      "isStalled": false,
-      "growth24h": 401,
-      "likes": 4
-    },
-    {
-      "cpmEarnings": 7.37,
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "isViral": true,
-      "growth1h": 40,
-      "name": "Instagram Reel",
-      "views": 14744,
-      "lastMilestone": 10000,
-      "cpmEligibilityStatus": "eligible",
-      "caption": "Instagram Reel",
-      "lastProviderUsed": "Refetcher API (Default)",
-      "comments": 0,
-      "createdAt": "2026-08-12T21:10:30.818Z",
-      "maxViews": 400000,
-      "campaignName": "AXE Australia",
-      "shares": 0,
-      "likes": 107,
-      "url": "https://www.instagram.com/reel/Db9F9JnDGFi",
-      "isStalled": false,
-      "campaignId": "camp_1786561369164_dobe",
-      "growth24h": 14744,
-      "estimatedPayout": 6.78,
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "lastUpdatedAt": "2026-08-13T12:22:57.202Z",
-      "id": "reel_1786569030818_swzg",
-      "lastError": null,
-      "cpmRate": 0.5,
-      "author": "[object Object]",
-      "fee3Percent": 0.59,
-      "status": "fetching",
-      "minViews": 2000,
-      "eligibleViews": 14744
-    },
-    {
-      "cpmRate": 0.5,
-      "eligibleViews": 0,
-      "url": "https://www.instagram.com/reel/Db9B5BwI9ev",
-      "growth1h": 35,
-      "lastProviderUsed": "Refetcher API (Default)",
-      "cpmEligibilityStatus": "below_minimum",
-      "cpmEarnings": 0,
-      "maxViews": 400000,
-      "views": 1785,
-      "campaignName": "AXE Australia",
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "lastUpdatedAt": "2026-08-13T12:22:59.125Z",
-      "createdAt": "2026-08-12T20:50:44.361Z",
-      "comments": 0,
-      "name": "Instagram Reel",
-      "id": "reel_1786567844361_pvca",
-      "growth24h": 1670,
-      "isStalled": false,
-      "shares": 0,
-      "caption": "Instagram Reel",
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "fee3Percent": 0,
-      "lastError": null,
-      "estimatedPayout": 0,
-      "likes": 18,
-      "isViral": true,
-      "minViews": 2000,
-      "status": "fetching",
-      "campaignId": "camp_1786561369164_dobe",
-      "author": "[object Object]"
-    },
-    {
-      "id": "reel_1786561319484_bmae",
-      "views": 0,
-      "url": "https://www.instagram.com/reel/Db8VLBSDu_h",
-      "cpmEligibilityStatus": "below_minimum",
-      "campaignName": "AXE Australia",
-      "fee3Percent": 0,
-      "lastUpdatedAt": null,
-      "estimatedPayout": 0,
-      "createdAt": "2026-08-12T19:01:59.484Z",
-      "caption": "Instagram Reel",
-      "minViews": 2000,
-      "eligibleViews": 0,
-      "name": "Reel Frenzy",
-      "growth6h": 0,
-      "lastProviderUsed": null,
-      "shares": 0,
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "growth1h": 0,
+      "name": "Real Time",
+      "views": 6529,
       "likes": 0,
-      "growth24h": 0,
-      "author": "Instagram User",
-      "status": "fetching",
-      "cpmRate": 0.5,
       "comments": 0,
-      "campaignId": "camp_1786561369164_dobe",
-      "cpmEarnings": 0,
-      "lastError": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502: {\n  \"success\": false,\n  \"requestId\": \"4beb1ac2-1545-4148-b9ec-1323c28923f3\",\n  \"summary\": {\n    \"total\": 1,\n    \"succeeded\": 0,\n    \"failed\": 1,\n    \"errors\": {\n      \"blocked_or_challenge\": 1\n    }\n ",
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "maxViews": 400000
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
+      "lastError": null,
+      "lastProviderUsed": null
     },
     {
-      "campaignId": "camp_1786561369164_dobe",
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "views": 489,
-      "growth24h": 1,
-      "isStalled": false,
+      "id": "reel_1786571224463_xixd",
+      "url": "https://www.instagram.com/reel/Db9J2W8DVyn",
+      "name": "Real Time",
+      "views": 58577,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
+      "lastError": null,
+      "lastProviderUsed": null
+    },
+    {
+      "id": "reel_1786569030818_swzg",
+      "url": "https://www.instagram.com/reel/Db9F9JnDGFi",
+      "name": "Real Time",
+      "views": 19248,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
+      "lastError": null,
+      "lastProviderUsed": null
+    },
+    {
+      "id": "reel_1786567844361_pvca",
+      "url": "https://www.instagram.com/reel/Db9B5BwI9ev",
+      "name": "Instagram Reel",
+      "views": 4454,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
+      "lastError": null,
+      "lastProviderUsed": null
+    },
+    {
       "id": "reel_1786561052347_eq03",
-      "cpmEarnings": 0,
-      "lastError": null,
-      "caption": "Instagram Reel",
-      "estimatedPayout": 0,
-      "cpmEligibilityStatus": "below_minimum",
-      "minViews": 2000,
-      "campaignName": "AXE Australia",
       "url": "https://www.instagram.com/reel/Db6ylLCCZrz",
-      "eligibleViews": 0,
-      "fee3Percent": 0,
-      "author": "[object Object]",
-      "status": "fetching",
-      "growth1h": 1,
-      "likes": 4,
       "name": "Instagram Reel",
-      "lastUpdatedAt": "2026-08-13T12:23:09.647Z",
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "createdAt": "2026-08-12T18:57:32.347Z",
-      "maxViews": 400000,
-      "lastProviderUsed": "Refetcher API (Default)",
-      "cpmRate": 0.5,
+      "views": 491,
+      "likes": 0,
       "comments": 0,
-      "shares": 0
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
+      "lastError": null,
+      "lastProviderUsed": null
     },
     {
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "growth1h": 2,
-      "url": "https://www.instagram.com/reel/Db6rguIDsIx",
-      "lastUpdatedAt": "2026-08-13T12:23:11.922Z",
-      "caption": "Instagram Reel",
-      "fee3Percent": 0.1,
-      "maxViews": 400000,
-      "comments": 0,
-      "likes": 45,
-      "createdAt": "2026-08-12T18:57:31.997Z",
-      "name": "Instagram Reel",
-      "eligibleViews": 2469,
       "id": "reel_1786561051997_8d6u",
-      "growth24h": 2,
+      "url": "https://www.instagram.com/reel/Db6rguIDsIx",
+      "name": "Instagram Reel",
+      "views": 2473,
+      "likes": 0,
+      "comments": 0,
       "shares": 0,
-      "lastProviderUsed": "Refetcher API (Default)",
-      "isStalled": false,
-      "campaignId": "camp_1786561369164_dobe",
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "campaignName": "AXE Australia",
-      "cpmEligibilityStatus": "eligible",
-      "cpmRate": 0.5,
-      "estimatedPayout": 1.13,
-      "author": "[object Object]",
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
       "lastError": null,
-      "minViews": 2000,
-      "status": "fetching",
-      "cpmEarnings": 1.23,
-      "views": 2469
+      "lastProviderUsed": null
     },
     {
-      "isStalled": false,
-      "shares": 0,
-      "growth1h": 7382,
-      "growth24h": 47821,
-      "lastUpdatedAt": "2026-08-13T14:38:42.492Z",
-      "caption": "Instagram Reel",
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "views": 85874,
-      "name": "Instagram Reel",
-      "cpmEligibilityStatus": "eligible",
-      "fee3Percent": 3.44,
-      "comments": 0,
-      "eligibleViews": 85874,
-      "author": "[object Object]",
-      "maxViews": 400000,
-      "lastError": null,
-      "status": "fetching",
-      "isViral": true,
-      "campaignName": "AXE Australia",
-      "likes": 178,
-      "cpmRate": 0.5,
-      "url": "https://www.instagram.com/reel/Db6jlRLFM5X",
-      "estimatedPayout": 39.5,
-      "lastProviderUsed": "Refetcher API (Default)",
-      "lastMilestone": 50000,
-      "minViews": 2000,
       "id": "reel_1786561051653_ffwc",
-      "campaignId": "camp_1786561369164_dobe",
-      "cpmEarnings": 42.94,
-      "createdAt": "2026-08-12T18:57:31.653Z"
+      "url": "https://www.instagram.com/reel/Db6jlRLFM5X",
+      "name": "Instagram Reel",
+      "views": 107493,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
+      "lastError": null,
+      "lastProviderUsed": null
     },
     {
-      "lastError": null,
-      "cpmEligibilityStatus": "eligible",
-      "lastUpdatedAt": "2026-08-13T19:08:33.404Z",
-      "status": "success",
-      "author": "[object Object]",
-      "lastProviderUsed": "Refetcher API (Default)",
-      "fee3Percent": 0.95,
-      "minViews": 2000,
-      "isStalled": false,
-      "cpmRate": 0.5,
-      "likes": 98,
-      "growth24h": 5748,
-      "nextScheduledAt": "2026-08-14T00:00:00.000Z",
-      "shares": 0,
-      "thumbnail": "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80",
-      "eligibleViews": 23705,
-      "name": "Instagram Reel",
-      "growth1h": 5,
-      "createdAt": "2026-08-12T18:57:31.025Z",
-      "lastMilestone": 10000,
-      "isViral": true,
-      "comments": 0,
-      "campaignName": "AXE Australia",
       "id": "reel_1786561051025_ndk6",
-      "caption": "Instagram Reel",
-      "maxViews": 400000,
-      "estimatedPayout": 10.9,
-      "cpmEarnings": 11.85,
-      "views": 23705,
       "url": "https://www.instagram.com/reel/Db6bls6DxnI",
-      "campaignId": "camp_1786561369164_dobe"
+      "name": "Instagram Reel",
+      "views": 23791,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "caption": "Restored Reel",
+      "author": "Restored Author",
+      "thumbnail": "",
+      "createdAt": "2026-08-13T23:08:42.870Z",
+      "lastUpdatedAt": null,
+      "nextScheduledAt": "2026-08-13T23:08:42.870Z",
+      "status": "pending",
+      "lastError": null,
+      "lastProviderUsed": null
     }
   ],
   "cpmCampaigns": [
@@ -405,7 +211,16 @@
   ],
   "providers": [
     {
+      "baseUrl": "https://api.refetcher.com",
+      "enabled": true,
+      "lastTestError": null,
+      "method": "POST",
+      "priority": 2,
+      "lastTestStatus": null,
+      "apiKeyLocation": "header_x_api_key",
       "endpointPath": "/",
+      "customBodyJson": "",
+      "lastTestedAt": null,
       "name": "Refetcher API (Default)",
       "mapping": {
         "viewsPath": "views",
@@ -416,26 +231,17 @@
         "authorPath": "author",
         "thumbnailPath": "thumbnail"
       },
-      "lastTestStatus": null,
-      "customBodyJson": "",
-      "baseUrl": "https://api.refetcher.com",
-      "method": "POST",
-      "id": "provider_refetcher_default",
-      "priority": 1,
-      "apiKeyLocation": "header_x_api_key",
       "apiKey": "pc_live_wHlUz6HkeV_D-7ewVkeF7AQp0J6AP0hY",
-      "lastTestError": null,
-      "lastTestedAt": null,
+      "id": "provider_refetcher_default",
       "urlParamName": "url",
-      "headersJson": "{\n  \"Accept\": \"application/json\",\n  \"Content-Type\": \"application/json\"\n}",
-      "enabled": true
+      "headersJson": "{\n  \"Accept\": \"application/json\",\n  \"Content-Type\": \"application/json\"\n}"
     }
   ],
   "telegram": {
     "botToken": "8298177652:AAEZyeOCpn_MQNiJzZgeYNY0mEE3-JnMc20",
     "adminTelegramId": "7610598304",
     "enabled": true,
-    "lastStatus": "Connected & Verified"
+    "lastStatus": "Connection Failed"
   },
   "aiSettings": {
     "geminiApiKey": "MY_GEMINI_API_KEY",
@@ -454,6 +260,15 @@
     "activeModelUsed": "gemini"
   },
   "aiLogs": [
+    {
+      "id": "ailog_1786660746344_mvv7",
+      "timestamp": "2026-08-13T22:39:06.344Z",
+      "modelUsed": "groq",
+      "headline": "🧠 AI Performance Analysis Complete",
+      "message": "Here are 2 punchy insights:\n1. \n{\n  \"headline\": \"🚀 Viral Acceleration Detected\",\n  \"message\": \"Reel 'reel_1786561051653_ffwc' gained 59,990 views in the last 24 hours, indicating a rapid acceleration in views.\",\n  \"reelName\": \"Instagram Reel\",\n  \"type\": \"acceleration\"\n}\n2. \n{\n  \"headline\": \"🔥 Notable Milestone Achieved\",\n  \"message\": \"Reel 'reel_1786561051653_ffwc' has crossed the 100,000 view milestone, with a total of 106,784 views.\",\n  \"reelName\": \"Instagram Reel\",\n  \"type\": \"milestone\"\n}",
+      "sentToTelegram": true,
+      "type": "manual_audit"
+    },
     {
       "sentToTelegram": true,
       "type": "manual_audit",
@@ -502,1285 +317,1263 @@
   ],
   "history": [
     {
-      "id": "hist_1786648113404_yba5",
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-13T19:08:33.404Z",
-      "views": 23705,
-      "likes": 98,
+      "id": "hist_1786660325652_3mub",
+      "reelId": "reel_1786653160890_807j",
+      "timestamp": "2026-08-13T22:32:05.652Z",
+      "views": 8474,
+      "likes": 48,
       "comments": 0,
       "shares": 0
     },
     {
-      "id": "hist_1786648042615_cm73",
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-13T19:07:22.615Z",
-      "views": 23705,
-      "likes": 98,
-      "comments": 0,
-      "shares": 0
+      "shares": 6399,
+      "likes": 24485,
+      "comments": 2086,
+      "views": 278244,
+      "id": "hist_1786659191097_a8zx",
+      "reelId": "reel_1786635451209_egnm",
+      "timestamp": "2026-08-13T22:13:11.097Z"
     },
     {
-      "id": "hist_1786648016399_3cyv",
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-13T19:06:56.399Z",
-      "views": 23705,
-      "likes": 98,
-      "comments": 0,
-      "shares": 0
+      "reelId": "reel_1786643700251_fgnc",
+      "likes": 30508,
+      "timestamp": "2026-08-13T22:13:09.539Z",
+      "id": "hist_1786659189539_2r7g",
+      "comments": 2600,
+      "views": 346682,
+      "shares": 7973
     },
     {
+      "reelId": "reel_1786653160890_807j",
+      "timestamp": "2026-08-13T22:13:08.354Z",
+      "comments": 2792,
+      "views": 372399,
+      "id": "hist_1786659188354_v05q",
+      "likes": 32771,
+      "shares": 8565
+    },
+    {
+      "comments": 0,
+      "timestamp": "2026-08-13T21:53:30.132Z",
+      "views": 7055,
+      "id": "hist_1786658010132_667u",
       "shares": 0,
-      "likes": 98,
-      "views": 23700,
-      "comments": 0,
-      "id": "hist_1786646946768_sbat",
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-13T18:49:06.768Z"
+      "reelId": "reel_1786653160890_807j",
+      "likes": 47
     },
     {
-      "views": 23698,
-      "id": "hist_1786646663073_kydk",
+      "views": 7021,
       "shares": 0,
-      "timestamp": "2026-08-13T18:44:23.073Z",
+      "id": "hist_1786657935265_4pkh",
+      "reelId": "reel_1786653160890_807j",
       "comments": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "likes": 98
+      "timestamp": "2026-08-13T21:52:15.265Z",
+      "likes": 47
     },
     {
-      "likes": 98,
-      "id": "hist_1786644077868_jcxb",
-      "reelId": "reel_1786561051025_ndk6",
-      "comments": 0,
-      "views": 23682,
-      "timestamp": "2026-08-13T18:01:17.868Z",
-      "shares": 0
-    },
-    {
-      "likes": 98,
-      "timestamp": "2026-08-13T16:41:34.488Z",
-      "shares": 0,
-      "id": "hist_1786639294488_6me3",
-      "comments": 0,
-      "views": 23621,
-      "reelId": "reel_1786561051025_ndk6"
-    },
-    {
-      "likes": 1,
-      "reelId": "reel_1786636186618_26gh",
-      "views": 260,
-      "id": "hist_1786639256846_829j",
+      "likes": 37,
+      "reelId": "reel_1786653160890_807j",
+      "timestamp": "2026-08-13T21:06:43.438Z",
+      "id": "hist_1786655203438_80mf",
       "shares": 0,
       "comments": 0,
-      "timestamp": "2026-08-13T16:40:56.846Z"
+      "views": 4381
     },
     {
-      "likes": 1,
-      "comments": 0,
+      "likes": 25,
       "shares": 0,
-      "timestamp": "2026-08-13T16:32:37.134Z",
-      "id": "hist_1786638757134_uibm",
-      "views": 198,
-      "reelId": "reel_1786636186618_26gh"
+      "id": "hist_1786654608326_d96x",
+      "timestamp": "2026-08-13T20:56:48.326Z",
+      "comments": 0,
+      "reelId": "reel_1786653160890_807j",
+      "views": 3434
     },
     {
-      "views": 88,
+      "views": 118,
       "shares": 0,
-      "id": "hist_1786637493366_9iln",
+      "id": "hist_1786653354514_q419",
+      "timestamp": "2026-08-13T20:35:54.514Z",
+      "reelId": "reel_1786653160890_807j",
       "comments": 0,
-      "reelId": "reel_1786636186618_26gh",
-      "timestamp": "2026-08-13T16:11:33.366Z",
       "likes": 1
     },
     {
-      "reelId": "reel_1786636186618_26gh",
-      "views": 16,
-      "id": "hist_1786636741094_ijla",
-      "comments": 0,
-      "shares": 0,
+      "id": "hist_1786653163526_vhgy",
       "likes": 1,
-      "timestamp": "2026-08-13T15:59:01.094Z"
-    },
-    {
-      "reelId": "reel_1786561051025_ndk6",
-      "views": 23592,
-      "id": "hist_1786636306038_7jx6",
-      "likes": 98,
-      "shares": 0,
-      "comments": 0,
-      "timestamp": "2026-08-13T15:51:46.038Z"
-    },
-    {
-      "reelId": "reel_1786636186618_26gh",
-      "views": 2,
-      "shares": 0,
-      "id": "hist_1786636254854_g5ue",
-      "likes": 1,
-      "comments": 0,
-      "timestamp": "2026-08-13T15:50:54.854Z"
-    },
-    {
-      "id": "hist_1786636210316_um9j",
-      "reelId": "reel_1786634870529_ekrz",
-      "views": 1522,
-      "likes": 17,
-      "shares": 0,
-      "timestamp": "2026-08-13T15:50:10.316Z",
-      "comments": 0
-    },
-    {
-      "timestamp": "2026-08-13T15:49:50.316Z",
-      "likes": 1,
-      "shares": 0,
-      "comments": 0,
-      "views": 0,
-      "id": "hist_1786636190316_pd4b",
-      "reelId": "reel_1786636186618_26gh"
-    },
-    {
-      "likes": 13,
-      "comments": 0,
-      "reelId": "reel_1786634870529_ekrz",
-      "timestamp": "2026-08-13T15:42:27.450Z",
-      "id": "hist_1786635747450_h83x",
-      "shares": 0,
-      "views": 924
-    },
-    {
-      "id": "hist_1786635440696_orx3",
-      "comments": 0,
-      "timestamp": "2026-08-13T15:37:20.696Z",
-      "reelId": "reel_1786634870529_ekrz",
-      "likes": 7,
-      "views": 378,
-      "shares": 0
-    },
-    {
-      "comments": 0,
-      "likes": 2,
-      "shares": 0,
-      "views": 190,
-      "id": "hist_1786634872917_wz3j",
-      "timestamp": "2026-08-13T15:27:52.917Z",
-      "reelId": "reel_1786634870529_ekrz"
-    },
-    {
-      "id": "hist_1786631922492_o9j7",
-      "likes": 178,
-      "shares": 0,
-      "timestamp": "2026-08-13T14:38:42.492Z",
-      "comments": 0,
-      "views": 85874,
-      "reelId": "reel_1786561051653_ffwc"
-    },
-    {
-      "shares": 0,
-      "comments": 0,
-      "views": 23563,
-      "id": "hist_1786631412519_flnw",
-      "likes": 98,
-      "timestamp": "2026-08-13T14:30:12.519Z",
-      "reelId": "reel_1786561051025_ndk6"
-    },
-    {
-      "comments": 0,
-      "views": 23534,
-      "timestamp": "2026-08-13T12:23:14.607Z",
-      "shares": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "id": "hist_1786623794607_cv2j",
-      "likes": 98
-    },
-    {
-      "shares": 0,
-      "timestamp": "2026-08-13T12:23:13.545Z",
-      "views": 78492,
-      "likes": 161,
-      "id": "hist_1786623793545_utma",
-      "reelId": "reel_1786561051653_ffwc",
-      "comments": 0
-    },
-    {
-      "comments": 0,
-      "shares": 0,
-      "likes": 45,
-      "timestamp": "2026-08-13T12:23:11.922Z",
-      "views": 2469,
-      "reelId": "reel_1786561051997_8d6u",
-      "id": "hist_1786623791922_fd1e"
-    },
-    {
-      "timestamp": "2026-08-13T12:23:09.647Z",
-      "likes": 4,
-      "comments": 0,
-      "id": "hist_1786623789647_j9xa",
-      "shares": 0,
-      "views": 489,
-      "reelId": "reel_1786561052347_eq03"
-    },
-    {
-      "id": "hist_1786623779125_wz5s",
-      "timestamp": "2026-08-13T12:22:59.125Z",
-      "likes": 18,
-      "comments": 0,
-      "shares": 0,
-      "views": 1785,
-      "reelId": "reel_1786567844361_pvca"
-    },
-    {
-      "comments": 0,
-      "likes": 107,
-      "shares": 0,
-      "id": "hist_1786623777202_1v0b",
-      "timestamp": "2026-08-13T12:22:57.202Z",
-      "views": 14744,
-      "reelId": "reel_1786569030818_swzg"
-    },
-    {
-      "likes": 4,
-      "id": "hist_1786623775029_ixme",
-      "reelId": "reel_1786571224463_xixd",
-      "timestamp": "2026-08-13T12:22:55.029Z",
-      "shares": 0,
-      "views": 401,
-      "comments": 0
-    },
-    {
-      "views": 23533,
-      "reelId": "reel_1786561051025_ndk6",
-      "id": "hist_1786623460518_83uq",
-      "shares": 0,
-      "comments": 0,
-      "timestamp": "2026-08-13T12:17:40.518Z",
-      "likes": 98
-    },
-    {
-      "likes": 158,
-      "id": "hist_1786623458164_19r1",
-      "comments": 0,
-      "reelId": "reel_1786561051653_ffwc",
-      "timestamp": "2026-08-13T12:17:38.164Z",
-      "shares": 0,
-      "views": 78114
-    },
-    {
-      "comments": 0,
-      "shares": 0,
-      "timestamp": "2026-08-13T12:17:36.883Z",
-      "views": 2469,
-      "likes": 45,
-      "id": "hist_1786623456883_er5g",
-      "reelId": "reel_1786561051997_8d6u"
-    },
-    {
-      "id": "hist_1786623455401_o7g1",
-      "reelId": "reel_1786561052347_eq03",
-      "comments": 0,
-      "likes": 4,
-      "views": 489,
-      "timestamp": "2026-08-13T12:17:35.401Z",
-      "shares": 0
-    },
-    {
-      "likes": 17,
-      "shares": 0,
-      "id": "hist_1786623444622_vfhe",
-      "views": 1750,
-      "comments": 0,
-      "reelId": "reel_1786567844361_pvca",
-      "timestamp": "2026-08-13T12:17:24.622Z"
-    },
-    {
-      "shares": 0,
-      "views": 14704,
-      "comments": 0,
-      "id": "hist_1786623443108_dxdm",
-      "likes": 107,
-      "timestamp": "2026-08-13T12:17:23.108Z",
-      "reelId": "reel_1786569030818_swzg"
-    },
-    {
-      "likes": 4,
-      "reelId": "reel_1786571224463_xixd",
-      "timestamp": "2026-08-13T12:17:21.563Z",
-      "comments": 0,
-      "views": 401,
-      "id": "hist_1786623441563_8hth",
-      "shares": 0
-    },
-    {
-      "views": 23530,
-      "shares": 0,
-      "timestamp": "2026-08-13T12:01:13.861Z",
-      "reelId": "reel_1786561051025_ndk6",
-      "comments": 0,
-      "id": "hist_1786622473861_2ms8",
-      "likes": 98
-    },
-    {
-      "timestamp": "2026-08-13T12:01:11.052Z",
-      "id": "hist_1786622471052_5zr1",
-      "comments": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "likes": 98,
-      "views": 23530,
-      "shares": 0
-    },
-    {
-      "likes": 98,
-      "shares": 0,
-      "id": "hist_1786616170723_74z6",
-      "comments": 0,
-      "views": 23490,
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-13T10:16:10.723Z"
-    },
-    {
-      "reelId": "reel_1786561051653_ffwc",
-      "views": 73835,
-      "id": "hist_1786616169084_tpnp",
-      "comments": 0,
-      "shares": 0,
-      "timestamp": "2026-08-13T10:16:09.084Z",
-      "likes": 148
-    },
-    {
-      "comments": 0,
-      "id": "hist_1786616167588_1kkz",
-      "reelId": "reel_1786561051997_8d6u",
-      "likes": 45,
-      "views": 2467,
-      "timestamp": "2026-08-13T10:16:07.588Z",
-      "shares": 0
-    },
-    {
-      "shares": 0,
-      "views": 489,
-      "likes": 4,
-      "comments": 0,
-      "reelId": "reel_1786561052347_eq03",
-      "id": "hist_1786616166021_06mo",
-      "timestamp": "2026-08-13T10:16:06.021Z"
-    },
-    {
-      "timestamp": "2026-08-13T10:15:34.271Z",
-      "id": "hist_1786616134271_7s9v",
-      "comments": 0,
-      "reelId": "reel_1786567844361_pvca",
-      "likes": 10,
-      "views": 1098,
-      "shares": 0
-    },
-    {
-      "likes": 102,
-      "timestamp": "2026-08-13T10:15:32.571Z",
-      "id": "hist_1786616132571_dskk",
-      "reelId": "reel_1786569030818_swzg",
-      "shares": 0,
-      "comments": 0,
-      "views": 13909
-    },
-    {
-      "likes": 4,
-      "timestamp": "2026-08-13T10:15:31.530Z",
-      "reelId": "reel_1786571224463_xixd",
-      "id": "hist_1786616131530_b6w4",
-      "shares": 0,
-      "comments": 0,
-      "views": 401
-    },
-    {
-      "id": "hist_1786613660977_155u",
-      "timestamp": "2026-08-13T09:34:20.977Z",
-      "likes": 144,
-      "shares": 0,
-      "views": 72625,
-      "comments": 0,
-      "reelId": "reel_1786561051653_ffwc"
-    },
-    {
-      "likes": 98,
-      "comments": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "id": "hist_1786613593105_b8mj",
-      "shares": 0,
-      "views": 23467,
-      "timestamp": "2026-08-13T09:33:13.105Z"
-    },
-    {
-      "reelId": "reel_1786561051653_ffwc",
-      "views": 72598,
-      "comments": 0,
-      "id": "hist_1786613591429_ucy1",
-      "shares": 0,
-      "timestamp": "2026-08-13T09:33:11.429Z",
-      "likes": 144
-    },
-    {
-      "likes": 45,
-      "timestamp": "2026-08-13T09:33:09.293Z",
-      "comments": 0,
-      "shares": 0,
-      "id": "hist_1786613589293_6jvp",
-      "views": 2467,
-      "reelId": "reel_1786561051997_8d6u"
-    },
-    {
-      "likes": 4,
-      "shares": 0,
-      "id": "hist_1786613587658_zyed",
-      "comments": 0,
-      "views": 488,
-      "timestamp": "2026-08-13T09:33:07.658Z",
-      "reelId": "reel_1786561052347_eq03"
-    },
-    {
-      "views": 907,
-      "shares": 0,
-      "reelId": "reel_1786567844361_pvca",
-      "timestamp": "2026-08-13T09:32:45.692Z",
-      "comments": 0,
-      "likes": 8,
-      "id": "hist_1786613565692_vyxl"
-    },
-    {
-      "comments": 0,
-      "timestamp": "2026-08-13T09:32:44.251Z",
-      "likes": 99,
-      "shares": 0,
-      "views": 13648,
-      "reelId": "reel_1786569030818_swzg",
-      "id": "hist_1786613564251_xb34"
-    },
-    {
-      "shares": 0,
-      "comments": 0,
-      "views": 400,
-      "likes": 4,
-      "id": "hist_1786613562544_t65k",
-      "timestamp": "2026-08-13T09:32:42.544Z",
-      "reelId": "reel_1786571224463_xixd"
-    },
-    {
-      "timestamp": "2026-08-13T09:19:21.731Z",
-      "reelId": "reel_1786561051653_ffwc",
-      "comments": 0,
-      "likes": 143,
-      "id": "hist_1786612761731_vsbc",
-      "views": 72137,
-      "shares": 0
-    },
-    {
-      "shares": 0,
-      "id": "hist_1786612447014_uo10",
-      "views": 23456,
-      "reelId": "reel_1786561051025_ndk6",
-      "likes": 98,
-      "comments": 0,
-      "timestamp": "2026-08-13T09:14:07.014Z"
-    },
-    {
-      "shares": 0,
-      "views": 71913,
-      "id": "hist_1786612445877_wr60",
-      "likes": 142,
-      "reelId": "reel_1786561051653_ffwc",
-      "comments": 0,
-      "timestamp": "2026-08-13T09:14:05.877Z"
-    },
-    {
-      "shares": 0,
-      "id": "hist_1786612444062_69e7",
-      "views": 23456,
-      "comments": 0,
-      "timestamp": "2026-08-13T09:14:04.062Z",
-      "likes": 98,
-      "reelId": "reel_1786561051025_ndk6"
-    },
-    {
-      "id": "hist_1786612416327_w5dl",
-      "likes": 4,
-      "shares": 0,
-      "views": 399,
-      "reelId": "reel_1786571224463_xixd",
-      "comments": 0,
-      "timestamp": "2026-08-13T09:13:36.327Z"
-    },
-    {
-      "reelId": "reel_1786561051025_ndk6",
-      "likes": 98,
-      "views": 23435,
-      "id": "hist_1786611234008_bcon",
-      "comments": 0,
-      "shares": 0,
-      "timestamp": "2026-08-13T08:53:54.008Z"
-    },
-    {
-      "reelId": "reel_1786561051653_ffwc",
-      "views": 71097,
-      "timestamp": "2026-08-13T08:53:51.866Z",
-      "shares": 0,
-      "likes": 140,
-      "comments": 0,
-      "id": "hist_1786611231866_svqn"
-    },
-    {
-      "views": 2467,
-      "comments": 0,
-      "shares": 0,
-      "timestamp": "2026-08-13T08:53:50.313Z",
-      "reelId": "reel_1786561051997_8d6u",
-      "id": "hist_1786611230313_7m44",
-      "likes": 45
-    },
-    {
-      "likes": 4,
-      "shares": 0,
-      "comments": 0,
-      "views": 488,
-      "reelId": "reel_1786561052347_eq03",
-      "timestamp": "2026-08-13T08:53:48.699Z",
-      "id": "hist_1786611228699_1w5m"
-    },
-    {
-      "reelId": "reel_1786567844361_pvca",
-      "views": 734,
-      "timestamp": "2026-08-13T08:53:20.503Z",
-      "id": "hist_1786611200503_c98t",
-      "comments": 0,
-      "shares": 0,
-      "likes": 7
-    },
-    {
-      "timestamp": "2026-08-13T08:53:18.867Z",
-      "comments": 0,
-      "id": "hist_1786611198867_jqza",
-      "likes": 97,
-      "reelId": "reel_1786569030818_swzg",
-      "views": 13319,
-      "shares": 0
-    },
-    {
-      "timestamp": "2026-08-13T08:53:16.705Z",
-      "reelId": "reel_1786571224463_xixd",
-      "comments": 0,
-      "views": 399,
-      "shares": 0,
-      "id": "hist_1786611196705_ioce",
-      "likes": 4
-    },
-    {
-      "shares": 0,
-      "comments": 0,
-      "views": 23390,
-      "likes": 98,
-      "reelId": "reel_1786561051025_ndk6",
-      "id": "hist_1786609261142_u3xi",
-      "timestamp": "2026-08-13T08:21:01.142Z"
-    },
-    {
-      "likes": 136,
-      "comments": 0,
-      "reelId": "reel_1786561051653_ffwc",
-      "timestamp": "2026-08-13T08:20:55.328Z",
-      "id": "hist_1786609255328_1xdv",
-      "shares": 0,
-      "views": 69425
-    },
-    {
-      "likes": 45,
-      "shares": 0,
-      "views": 2467,
-      "comments": 0,
-      "id": "hist_1786609253375_dj7z",
-      "reelId": "reel_1786561051997_8d6u",
-      "timestamp": "2026-08-13T08:20:53.375Z"
-    },
-    {
-      "comments": 0,
-      "shares": 0,
-      "likes": 4,
-      "views": 488,
-      "id": "hist_1786609251500_nld7",
-      "timestamp": "2026-08-13T08:20:51.500Z",
-      "reelId": "reel_1786561052347_eq03"
-    },
-    {
-      "views": 399,
-      "shares": 0,
-      "id": "hist_1786609249517_sj4r",
-      "reelId": "reel_1786571224463_xixd",
-      "comments": 0,
-      "timestamp": "2026-08-13T08:20:49.517Z",
-      "likes": 4
-    },
-    {
-      "id": "hist_1786609243662_6h2i",
-      "likes": 6,
-      "timestamp": "2026-08-13T08:20:43.662Z",
-      "shares": 0,
-      "views": 665,
-      "comments": 0,
-      "reelId": "reel_1786567844361_pvca"
-    },
-    {
-      "id": "hist_1786609223155_6a42",
-      "reelId": "reel_1786569030818_swzg",
-      "views": 13084,
-      "shares": 0,
-      "likes": 96,
-      "comments": 0,
-      "timestamp": "2026-08-13T08:20:23.155Z"
-    },
-    {
-      "views": 23390,
-      "comments": 0,
-      "shares": 0,
-      "id": "hist_1786609000148_kxwu",
-      "timestamp": "2026-08-13T08:16:40.148Z",
-      "reelId": "reel_1786561051025_ndk6",
-      "likes": 98
-    },
-    {
-      "likes": 98,
-      "shares": 0,
-      "timestamp": "2026-08-13T08:08:29.330Z",
-      "views": 23382,
-      "id": "hist_1786608509330_q07q",
-      "reelId": "reel_1786561051025_ndk6",
-      "comments": 0
-    },
-    {
-      "reelId": "reel_1786561051025_ndk6",
-      "views": 23347,
-      "comments": 0,
-      "shares": 0,
-      "likes": 98,
-      "id": "hist_1786600852899_ogv3",
-      "timestamp": "2026-08-13T06:00:52.899Z"
-    },
-    {
-      "comments": 0,
-      "likes": 97,
-      "shares": 0,
-      "id": "hist_1786587259217_3gxk",
-      "timestamp": "2026-08-13T02:14:19.217Z",
-      "views": 23113,
-      "reelId": "reel_1786561051025_ndk6"
-    },
-    {
-      "reelId": "reel_1786571224463_xixd",
-      "comments": 0,
-      "timestamp": "2026-08-13T02:06:13.653Z",
-      "views": 376,
-      "id": "hist_1786586773653_2yhy",
-      "shares": 0,
-      "likes": 4
-    },
-    {
-      "reelId": "reel_1786569030818_swzg",
-      "timestamp": "2026-08-13T02:06:11.409Z",
-      "likes": 82,
-      "views": 9803,
-      "id": "hist_1786586771409_cxsg",
-      "shares": 0,
-      "comments": 0
-    },
-    {
-      "reelId": "reel_1786561051653_ffwc",
-      "likes": 103,
-      "id": "hist_1786586765254_ntbe",
-      "views": 55813,
-      "comments": 0,
-      "timestamp": "2026-08-13T02:06:05.254Z",
-      "shares": 0
-    },
-    {
-      "likes": 97,
-      "timestamp": "2026-08-13T02:06:03.122Z",
-      "shares": 0,
-      "comments": 0,
-      "views": 23092,
-      "id": "hist_1786586763122_gvtp",
-      "reelId": "reel_1786561051025_ndk6"
-    },
-    {
-      "comments": 0,
-      "likes": 97,
-      "shares": 0,
-      "timestamp": "2026-08-13T01:09:54.040Z",
-      "views": 54405,
-      "id": "hist_1786583394040_lqww",
-      "reelId": "reel_1786561051653_ffwc"
-    },
-    {
-      "likes": 80,
-      "reelId": "reel_1786569030818_swzg",
-      "timestamp": "2026-08-13T01:09:52.111Z",
-      "shares": 0,
-      "comments": 0,
-      "id": "hist_1786583392111_htbl",
-      "views": 9395
-    },
-    {
-      "likes": 4,
-      "timestamp": "2026-08-13T01:09:49.944Z",
-      "comments": 0,
-      "reelId": "reel_1786571224463_xixd",
-      "id": "hist_1786583389944_iysj",
-      "shares": 0,
-      "views": 365
-    },
-    {
-      "reelId": "reel_1786561051025_ndk6",
-      "views": 22763,
-      "timestamp": "2026-08-13T00:35:04.076Z",
-      "shares": 0,
-      "comments": 0,
-      "likes": 97,
-      "id": "hist_1786581304076_fixu"
-    },
-    {
-      "likes": 4,
-      "reelId": "reel_1786571224463_xixd",
-      "timestamp": "2026-08-13T00:34:54.216Z",
-      "views": 364,
-      "shares": 0,
-      "id": "hist_1786581294216_p4mf",
-      "comments": 0
-    },
-    {
-      "likes": 78,
-      "reelId": "reel_1786569030818_swzg",
-      "timestamp": "2026-08-13T00:34:30.637Z",
-      "id": "hist_1786581270637_j92n",
-      "views": 8676,
-      "shares": 0,
-      "comments": 0
-    },
-    {
-      "reelId": "reel_1786561051653_ffwc",
-      "views": 53090,
-      "id": "hist_1786581255349_1zyt",
-      "shares": 0,
-      "likes": 90,
-      "comments": 0,
-      "timestamp": "2026-08-13T00:34:15.349Z"
-    },
-    {
-      "id": "hist_1786579265148_wki5",
-      "views": 22564,
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-13T00:01:05.148Z",
-      "comments": 0,
-      "shares": 0,
-      "likes": 97
-    },
-    {
-      "likes": 4,
-      "timestamp": "2026-08-12T23:51:37.871Z",
-      "comments": 0,
-      "shares": 0,
-      "id": "hist_1786578697871_668b",
-      "views": 361,
-      "reelId": "reel_1786571224463_xixd"
-    },
-    {
-      "timestamp": "2026-08-12T23:51:32.051Z",
-      "reelId": "reel_1786569030818_swzg",
-      "likes": 73,
-      "comments": 0,
-      "views": 7333,
-      "id": "hist_1786578692051_5u0q",
-      "shares": 0
-    },
-    {
-      "timestamp": "2026-08-12T23:47:56.257Z",
-      "reelId": "reel_1786561051025_ndk6",
-      "likes": 97,
-      "comments": 0,
-      "views": 22505,
-      "id": "hist_1786578476257_i77m",
-      "shares": 0
-    },
-    {
-      "likes": 87,
-      "shares": 0,
-      "timestamp": "2026-08-12T23:47:44.937Z",
-      "comments": 0,
-      "id": "hist_1786578464937_cd9s",
-      "reelId": "reel_1786561051653_ffwc",
-      "views": 50364
-    },
-    {
-      "comments": 0,
-      "likes": 73,
-      "id": "hist_1786578448982_u9m1",
-      "reelId": "reel_1786569030818_swzg",
-      "views": 7204,
-      "shares": 0,
-      "timestamp": "2026-08-12T23:47:28.982Z"
-    },
-    {
-      "likes": 4,
-      "reelId": "reel_1786571224463_xixd",
-      "id": "hist_1786578442735_p9lq",
-      "shares": 0,
-      "timestamp": "2026-08-12T23:47:22.735Z",
-      "views": 361,
-      "comments": 0
-    },
-    {
-      "comments": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "likes": 95,
-      "timestamp": "2026-08-12T22:48:41.870Z",
-      "views": 22089,
-      "id": "hist_1786574921870_cxgb",
-      "shares": 0
-    },
-    {
-      "views": 47131,
-      "shares": 0,
-      "reelId": "reel_1786561051653_ffwc",
-      "comments": 0,
-      "id": "hist_1786574893415_wb9b",
-      "timestamp": "2026-08-12T22:48:13.415Z",
-      "likes": 80
-    },
-    {
-      "reelId": "reel_1786569030818_swzg",
-      "likes": 59,
-      "views": 5715,
-      "comments": 0,
-      "id": "hist_1786574887612_jw5r",
-      "timestamp": "2026-08-12T22:48:07.612Z",
-      "shares": 0
-    },
-    {
-      "timestamp": "2026-08-12T22:47:55.472Z",
-      "likes": 3,
-      "comments": 0,
-      "reelId": "reel_1786567844361_pvca",
-      "id": "hist_1786574875472_m3l7",
-      "shares": 0,
-      "views": 213
-    },
-    {
-      "shares": 0,
-      "id": "hist_1786574853329_o9np",
-      "comments": 0,
-      "timestamp": "2026-08-12T22:47:33.329Z",
-      "views": 358,
-      "likes": 4,
-      "reelId": "reel_1786571224463_xixd"
-    },
-    {
-      "reelId": "reel_1786561051653_ffwc",
-      "comments": 0,
-      "likes": 79,
-      "views": 46794,
-      "id": "hist_1786574090630_injx",
-      "shares": 0,
-      "timestamp": "2026-08-12T22:34:50.630Z"
-    },
-    {
-      "reelId": "reel_1786567844361_pvca",
-      "views": 207,
-      "id": "hist_1786574026474_943n",
-      "shares": 0,
-      "likes": 3,
-      "comments": 0,
-      "timestamp": "2026-08-12T22:33:46.474Z"
-    },
-    {
-      "reelId": "reel_1786571224463_xixd",
-      "comments": 0,
-      "views": 354,
-      "likes": 4,
-      "shares": 0,
-      "timestamp": "2026-08-12T22:33:27.997Z",
-      "id": "hist_1786574007997_b9aa"
-    },
-    {
-      "shares": 0,
-      "id": "hist_1786573817834_34fd",
-      "comments": 0,
-      "views": 46685,
-      "likes": 79,
-      "reelId": "reel_1786561051653_ffwc",
-      "timestamp": "2026-08-12T22:30:17.834Z"
-    },
-    {
-      "id": "hist_1786573806671_7vqz",
-      "likes": 57,
-      "shares": 0,
-      "timestamp": "2026-08-12T22:30:06.671Z",
-      "views": 4660,
-      "comments": 0,
-      "reelId": "reel_1786569030818_swzg"
-    },
-    {
-      "reelId": "reel_1786561051025_ndk6",
-      "likes": 94,
-      "views": 21386,
-      "comments": 0,
-      "id": "hist_1786572692949_h8tm",
-      "timestamp": "2026-08-12T22:11:32.949Z",
-      "shares": 0
-    },
-    {
-      "likes": 49,
-      "shares": 0,
-      "comments": 0,
-      "views": 3562,
-      "id": "hist_1786572522870_wtz7",
-      "timestamp": "2026-08-12T22:08:42.870Z",
-      "reelId": "reel_1786569030818_swzg"
-    },
-    {
-      "likes": 79,
-      "id": "hist_1786572516144_ysi6",
-      "shares": 0,
-      "comments": 0,
-      "timestamp": "2026-08-12T22:08:36.144Z",
-      "reelId": "reel_1786561051653_ffwc",
-      "views": 45906
-    },
-    {
-      "timestamp": "2026-08-12T22:07:40.842Z",
-      "reelId": "reel_1786571224463_xixd",
-      "id": "hist_1786572460842_2123",
-      "comments": 0,
-      "likes": 3,
-      "views": 172,
-      "shares": 0
-    },
-    {
-      "timestamp": "2026-08-12T22:06:21.155Z",
-      "likes": 2,
-      "reelId": "reel_1786567844361_pvca",
-      "views": 198,
-      "comments": 0,
-      "id": "hist_1786572381155_fyqx",
-      "shares": 0
-    },
-    {
-      "reelId": "reel_1786571224463_xixd",
-      "likes": 3,
-      "comments": 0,
-      "views": 158,
-      "timestamp": "2026-08-12T22:05:58.937Z",
-      "id": "hist_1786572358937_g3m4",
-      "shares": 0
-    },
-    {
-      "likes": 94,
-      "id": "hist_1786571808233_rao3",
-      "comments": 0,
-      "shares": 0,
-      "timestamp": "2026-08-12T21:56:48.233Z",
-      "views": 21030,
-      "reelId": "reel_1786561051025_ndk6"
-    },
-    {
-      "reelId": "reel_1786571224463_xixd",
-      "timestamp": "2026-08-12T21:55:36.434Z",
-      "views": 91,
-      "comments": 0,
-      "shares": 0,
-      "likes": 1,
-      "id": "hist_1786571736434_so2g"
-    },
-    {
-      "likes": 2,
-      "id": "hist_1786571734406_gp0d",
-      "comments": 0,
-      "reelId": "reel_1786567844361_pvca",
-      "shares": 0,
-      "timestamp": "2026-08-12T21:55:34.406Z",
-      "views": 198
-    },
-    {
-      "comments": 0,
-      "views": 3208,
-      "shares": 0,
-      "timestamp": "2026-08-12T21:55:20.732Z",
-      "reelId": "reel_1786569030818_swzg",
-      "likes": 45,
-      "id": "hist_1786571720731_rw85"
-    },
-    {
-      "id": "hist_1786571688093_bhid",
-      "likes": 79,
-      "comments": 0,
-      "reelId": "reel_1786561051653_ffwc",
-      "timestamp": "2026-08-12T21:54:48.093Z",
-      "views": 45401,
-      "shares": 0
-    },
-    {
-      "id": "hist_1786571664588_owac",
-      "likes": 93,
-      "reelId": "reel_1786561051025_ndk6",
-      "comments": 0,
-      "views": 20975,
-      "timestamp": "2026-08-12T21:54:24.588Z",
-      "shares": 0
-    },
-    {
-      "comments": 0,
-      "shares": 0,
-      "views": 45333,
-      "id": "hist_1786571557835_bhjt",
-      "timestamp": "2026-08-12T21:52:37.835Z",
-      "reelId": "reel_1786561051653_ffwc",
-      "likes": 79
-    },
-    {
-      "comments": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "views": 20916,
-      "timestamp": "2026-08-12T21:50:41.491Z",
-      "id": "hist_1786571441491_rbhk",
-      "shares": 0,
-      "likes": 93
-    },
-    {
-      "id": "hist_1786571227439_9sns",
-      "likes": 1,
-      "timestamp": "2026-08-12T21:47:07.439Z",
-      "shares": 0,
-      "comments": 0,
-      "views": 0,
-      "reelId": "reel_1786571224463_xixd"
-    },
-    {
-      "id": "hist_1786570241716_51iq",
-      "likes": 91,
-      "comments": 0,
-      "shares": 0,
-      "timestamp": "2026-08-12T21:30:41.716Z",
-      "views": 20445,
-      "reelId": "reel_1786561051025_ndk6"
-    },
-    {
-      "shares": 0,
-      "timestamp": "2026-08-12T21:30:15.207Z",
-      "views": 1621,
-      "comments": 0,
-      "reelId": "reel_1786569030818_swzg",
-      "likes": 23,
-      "id": "hist_1786570215207_d2r4"
-    },
-    {
-      "shares": 0,
-      "views": 1424,
-      "comments": 0,
-      "timestamp": "2026-08-12T21:28:55.210Z",
-      "reelId": "reel_1786569030818_swzg",
-      "likes": 23,
-      "id": "hist_1786570135210_r6tm"
-    },
-    {
-      "likes": 90,
-      "shares": 0,
-      "comments": 0,
-      "id": "hist_1786570003377_ibdi",
-      "views": 20368,
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-12T21:26:43.377Z"
-    },
-    {
-      "id": "hist_1786569225287_s9k0",
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-12T21:13:45.287Z",
-      "views": 20034,
-      "shares": 0,
-      "likes": 89,
-      "comments": 0
-    },
-    {
-      "likes": 74,
-      "comments": 0,
-      "reelId": "reel_1786561051653_ffwc",
-      "timestamp": "2026-08-12T21:13:28.568Z",
-      "id": "hist_1786569208568_tyzm",
-      "views": 42715,
-      "shares": 0
-    },
-    {
-      "comments": 0,
-      "likes": 1,
-      "shares": 0,
-      "timestamp": "2026-08-12T21:13:13.263Z",
-      "views": 169,
-      "reelId": "reel_1786567844361_pvca",
-      "id": "hist_1786569193263_4pmf"
-    },
-    {
-      "likes": 2,
-      "id": "hist_1786569187489_sd92",
-      "comments": 0,
-      "reelId": "reel_1786569030818_swzg",
-      "shares": 0,
-      "views": 66,
-      "timestamp": "2026-08-12T21:13:07.489Z"
-    },
-    {
+      "reelId": "reel_1786653160890_807j",
       "views": 0,
       "shares": 0,
-      "id": "hist_1786569033985_lkga",
-      "timestamp": "2026-08-12T21:10:33.985Z",
       "comments": 0,
-      "reelId": "reel_1786569030818_swzg",
-      "likes": 1
-    },
-    {
-      "likes": 1,
-      "reelId": "reel_1786567844361_pvca",
-      "shares": 0,
-      "id": "hist_1786567846415_uc5u",
-      "comments": 0,
-      "timestamp": "2026-08-12T20:50:46.415Z",
-      "views": 115
-    },
-    {
-      "likes": 65,
-      "id": "hist_1786566217770_94yt",
-      "shares": 0,
-      "comments": 0,
-      "timestamp": "2026-08-12T20:23:37.770Z",
-      "reelId": "reel_1786561051653_ffwc",
-      "views": 38193
-    },
-    {
-      "shares": 0,
-      "views": 38169,
-      "timestamp": "2026-08-12T20:23:26.676Z",
-      "likes": 65,
-      "reelId": "reel_1786561051653_ffwc",
-      "comments": 0,
-      "id": "hist_1786566206676_c7a2"
-    },
-    {
-      "views": 38053,
-      "shares": 0,
-      "timestamp": "2026-08-12T20:21:56.656Z",
-      "comments": 0,
-      "id": "hist_1786566116656_y849",
-      "reelId": "reel_1786561051653_ffwc",
-      "likes": 65
-    },
-    {
-      "likes": 85,
-      "reelId": "reel_1786561051025_ndk6",
-      "comments": 0,
-      "timestamp": "2026-08-12T20:20:52.780Z",
-      "views": 18901,
-      "id": "hist_1786566052780_tmw2",
-      "shares": 0
-    },
-    {
-      "timestamp": "2026-08-12T20:20:47.547Z",
-      "comments": 0,
-      "views": 18895,
-      "shares": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "id": "hist_1786566047547_b4m9",
-      "likes": 85
-    },
-    {
-      "reelId": "reel_1786561051025_ndk6",
-      "views": 18866,
-      "timestamp": "2026-08-12T20:19:38.844Z",
-      "id": "hist_1786565978844_07wd",
-      "comments": 0,
-      "shares": 0,
-      "likes": 84
-    },
-    {
-      "likes": 84,
-      "timestamp": "2026-08-12T19:46:58.640Z",
-      "shares": 0,
-      "views": 18166,
-      "comments": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "id": "hist_1786564018640_kft1"
-    },
-    {
-      "likes": 82,
-      "comments": 0,
-      "id": "hist_1786563196702_axsz",
-      "shares": 0,
-      "timestamp": "2026-08-12T19:33:16.702Z",
-      "reelId": "reel_1786561051025_ndk6",
-      "views": 17957
-    },
-    {
-      "views": 32005,
-      "shares": 0,
-      "reelId": "reel_1786561051653_ffwc",
-      "id": "hist_1786561661663_7ii3",
-      "comments": 0,
-      "likes": 54,
-      "timestamp": "2026-08-12T19:07:41.663Z"
-    },
-    {
-      "timestamp": "2026-08-12T19:06:48.696Z",
-      "comments": 0,
-      "likes": 81,
-      "shares": 0,
-      "views": 17479,
-      "reelId": "reel_1786561051025_ndk6",
-      "id": "hist_1786561608696_g7sk"
-    },
-    {
-      "timestamp": "2026-08-12T19:03:26.346Z",
-      "id": "hist_1786561406346_unrv",
-      "likes": 54,
-      "comments": 0,
-      "reelId": "reel_1786561051653_ffwc",
-      "views": 31685,
-      "shares": 0
-    },
-    {
-      "timestamp": "2026-08-12T18:57:37.741Z",
-      "views": 31199,
-      "shares": 0,
-      "comments": 0,
-      "reelId": "reel_1786561051653_ffwc",
-      "likes": 53,
-      "id": "hist_1786561057741_9acj"
-    },
-    {
-      "comments": 0,
-      "timestamp": "2026-08-12T18:57:35.247Z",
-      "likes": 45,
-      "shares": 0,
-      "views": 2449,
-      "reelId": "reel_1786561051997_8d6u",
-      "id": "hist_1786561055247_qx3b"
-    },
-    {
-      "shares": 0,
-      "id": "hist_1786561054371_98sl",
-      "timestamp": "2026-08-12T18:57:34.371Z",
-      "views": 414,
-      "comments": 0,
-      "likes": 4,
-      "reelId": "reel_1786561052347_eq03"
-    },
-    {
-      "likes": 81,
-      "comments": 0,
-      "reelId": "reel_1786561051025_ndk6",
-      "timestamp": "2026-08-12T18:57:33.642Z",
-      "shares": 0,
-      "id": "hist_1786561053642_m5pd",
-      "views": 17311
+      "timestamp": "2026-08-13T20:32:43.526Z"
     }
   ],
   "logs": [
+    {
+      "id": "log_1786661820260_otvf",
+      "reelId": "reel_1786561319484_bmae",
+      "reelName": "Reel Frenzy",
+      "timestamp": "2026-08-13T22:57:00.260Z",
+      "type": "force_refresh_telegram",
+      "status": "failed",
+      "providerName": "All Providers Failed",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502 (Bad Gateway / Upstream Error): The scraping provider encountered a temporary error reaching Instagram"
+    },
+    {
+      "id": "log_1786661806942_531j",
+      "reelId": "reel_1786635451209_egnm",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:56:46.942Z",
+      "type": "force_refresh_telegram",
+      "status": "failed",
+      "providerName": "All Providers Failed",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 429: API rate limit or quota balance depleted (Too Many Requests)"
+    },
+    {
+      "id": "log_1786661804980_m6sz",
+      "reelId": "reel_1786561052347_eq03",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:56:44.980Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 491,
+        "likes": 4,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786661804595_x0lj",
+      "reelId": "reel_1786561051653_ffwc",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:56:44.595Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 107493,
+        "likes": 243,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786661804496_paxo",
+      "reelId": "reel_1786561051997_8d6u",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:56:44.496Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 2473,
+        "likes": 45,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786661804399_sd68",
+      "reelId": "reel_1786561051025_ndk6",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:56:44.399Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 23791,
+        "likes": 98,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786661773912_jrll",
+      "reelId": "reel_1786569030818_swzg",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:56:13.912Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 19248,
+        "likes": 118,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786661681201_wcsi",
+      "reelId": "reel_1786634870529_ekrz",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:54:41.201Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 6529,
+        "likes": 44,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786661678031_ol41",
+      "reelId": "reel_1786635451209_egnm",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:54:38.031Z",
+      "type": "force_refresh_telegram",
+      "status": "failed",
+      "providerName": "All Providers Failed",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502 (Bad Gateway / Upstream Error): The scraping provider encountered a temporary error reaching Instagram"
+    },
+    {
+      "id": "log_1786661665826_9vv6",
+      "reelId": "reel_1786561051025_ndk6",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:54:25.826Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 23791,
+        "likes": 98,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786661663632_b292",
+      "reelId": "reel_1786561051653_ffwc",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:54:23.632Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 107434,
+        "likes": 243,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786661661590_yfur",
+      "reelId": "reel_1786567844361_pvca",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:54:21.590Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 4454,
+        "likes": 44,
+        "comments": 1
+      }
+    },
+    {
+      "id": "log_1786661659522_eipz",
+      "reelId": "reel_1786567844361_pvca",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:54:19.522Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 4454,
+        "likes": 44,
+        "comments": 1
+      }
+    },
+    {
+      "id": "log_1786661654207_yzar",
+      "reelId": "reel_1786636186618_26gh",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:54:14.207Z",
+      "type": "force_refresh_telegram",
+      "status": "failed",
+      "providerName": "All Providers Failed",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 429: API rate limit or quota balance depleted (Too Many Requests)"
+    },
+    {
+      "id": "log_1786661652269_lzk5",
+      "reelId": "reel_1786643700251_fgnc",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:54:12.269Z",
+      "type": "force_refresh_telegram",
+      "status": "failed",
+      "providerName": "All Providers Failed",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502 (Bad Gateway / Upstream Error): The scraping provider encountered a temporary error reaching Instagram"
+    },
+    {
+      "id": "log_1786661608897_753r",
+      "reelId": "reel_1786654526970_eux1",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:53:28.897Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 1858,
+        "likes": 27,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_auto_1786661390995_lxl7",
+      "reelId": "reel_1786561051025_ndk6",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:49:50.995Z",
+      "type": "manual_web",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 23791,
+        "likes": 98,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_auto_1786661337439_vsfd",
+      "reelId": "reel_1786561051025_ndk6",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:48:57.439Z",
+      "type": "manual_web",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 23789,
+        "likes": 98,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_auto_1786660858299_lm1l",
+      "reelId": "reel_1786561051025_ndk6",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:40:58.299Z",
+      "type": "manual_web",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 23787,
+        "likes": 98,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660443886_2v45",
+      "reelId": "reel_1786561051025_ndk6",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:34:03.886Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 23784,
+        "likes": 98,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660420224_qkz4",
+      "reelId": "reel_1786569030818_swzg",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:33:40.224Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 19211,
+        "likes": 118,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660413956_dqe9",
+      "reelId": "reel_1786567844361_pvca",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:33:33.956Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 4449,
+        "likes": 44,
+        "comments": 1
+      }
+    },
+    {
+      "id": "log_1786660410231_54zd",
+      "reelId": "reel_1786561052347_eq03",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:33:30.231Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 491,
+        "likes": 4,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660399761_py9m",
+      "reelId": "reel_1786561051997_8d6u",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:33:19.761Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 2473,
+        "likes": 45,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660390634_obql",
+      "reelId": "reel_1786561051653_ffwc",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T22:33:10.634Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 106784,
+        "likes": 242,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660335906_3qwk",
+      "reelId": "reel_1786654526970_eux1",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:32:15.906Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 1643,
+        "likes": 23,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660325652_gzap",
+      "reelId": "reel_1786653160890_807j",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:32:05.652Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 8474,
+        "likes": 48,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660317642_a4ii",
+      "reelId": "reel_1786636186618_26gh",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:31:57.642Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 3591,
+        "likes": 26,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660314027_jc7z",
+      "reelId": "reel_1786634870529_ekrz",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:31:54.027Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 6493,
+        "likes": 43,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786660313771_ufoj",
+      "reelId": "reel_1786571224463_xixd",
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:31:53.771Z",
+      "type": "force_refresh_telegram",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 404,
+        "likes": 4,
+        "comments": 0
+      }
+    },
+    {
+      "status": "success",
+      "reelName": "Real Time",
+      "reelId": "reel_1786569030818_swzg",
+      "type": "manual_web",
+      "timestamp": "2026-08-13T22:13:13.151Z",
+      "statsAdded": {
+        "views": 133474,
+        "comments": 1001,
+        "likes": 11745
+      },
+      "providerName": "YTLB Instagram Telemetry API",
+      "id": "log_auto_1786659193151_g2xo"
+    },
+    {
+      "providerName": "YTLB Instagram Telemetry API",
+      "statsAdded": {
+        "comments": 439,
+        "views": 58577,
+        "likes": 5154
+      },
+      "reelName": "Real Time",
+      "reelId": "reel_1786571224463_xixd",
+      "status": "success",
+      "id": "log_auto_1786659192481_nh83",
+      "timestamp": "2026-08-13T22:13:12.481Z",
+      "type": "manual_web"
+    },
+    {
+      "statsAdded": {
+        "likes": 18228,
+        "comments": 1553,
+        "views": 207137
+      },
+      "status": "success",
+      "id": "log_auto_1786659191800_awv8",
+      "providerName": "YTLB Instagram Telemetry API",
+      "reelId": "reel_1786634870529_ekrz",
+      "reelName": "Real Time",
+      "type": "manual_web",
+      "timestamp": "2026-08-13T22:13:11.800Z"
+    },
+    {
+      "reelName": "Real Time",
+      "timestamp": "2026-08-13T22:13:11.097Z",
+      "providerName": "YTLB Instagram Telemetry API",
+      "status": "success",
+      "type": "manual_web",
+      "id": "log_auto_1786659191097_si8g",
+      "statsAdded": {
+        "likes": 24485,
+        "comments": 2086,
+        "views": 278244
+      },
+      "reelId": "reel_1786635451209_egnm"
+    },
+    {
+      "reelId": "reel_1786636186618_26gh",
+      "timestamp": "2026-08-13T22:13:10.370Z",
+      "reelName": "Real Time",
+      "providerName": "YTLB Instagram Telemetry API",
+      "id": "log_auto_1786659190370_35rp",
+      "type": "manual_web",
+      "status": "success",
+      "statsAdded": {
+        "comments": 649,
+        "views": 86600,
+        "likes": 7620
+      }
+    },
+    {
+      "id": "log_auto_1786659189539_mtbx",
+      "status": "success",
+      "timestamp": "2026-08-13T22:13:09.539Z",
+      "reelId": "reel_1786643700251_fgnc",
+      "providerName": "YTLB Instagram Telemetry API",
+      "type": "manual_web",
+      "reelName": "Real Time",
+      "statsAdded": {
+        "comments": 2600,
+        "likes": 30508,
+        "views": 346682
+      }
+    },
+    {
+      "type": "manual_web",
+      "id": "log_auto_1786659188354_4n2l",
+      "timestamp": "2026-08-13T22:13:08.354Z",
+      "status": "success",
+      "reelName": "Real Time",
+      "providerName": "YTLB Instagram Telemetry API",
+      "reelId": "reel_1786653160890_807j",
+      "statsAdded": {
+        "views": 372399,
+        "likes": 32771,
+        "comments": 2792
+      }
+    },
+    {
+      "reelId": "reel_1786654526970_eux1",
+      "status": "success",
+      "statsAdded": {
+        "likes": 29597,
+        "comments": 2522,
+        "views": 336333
+      },
+      "id": "log_auto_1786659187613_8kob",
+      "reelName": "Real Time",
+      "providerName": "YTLB Instagram Telemetry API",
+      "timestamp": "2026-08-13T22:13:07.613Z",
+      "type": "manual_web"
+    },
+    {
+      "timestamp": "2026-08-13T21:53:49.017Z",
+      "reelId": "reel_1786561051025_ndk6",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "type": "manual_web",
+      "reelName": "Instagram Reel",
+      "statsAdded": {
+        "comments": 0,
+        "views": 23779,
+        "likes": 98
+      },
+      "id": "log_auto_1786658029017_3jf9"
+    },
+    {
+      "status": "success",
+      "id": "log_auto_1786658026491_k76h",
+      "statsAdded": {
+        "comments": 0,
+        "views": 105524,
+        "likes": 238
+      },
+      "reelName": "Instagram Reel",
+      "reelId": "reel_1786561051653_ffwc",
+      "type": "manual_web",
+      "timestamp": "2026-08-13T21:53:46.491Z",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "reelId": "reel_1786561051997_8d6u",
+      "timestamp": "2026-08-13T21:53:44.724Z",
+      "reelName": "Instagram Reel",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "comments": 0,
+        "likes": 45,
+        "views": 2473
+      },
+      "id": "log_auto_1786658024724_r65n",
+      "status": "success",
+      "type": "manual_web"
+    },
+    {
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "likes": 4,
+        "comments": 0,
+        "views": 491
+      },
+      "status": "success",
+      "reelId": "reel_1786561052347_eq03",
+      "reelName": "Instagram Reel",
+      "type": "manual_web",
+      "timestamp": "2026-08-13T21:53:43.103Z",
+      "id": "log_auto_1786658023103_a2pd"
+    },
+    {
+      "reelId": "reel_1786561319484_bmae",
+      "reelName": "Reel Frenzy",
+      "type": "manual_web",
+      "status": "failed",
+      "providerName": "All Providers Failed",
+      "id": "log_auto_1786658020478_7ptx",
+      "timestamp": "2026-08-13T21:53:40.478Z",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 429: API rate limit or quota balance depleted (Too Many Requests)"
+    },
+    {
+      "timestamp": "2026-08-13T21:53:39.878Z",
+      "providerName": "Refetcher API (Default)",
+      "reelName": "Instagram Reel",
+      "reelId": "reel_1786567844361_pvca",
+      "status": "success",
+      "id": "log_auto_1786658019878_ikfw",
+      "type": "manual_web",
+      "statsAdded": {
+        "views": 4442,
+        "comments": 1,
+        "likes": 44
+      }
+    },
+    {
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "providerName": "Refetcher API (Default)",
+      "reelId": "reel_1786569030818_swzg",
+      "type": "manual_web",
+      "statsAdded": {
+        "views": 19071,
+        "comments": 0,
+        "likes": 118
+      },
+      "timestamp": "2026-08-13T21:53:38.212Z",
+      "id": "log_auto_1786658018212_a82t"
+    },
+    {
+      "reelName": "Instagram Reel",
+      "id": "log_auto_1786658016449_ydcz",
+      "statsAdded": {
+        "comments": 0,
+        "views": 404,
+        "likes": 4
+      },
+      "timestamp": "2026-08-13T21:53:36.449Z",
+      "status": "success",
+      "type": "manual_web",
+      "providerName": "Refetcher API (Default)",
+      "reelId": "reel_1786571224463_xixd"
+    },
+    {
+      "id": "log_auto_1786658013915_q8ro",
+      "timestamp": "2026-08-13T21:53:33.915Z",
+      "reelId": "reel_1786634870529_ekrz",
+      "reelName": "Instagram Reel",
+      "type": "manual_web",
+      "providerName": "Refetcher API (Default)",
+      "status": "success",
+      "statsAdded": {
+        "views": 6415,
+        "comments": 0,
+        "likes": 42
+      }
+    },
+    {
+      "reelId": "reel_1786635451209_egnm",
+      "type": "manual_web",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 429: API rate limit or quota balance depleted (Too Many Requests)",
+      "providerName": "All Providers Failed",
+      "id": "log_auto_1786658012730_kax0",
+      "reelName": "Reel 10",
+      "status": "failed",
+      "timestamp": "2026-08-13T21:53:32.730Z"
+    },
+    {
+      "timestamp": "2026-08-13T21:53:32.131Z",
+      "type": "manual_web",
+      "reelId": "reel_1786636186618_26gh",
+      "id": "log_auto_1786658012131_u2ds",
+      "reelName": "Instagram Reel",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "likes": 26,
+        "comments": 0,
+        "views": 3580
+      }
+    },
+    {
+      "id": "log_auto_1786658010747_r562",
+      "status": "failed",
+      "reelName": "Reel 12",
+      "reelId": "reel_1786643700251_fgnc",
+      "type": "manual_web",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 429: API rate limit or quota balance depleted (Too Many Requests)",
+      "timestamp": "2026-08-13T21:53:30.747Z",
+      "providerName": "All Providers Failed"
+    },
+    {
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T21:53:30.133Z",
+      "statsAdded": {
+        "views": 7055,
+        "comments": 0,
+        "likes": 47
+      },
+      "id": "log_auto_1786658010133_msuv",
+      "reelId": "reel_1786653160890_807j",
+      "type": "manual_web",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "type": "manual_web",
+      "reelId": "reel_1786654526970_eux1",
+      "id": "log_auto_1786658008102_3eis",
+      "status": "success",
+      "statsAdded": {
+        "likes": 18,
+        "comments": 0,
+        "views": 1100
+      },
+      "providerName": "Refetcher API (Default)",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T21:53:28.102Z"
+    },
+    {
+      "statsAdded": {
+        "comments": 0,
+        "views": 23779,
+        "likes": 98
+      },
+      "reelId": "reel_1786561051025_ndk6",
+      "id": "log_auto_1786657981175_s8bb",
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "type": "manual_web",
+      "timestamp": "2026-08-13T21:53:01.175Z",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "statsAdded": {
+        "comments": 0,
+        "views": 105499,
+        "likes": 238
+      },
+      "reelId": "reel_1786561051653_ffwc",
+      "type": "manual_web",
+      "status": "success",
+      "timestamp": "2026-08-13T21:52:59.644Z",
+      "id": "log_auto_1786657979644_u4g7",
+      "reelName": "Instagram Reel",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T21:52:58.182Z",
+      "providerName": "Refetcher API (Default)",
+      "reelId": "reel_1786561051997_8d6u",
+      "statsAdded": {
+        "comments": 0,
+        "likes": 45,
+        "views": 2473
+      },
+      "id": "log_auto_1786657978182_0wfh",
+      "type": "manual_web"
+    },
+    {
+      "statsAdded": {
+        "likes": 4,
+        "comments": 0,
+        "views": 491
+      },
+      "providerName": "Refetcher API (Default)",
+      "type": "manual_web",
+      "reelId": "reel_1786561052347_eq03",
+      "id": "log_auto_1786657976215_5j10",
+      "reelName": "Instagram Reel",
+      "status": "success",
+      "timestamp": "2026-08-13T21:52:56.215Z"
+    },
+    {
+      "timestamp": "2026-08-13T21:52:54.560Z",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502 (Bad Gateway / Upstream Error): The scraping provider encountered a temporary error reaching Instagram",
+      "id": "log_auto_1786657974560_77hk",
+      "type": "manual_web",
+      "reelId": "reel_1786561319484_bmae",
+      "reelName": "Reel Frenzy",
+      "providerName": "All Providers Failed",
+      "status": "failed"
+    },
+    {
+      "timestamp": "2026-08-13T21:52:42.954Z",
+      "providerName": "Refetcher API (Default)",
+      "reelName": "Instagram Reel",
+      "id": "log_auto_1786657962954_cm57",
+      "status": "success",
+      "type": "manual_web",
+      "statsAdded": {
+        "likes": 44,
+        "comments": 1,
+        "views": 4441
+      },
+      "reelId": "reel_1786567844361_pvca"
+    },
+    {
+      "status": "success",
+      "statsAdded": {
+        "likes": 118,
+        "comments": 0,
+        "views": 19066
+      },
+      "id": "log_auto_1786657961732_xfvl",
+      "type": "manual_web",
+      "reelId": "reel_1786569030818_swzg",
+      "providerName": "Refetcher API (Default)",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T21:52:41.732Z"
+    },
+    {
+      "type": "manual_web",
+      "timestamp": "2026-08-13T21:52:40.725Z",
+      "providerName": "Refetcher API (Default)",
+      "id": "log_auto_1786657960725_fn6v",
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "reelId": "reel_1786571224463_xixd",
+      "statsAdded": {
+        "likes": 4,
+        "comments": 0,
+        "views": 404
+      }
+    },
+    {
+      "timestamp": "2026-08-13T21:52:38.815Z",
+      "id": "log_auto_1786657958815_6ln3",
+      "type": "manual_web",
+      "reelName": "Instagram Reel",
+      "statsAdded": {
+        "views": 6411,
+        "comments": 0,
+        "likes": 42
+      },
+      "reelId": "reel_1786634870529_ekrz",
+      "providerName": "Refetcher API (Default)",
+      "status": "success"
+    },
+    {
+      "timestamp": "2026-08-13T21:52:37.010Z",
+      "reelId": "reel_1786635451209_egnm",
+      "reelName": "Reel 10",
+      "type": "manual_web",
+      "id": "log_auto_1786657957010_h11l",
+      "status": "failed",
+      "providerName": "All Providers Failed",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502 (Bad Gateway / Upstream Error): The scraping provider encountered a temporary error reaching Instagram"
+    },
+    {
+      "type": "manual_web",
+      "timestamp": "2026-08-13T21:52:27.280Z",
+      "id": "log_auto_1786657947280_kn9w",
+      "statsAdded": {
+        "views": 3580,
+        "comments": 0,
+        "likes": 26
+      },
+      "reelId": "reel_1786636186618_26gh",
+      "providerName": "Refetcher API (Default)",
+      "status": "success",
+      "reelName": "Instagram Reel"
+    },
+    {
+      "reelId": "reel_1786643700251_fgnc",
+      "providerName": "All Providers Failed",
+      "type": "manual_web",
+      "status": "failed",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502 (Bad Gateway / Upstream Error): The scraping provider encountered a temporary error reaching Instagram",
+      "id": "log_auto_1786657945766_t1ko",
+      "timestamp": "2026-08-13T21:52:25.766Z",
+      "reelName": "Reel 12"
+    },
+    {
+      "timestamp": "2026-08-13T21:52:15.265Z",
+      "reelName": "Instagram Reel",
+      "statsAdded": {
+        "comments": 0,
+        "likes": 47,
+        "views": 7021
+      },
+      "type": "manual_web",
+      "id": "log_auto_1786657935265_q9ky",
+      "status": "success",
+      "reelId": "reel_1786653160890_807j",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T21:52:13.372Z",
+      "id": "log_auto_1786657933372_taup",
+      "statsAdded": {
+        "views": 1011,
+        "comments": 0,
+        "likes": 17
+      },
+      "type": "manual_web",
+      "status": "success",
+      "providerName": "Refetcher API (Default)",
+      "reelId": "reel_1786654526970_eux1"
+    },
+    {
+      "reelId": "reel_1786561051025_ndk6",
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "type": "manual_web",
+      "id": "log_auto_1786655339009_l0e2",
+      "statsAdded": {
+        "likes": 98,
+        "views": 23770,
+        "comments": 0
+      },
+      "timestamp": "2026-08-13T21:08:59.009Z",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "reelId": "reel_1786569030818_swzg",
+      "type": "force_refresh_telegram",
+      "timestamp": "2026-08-13T21:08:00.323Z",
+      "statsAdded": {
+        "likes": 118,
+        "comments": 0,
+        "views": 18757
+      },
+      "id": "log_1786655280323_atjv",
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "timestamp": "2026-08-13T21:07:41.172Z",
+      "type": "force_refresh_telegram",
+      "reelName": "Instagram Reel",
+      "reelId": "reel_1786561051025_ndk6",
+      "providerName": "Refetcher API (Default)",
+      "status": "success",
+      "id": "log_1786655261172_lxo8",
+      "statsAdded": {
+        "views": 23770,
+        "likes": 98,
+        "comments": 0
+      }
+    },
+    {
+      "id": "log_1786655205518_k3sk",
+      "providerName": "Refetcher API (Default)",
+      "reelName": "Instagram Reel",
+      "type": "force_refresh_telegram",
+      "timestamp": "2026-08-13T21:06:45.518Z",
+      "statsAdded": {
+        "comments": 0,
+        "views": 104024,
+        "likes": 233
+      },
+      "reelId": "reel_1786561051653_ffwc",
+      "status": "success"
+    },
+    {
+      "status": "success",
+      "type": "force_refresh_telegram",
+      "reelId": "reel_1786653160890_807j",
+      "statsAdded": {
+        "comments": 0,
+        "views": 4381,
+        "likes": 37
+      },
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T21:06:43.438Z",
+      "providerName": "Refetcher API (Default)",
+      "id": "log_1786655203438_hps6"
+    },
+    {
+      "reelId": "reel_1786636186618_26gh",
+      "reelName": "Instagram Reel",
+      "type": "force_refresh_telegram",
+      "providerName": "Refetcher API (Default)",
+      "id": "log_1786655199914_g7jm",
+      "status": "success",
+      "timestamp": "2026-08-13T21:06:39.914Z",
+      "statsAdded": {
+        "likes": 26,
+        "comments": 0,
+        "views": 3575
+      }
+    },
+    {
+      "timestamp": "2026-08-13T20:57:22.156Z",
+      "id": "log_1786654642156_5w1r",
+      "reelName": "Instagram Reel",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 3572,
+        "comments": 0,
+        "likes": 26
+      },
+      "status": "success",
+      "type": "force_refresh_telegram",
+      "reelId": "reel_1786636186618_26gh"
+    },
+    {
+      "id": "log_1786654608326_2ts8",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "comments": 0,
+        "likes": 25,
+        "views": 3434
+      },
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T20:56:48.326Z",
+      "type": "force_refresh_telegram",
+      "reelId": "reel_1786653160890_807j",
+      "status": "success"
+    },
+    {
+      "providerName": "Refetcher API (Default)",
+      "timestamp": "2026-08-13T20:55:29.644Z",
+      "statsAdded": {
+        "likes": 0,
+        "comments": 0,
+        "views": 0
+      },
+      "type": "force_refresh_telegram",
+      "reelId": "reel_1786654526970_eux1",
+      "id": "log_1786654529644_5jjq",
+      "status": "success",
+      "reelName": "Instagram Reel"
+    },
+    {
+      "id": "log_1786653354514_8rvt",
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "reelId": "reel_1786653160890_807j",
+      "type": "force_refresh_telegram",
+      "statsAdded": {
+        "likes": 1,
+        "comments": 0,
+        "views": 118
+      },
+      "timestamp": "2026-08-13T20:35:54.514Z",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "statsAdded": {
+        "comments": 0,
+        "likes": 1,
+        "views": 0
+      },
+      "providerName": "Refetcher API (Default)",
+      "timestamp": "2026-08-13T20:32:43.526Z",
+      "status": "success",
+      "reelName": "Instagram Reel",
+      "id": "log_1786653163526_d16d",
+      "type": "force_refresh_telegram",
+      "reelId": "reel_1786653160890_807j"
+    },
+    {
+      "statsAdded": {
+        "comments": 0,
+        "views": 23714,
+        "likes": 98
+      },
+      "reelName": "Instagram Reel",
+      "providerName": "Refetcher API (Default)",
+      "timestamp": "2026-08-13T19:31:30.155Z",
+      "status": "success",
+      "id": "log_auto_1786649490155_snkx",
+      "type": "manual_web",
+      "reelId": "reel_1786561051025_ndk6"
+    },
+    {
+      "reelName": "Instagram Reel",
+      "reelId": "reel_1786561051653_ffwc",
+      "statsAdded": {
+        "likes": 211,
+        "views": 98647,
+        "comments": 0
+      },
+      "status": "success",
+      "timestamp": "2026-08-13T19:31:28.931Z",
+      "providerName": "Refetcher API (Default)",
+      "type": "manual_web",
+      "id": "log_auto_1786649488931_e2kw"
+    },
+    {
+      "type": "manual_web",
+      "reelId": "reel_1786561051997_8d6u",
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T19:31:27.387Z",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 2473,
+        "comments": 0,
+        "likes": 45
+      },
+      "status": "success",
+      "id": "log_auto_1786649487387_b1vv"
+    },
+    {
+      "id": "log_auto_1786649486241_x4ya",
+      "reelId": "reel_1786561052347_eq03",
+      "status": "success",
+      "type": "manual_web",
+      "timestamp": "2026-08-13T19:31:26.241Z",
+      "statsAdded": {
+        "likes": 4,
+        "comments": 0,
+        "views": 491
+      },
+      "reelName": "Instagram Reel",
+      "providerName": "Refetcher API (Default)"
+    },
+    {
+      "id": "log_auto_1786649483714_8tw3",
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502: {\n  \"success\": false,\n  \"requestId\": \"9726e293-4fc7-42a9-8a0b-e9c1700c8f12\",\n  \"summary\": {\n    \"total\": 1,\n    \"succeeded\": 0,\n    \"failed\": 1,\n    \"errors\": {\n      \"blocked_or_challenge\": 1\n    }\n ",
+      "providerName": "All Providers Failed",
+      "type": "manual_web",
+      "timestamp": "2026-08-13T19:31:23.714Z",
+      "status": "failed",
+      "reelId": "reel_1786561319484_bmae",
+      "reelName": "Reel Frenzy"
+    },
+    {
+      "timestamp": "2026-08-13T19:31:14.570Z",
+      "reelName": "Instagram Reel",
+      "status": "success",
+      "id": "log_auto_1786649474570_lwpu",
+      "reelId": "reel_1786567844361_pvca",
+      "providerName": "Refetcher API (Default)",
+      "type": "manual_web",
+      "statsAdded": {
+        "likes": 43,
+        "views": 4268,
+        "comments": 1
+      }
+    },
+    {
+      "reelName": "Instagram Reel",
+      "timestamp": "2026-08-13T19:31:13.244Z",
+      "reelId": "reel_1786569030818_swzg",
+      "id": "log_auto_1786649473244_anga",
+      "providerName": "Refetcher API (Default)",
+      "status": "success",
+      "type": "manual_web",
+      "statsAdded": {
+        "likes": 117,
+        "views": 17977,
+        "comments": 0
+      }
+    },
+    {
+      "status": "success",
+      "id": "log_auto_1786649471692_x1ky",
+      "type": "manual_web",
+      "reelId": "reel_1786571224463_xixd",
+      "timestamp": "2026-08-13T19:31:11.692Z",
+      "reelName": "Instagram Reel",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "views": 404,
+        "comments": 0,
+        "likes": 4
+      }
+    },
+    {
+      "timestamp": "2026-08-13T19:31:10.212Z",
+      "providerName": "Refetcher API (Default)",
+      "statsAdded": {
+        "comments": 0,
+        "views": 6041,
+        "likes": 41
+      },
+      "reelName": "Instagram Reel",
+      "status": "success",
+      "type": "manual_web",
+      "id": "log_auto_1786649470212_fdv2",
+      "reelId": "reel_1786634870529_ekrz"
+    },
+    {
+      "errorMessage": "All 1 configured providers failed.\nDetails:\nRefetcher API (Default): HTTP 502: {\n  \"success\": false,\n  \"requestId\": \"448b2435-7aa3-438d-bdc6-c723169a4eb0\",\n  \"summary\": {\n    \"total\": 1,\n    \"succeeded\": 0,\n    \"failed\": 1,\n    \"errors\": {\n      \"blocked_or_challenge\": 1\n    }\n ",
+      "timestamp": "2026-08-13T19:31:08.419Z",
+      "providerName": "All Providers Failed",
+      "reelName": "Reel 10",
+      "type": "manual_web",
+      "status": "failed",
+      "id": "log_auto_1786649468419_fqwk",
+      "reelId": "reel_1786635451209_egnm"
+    },
     {
       "id": "log_1786648113404",
       "reelId": "reel_1786561051025_ndk6",
@@ -2481,16 +2274,34 @@
     }
   ],
   "meta": {
-    "lastAutoFetchAt": "2026-08-13T19:07:23.070Z",
+    "lastAutoFetchAt": "2026-08-13T22:49:51.447Z",
     "globalFeePercent": 8,
     "scheduleIntervalHours": 6,
     "deletedReelIds": [
       "reel_1786561052687_yo2r",
       "reel_1786561053030_i3ky",
       "reel_1786561334661_hkfw",
-      "reel_1786622358958_675p"
+      "reel_1786622358958_675p",
+      "reel_1786653160890_807j",
+      "reel_1786643700251_fgnc",
+      "reel_1786635451209_egnm",
+      "reel_1786561319484_bmae",
+      "reel_1786654526970_eux1",
+      "reel_1786636186618_26gh",
+      "reel_1786634870529_ekrz",
+      "reel_1786571224463_xixd",
+      "reel_1786569030818_swzg",
+      "reel_1786567844361_pvca",
+      "reel_1786561052347_eq03",
+      "reel_1786561051997_8d6u",
+      "reel_1786561051653_ffwc",
+      "reel_1786561051025_ndk6"
     ],
     "deletedCampaignIds": [],
-    "deletedProviderIds": []
+    "deletedProviderIds": [
+      "provider_ytdlp_microservice",
+      "provider_1786649756394_djif",
+      "provider_rapidapi_default"
+    ]
   }
 }

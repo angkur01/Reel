@@ -118,6 +118,7 @@ export function applyCpmToReel(reel: Reel, campaigns: CpmCampaign[], globalFeePe
  */
 export function recalculateAllDbReelsCpm(reels: Reel[], campaigns: CpmCampaign[], globalFeePercent: number = 8): void {
   for (const reel of reels) {
+    if (reel.category === 'paid') continue;
     applyCpmToReel(reel, campaigns, globalFeePercent);
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ApiProvider, TelegramSettings, TestProviderResult, AiSettings, AiMeta, AiLog } from '../types';
+import { ApiProvider, TelegramSettings, TestProviderResult, AiSettings, AiMeta, AiLog, Reel } from '../types';
 import { AiBrainTab } from './AiBrainTab';
 import { UptimeTab } from './UptimeTab';
 import { LogsTab } from './LogsTab';
@@ -29,7 +29,8 @@ import {
   Terminal,
   Cpu,
   Brain,
-  Server
+  Server,
+  Archive,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -47,7 +48,7 @@ interface SettingsModalProps {
   onChangePassword: (curr: string, next: string) => Promise<{ success: boolean; error?: string }>;
   onSaveGlobalSettings?: (settings: { globalFeePercent?: number; scheduleIntervalHours?: number }) => Promise<void>;
   isInline?: boolean;
-  initialSubTab?: 'apis' | 'ai-brain' | 'uptime' | 'logs' | 'telegram' | 'cloud-db' | 'global' | 'security';
+  initialSubTab?: 'apis' | 'ai-brain' | 'uptime' | 'logs' | 'telegram' | 'cloud-db' | 'global' | 'security' | 'archive';
   // AI Brain props
   aiSettings?: AiSettings | null;
   aiMeta?: AiMeta | null;
@@ -57,6 +58,10 @@ interface SettingsModalProps {
   isRunningAiCheck?: boolean;
   onGenerateDailyReport?: () => Promise<void>;
   isGeneratingReport?: boolean;
+  // Archive Props
+  archivedReels?: Reel[];
+  onChangeCategory?: (id: string, category: 'active' | 'archived' | 'paid') => void;
+  onDeleteReel?: (id: string) => void;
   // Auth fetch for LogsTab
   authFetch?: (url: string, options?: RequestInit, timeoutMs?: number) => Promise<Response>;
 }
@@ -85,9 +90,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isRunningAiCheck = false,
   onGenerateDailyReport,
   isGeneratingReport = false,
+  archivedReels = [],
+  onChangeCategory,
+  onDeleteReel,
   authFetch,
 }) => {
-  const [activeTab, setActiveTab] = useState<'apis' | 'ytdlp' | 'ai-brain' | 'uptime' | 'logs' | 'telegram' | 'cloud-db' | 'global' | 'security'>(initialSubTab);
+  const [activeTab, setActiveTab] = useState<'apis' | 'ytdlp' | 'ai-brain' | 'uptime' | 'logs' | 'telegram' | 'cloud-db' | 'global' | 'security' | 'archive'>(initialSubTab || 'apis');
 
   useEffect(() => {
     if (initialSubTab) {
@@ -449,6 +457,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <Terminal className="w-4 h-4 text-indigo-400" />
           <span>📜 System Logs</span>
         </button>
+        <button
+          onClick={() => setActiveTab('archive')}
+          className={`py-3.5 px-4 font-bold text-xs flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'archive'
+              ? 'border-amber-500 text-amber-400 bg-amber-500/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Archive className="w-4 h-4 text-amber-400" />
+          <span>Archive ({archivedReels.length})</span>
+        </button>
+
 
         <button
           id="btn-tab-telegram"
@@ -1467,6 +1487,114 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {/* TAB 5: ADMIN AUTHENTICATION SECURITY */}
+        
+        {/* TAB: ARCHIVE */}
+        {activeTab === 'archive' && (
+          <div className="space-y-6">
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Archive className="w-4 h-4 text-amber-400" />
+                <span>Archived Reels ({archivedReels.length})</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Archived reels are completely hidden from all active areas (Dashboard, Reels, CPM, totals, Telegram alerts, and automatic schedulers). They will not be fetched until unarchived.
+              </p>
+            </div>
+            
+            <div className="overflow-x-auto bg-slate-950 border border-slate-800 rounded-2xl">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs text-slate-400 bg-slate-900/50 border-b border-slate-800 uppercase font-bold">
+                  <tr>
+                    <th className="px-4 py-3">Reel</th>
+                    <th className="px-4 py-3 text-right">Views</th>
+                    <th className="px-4 py-3 text-right">Likes</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {archivedReels.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                        <Archive className="w-8 h-8 mx-auto mb-2 text-slate-600 opacity-50" />
+                        <p className="font-semibold text-slate-400">No archived reels</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Reels you archive will appear here safely stored.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    archivedReels.map((reel) => (
+                      <tr key={reel.id} className="hover:bg-slate-900/50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={reel.thumbnail || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80'}
+                              alt={reel.name}
+                              className="w-10 h-10 rounded-lg object-cover bg-slate-800 shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src =
+                                  'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80';
+                              }}
+                            />
+                            <div className="min-w-0 max-w-xs">
+                              <div className="font-bold text-white text-xs truncate">{reel.name}</div>
+                              <div className="text-[11px] text-slate-400 truncate">@{reel.author || 'Instagram User'}</div>
+                              {reel.lastError && (
+                                <div className="text-[10px] text-rose-400 truncate mt-0.5" title={reel.lastError}>
+                                  ⚠️ {reel.lastError}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-200 text-xs">
+                          {(reel.views || 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-300 text-xs">
+                          {(reel.likes || 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            Archived
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => onChangeCategory && onChangeCategory(reel.id, 'active')}
+                              className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                              title="Restore to active reels"
+                            >
+                              Unarchive
+                            </button>
+                            <a
+                              href={reel.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                              title="Open on Instagram"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                            {onDeleteReel && (
+                              <button
+                                onClick={() => onDeleteReel(reel.id)}
+                                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-rose-400 border border-slate-800 cursor-pointer"
+                                title="Permanently delete reel"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'security' && (
           <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md mx-auto py-4">
             <div className="space-y-1">
