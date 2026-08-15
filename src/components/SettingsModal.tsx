@@ -104,8 +104,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [initialSubTab]);
 
   // Global Settings controls state
-  const [feeInput, setFeeInput] = useState<string>(stats?.globalFeePercent?.toString() || '3');
-  const [intervalChoice, setIntervalChoice] = useState<number>(stats?.scheduleIntervalHours || 6);
+  const [feeInput, setFeeInput] = useState<string>(stats?.globalFeePercent?.toString() || '8');
+  const [intervalChoice, setIntervalChoice] = useState<number>(stats?.scheduleIntervalHours || 1);
   const [globalStatusMsg, setGlobalStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [globalSaving, setGlobalSaving] = useState(false);
 
@@ -1497,97 +1497,147 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>Archived Reels ({archivedReels.length})</span>
               </h3>
               <p className="text-xs text-slate-400">
-                Archived reels are completely hidden from all active areas (Dashboard, Reels, CPM, totals, Telegram alerts, and automatic schedulers). They will not be fetched until unarchived.
+                Archived Reels are completely excluded from active Dashboard metrics, CPM calculations, campaign totals, payout figures, automatic scheduled fetches, and Telegram notifications.
+                All historical data is preserved. Click <strong>Unarchive</strong> to restore any Reel to active tracking.
               </p>
             </div>
             
             <div className="overflow-x-auto bg-slate-950 border border-slate-800 rounded-2xl">
               <table className="w-full text-sm text-left">
-                <thead className="text-xs text-slate-400 bg-slate-900/50 border-b border-slate-800 uppercase font-bold">
+                <thead className="text-[11px] text-slate-400 bg-slate-900/60 border-b border-slate-800 uppercase font-bold tracking-wider">
                   <tr>
-                    <th className="px-4 py-3">Reel</th>
-                    <th className="px-4 py-3 text-right">Views</th>
-                    <th className="px-4 py-3 text-right">Likes</th>
-                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3">Reel Name</th>
+                    <th className="px-4 py-3">Campaign</th>
+                    <th className="px-4 py-3 text-right">Last Known Views</th>
+                    <th className="px-4 py-3 text-right">Last Successful Fetch</th>
+                    <th className="px-4 py-3 text-center">Archive Reason</th>
+                    <th className="px-4 py-3 text-right">Archived Date/Time</th>
                     <th className="px-4 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   {archivedReels.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                      <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                         <Archive className="w-8 h-8 mx-auto mb-2 text-slate-600 opacity-50" />
                         <p className="font-semibold text-slate-400">No archived reels</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Reels you archive will appear here safely stored.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Failed reels or low-growth reels (&lt;2k views &amp; &lt;30 gain/24h) will appear here.</p>
                       </td>
                     </tr>
                   ) : (
-                    archivedReels.map((reel) => (
-                      <tr key={reel.id} className="hover:bg-slate-900/50 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={reel.thumbnail || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80'}
-                              alt={reel.name}
-                              className="w-10 h-10 rounded-lg object-cover bg-slate-800 shrink-0"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src =
-                                  'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80';
-                              }}
-                            />
-                            <div className="min-w-0 max-w-xs">
-                              <div className="font-bold text-white text-xs truncate">{reel.name}</div>
-                              <div className="text-[11px] text-slate-400 truncate">@{reel.author || 'Instagram User'}</div>
-                              {reel.lastError && (
-                                <div className="text-[10px] text-rose-400 truncate mt-0.5" title={reel.lastError}>
-                                  ⚠️ {reel.lastError}
-                                </div>
+                    archivedReels.map((reel) => {
+                      const archiveReasonText = reel.archiveReason || (reel.status === 'failed' ? 'Fetch failed' : 'Manually archived');
+                      const lastFetchDate = reel.lastSuccessfulFetch || reel.lastUpdatedAt;
+                      const archivedDate = reel.archivedAt;
+
+                      return (
+                        <tr key={reel.id} className="hover:bg-slate-900/50 transition-colors">
+                          {/* Reel Name & Info */}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={reel.thumbnail || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80'}
+                                alt={reel.name}
+                                className="w-10 h-10 rounded-lg object-cover bg-slate-800 shrink-0 border border-slate-700"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src =
+                                    'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80';
+                                }}
+                              />
+                              <div className="min-w-0 max-w-[200px]">
+                                <div className="font-bold text-white text-xs truncate" title={reel.name}>{reel.name}</div>
+                                <div className="text-[11px] text-slate-400 truncate">@{reel.author || 'Instagram User'}</div>
+                                {reel.lastFetchError && (
+                                  <div className="text-[10px] text-rose-400 truncate mt-0.5" title={reel.lastFetchError}>
+                                    ⚠️ {reel.lastFetchError}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Campaign */}
+                          <td className="px-4 py-3 text-xs">
+                            {reel.campaignName ? (
+                              <span className="font-semibold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                                {reel.campaignName}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500">—</span>
+                            )}
+                          </td>
+
+                          {/* Last Known Views */}
+                          <td className="px-4 py-3 text-right font-bold text-slate-200 text-xs">
+                            {(reel.views || 0).toLocaleString()}
+                          </td>
+
+                          {/* Last Successful Fetch */}
+                          <td className="px-4 py-3 text-right text-slate-300 text-xs font-mono">
+                            {lastFetchDate ? new Date(lastFetchDate).toLocaleString() : 'Never'}
+                          </td>
+
+                          {/* Archive Reason */}
+                          <td className="px-4 py-3 text-center">
+                            {archiveReasonText === 'Fetch failed' ? (
+                              <span
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                title={reel.lastFetchError || 'Failed to fetch during scheduled job'}
+                              >
+                                <span>⚠️ Fetch failed</span>
+                              </span>
+                            ) : archiveReasonText === 'Low 24-hour growth' ? (
+                              <span
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                title={`Views: ${(reel.views || 0).toLocaleString()} (< 2,000) and 24h Growth: +${(reel.growth24h || 0).toLocaleString()} (< 30)`}
+                              >
+                                <span>📉 Low 24h growth</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                                <span>📁 {archiveReasonText}</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Archived Date/Time */}
+                          <td className="px-4 py-3 text-right text-slate-400 text-xs font-mono">
+                            {archivedDate ? new Date(archivedDate).toLocaleString() : '—'}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => onChangeCategory && onChangeCategory(reel.id, 'active')}
+                                className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm shadow-emerald-500/10"
+                                title="Unarchive and resume automatic schedule tracking"
+                              >
+                                Unarchive
+                              </button>
+                              <a
+                                href={reel.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-xl bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 transition"
+                                title="Open on Instagram"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                              {onDeleteReel && (
+                                <button
+                                  onClick={() => onDeleteReel(reel.id)}
+                                  className="p-1.5 rounded-xl bg-slate-900 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/40 transition cursor-pointer"
+                                  title="Permanently delete reel"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               )}
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-200 text-xs">
-                          {(reel.views || 0).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-slate-300 text-xs">
-                          {(reel.likes || 0).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                            Archived
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => onChangeCategory && onChangeCategory(reel.id, 'active')}
-                              className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                              title="Restore to active reels"
-                            >
-                              Unarchive
-                            </button>
-                            <a
-                              href={reel.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
-                              title="Open on Instagram"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                            {onDeleteReel && (
-                              <button
-                                onClick={() => onDeleteReel(reel.id)}
-                                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-rose-400 border border-slate-800 cursor-pointer"
-                                title="Permanently delete reel"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

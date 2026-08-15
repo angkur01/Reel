@@ -10,7 +10,7 @@ import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi, 
 import { calculateReelCpm, applyCpmToReel, recalculateAllDbReelsCpm, getDbCpmTotals } from './cpm.js';
 import { updateReelWithFetchResult, recalculateAllReelsGrowthAndCpm, generateTwoWordTitleFromCaption } from './statsHelper.js';
 import { logSystemEvent, getSystemLogs, clearSystemLogs } from './logger.js';
-import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign, SystemLogEntry } from '../types.js';
+import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign, SystemLogEntry, SystemStats } from '../types.js';
 
 export function createExpressApp() {
   const app = express();
@@ -278,6 +278,48 @@ export function createExpressApp() {
     });
   });
 
+  // Get Aggregate System & CPM Stats
+  app.get('/api/stats', requireAuth, (req: Request, res: Response) => {
+    const db = loadDb();
+    recalculateAllReelsGrowthAndCpm(db);
+    const activeReels = db.reels.filter(r => r.category !== 'archived' && r.category !== 'paid');
+    const totalViews = activeReels.reduce((sum, r) => sum + (r.views || 0), 0);
+    const totalLikes = activeReels.reduce((sum, r) => sum + (r.likes || 0), 0);
+    const total24hGrowth = activeReels.reduce((sum, r) => sum + (r.growth24h || 0), 0);
+    const viralCount = activeReels.filter(r => r.isViral).length;
+    const stalledCount = activeReels.filter(r => r.isStalled).length;
+    const activeProviders = (db.providers || []).filter(p => p.enabled).length;
+
+    const totalCpmEarnings = activeReels.reduce((sum, r) => sum + (r.cpmEarnings || 0), 0);
+    const total3PercentFees = activeReels.reduce((sum, r) => sum + (r.fee3Percent || 0), 0);
+    const totalEstimatedPayout = activeReels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
+    const totalCampaignsCount = (db.cpmCampaigns || []).length;
+
+    const stats: SystemStats = {
+      totalReels: activeReels.length,
+      totalViews,
+      totalLikes,
+      total24hGrowth,
+      activeProviders,
+      lastAutoFetchAt: db.meta?.lastAutoFetchAt || null,
+      nextScheduledFetchAt: getNextScheduledTime().toISOString(),
+      isFetchingAny: activeReels.some(r => r.status === 'fetching'),
+      aiChecksUsedToday: db.aiMeta?.checksUsedToday || 0,
+      aiDailyLimit: db.aiSettings?.dailyCheckLimit || 50,
+      aiActiveModel: db.aiMeta?.activeModelUsed || 'gemini',
+      viralCount,
+      stalledCount,
+      totalCpmEarnings: Math.round(totalCpmEarnings * 100) / 100,
+      total3PercentFees: Math.round(total3PercentFees * 100) / 100,
+      totalEstimatedPayout: Math.round(totalEstimatedPayout * 100) / 100,
+      totalCampaignsCount,
+      globalFeePercent: db.meta?.globalFeePercent || 8,
+      scheduleIntervalHours: db.meta?.scheduleIntervalHours || 1,
+    };
+
+    res.json({ success: true, stats });
+  });
+
   // Export Reels Statistics (CSV / JSON)
   app.get('/api/reels/export', requireAuth, (req: Request, res: Response) => {
     const { format } = req.query;
@@ -518,7 +560,7 @@ export function createExpressApp() {
   // Update Reel Category (Archive/Paid/Active)
   app.post('/api/reels/:id/category', requireAuth, (req: Request, res: Response) => {
     const { id } = req.params;
-    const { category } = req.body;
+    const { category, archiveReason } = req.body;
     
     if (!['active', 'archived', 'paid'].includes(category)) {
       res.status(400).json({ success: false, error: 'Invalid category' });
@@ -533,7 +575,20 @@ export function createExpressApp() {
     }
     
     reel.category = category;
-    if (category === 'paid') {
+    if (category === 'archived') {
+      reel.archiveReason = archiveReason || 'Manually archived';
+      reel.archivedAt = new Date().toISOString();
+    } else if (category === 'active') {
+      reel.archiveReason = null;
+      reel.archivedAt = null;
+      reel.lastFetchError = null;
+      reel.lastError = null;
+      if (reel.status === 'failed') {
+        reel.status = (reel.views > 0 ? 'success' : 'pending');
+      }
+      reel.nextScheduledAt = getNextScheduledTime().toISOString();
+      applyCpmToReel(reel, db.cpmCampaigns || [], 8);
+    } else if (category === 'paid') {
       reel.paidAt = new Date().toISOString();
     }
     
@@ -974,6 +1029,49 @@ export function createExpressApp() {
       saveDb(db);
       res.status(400).json({ success: false, error: 'Failed to send message. Please verify Bot Token and Admin Telegram ID.' });
     }
+  });
+
+  // ----------------------------------------------------
+  // GLOBAL SETTINGS ROUTES (Fee % & Scheduler Interval)
+  // ----------------------------------------------------
+
+  app.post('/api/settings/global', requireAuth, (req: Request, res: Response) => {
+    const { scheduleIntervalHours, globalFeePercent } = req.body;
+    const db = loadDb();
+    if (!db.meta) {
+      db.meta = { lastAutoFetchAt: null, deletedReelIds: [], deletedCampaignIds: [], deletedProviderIds: [] };
+    }
+
+    if (scheduleIntervalHours !== undefined) {
+      const hours = Math.max(1, Math.min(24, Number(scheduleIntervalHours) || 1));
+      db.meta.scheduleIntervalHours = hours;
+    }
+
+    if (globalFeePercent !== undefined) {
+      db.meta.globalFeePercent = 8; // Platform fee fixed at 8%
+    }
+
+    const nextScheduledAt = getNextScheduledTime().toISOString();
+    for (const reel of db.reels) {
+      reel.nextScheduledAt = nextScheduledAt;
+    }
+
+    saveDb(db);
+
+    logSystemEvent(
+      'info',
+      'scheduler',
+      `Global scheduler interval updated to every ${db.meta.scheduleIntervalHours || 1} hour(s).`,
+      undefined,
+      { url: nextScheduledAt }
+    );
+
+    res.json({
+      success: true,
+      message: `Auto-Fetch Schedule Interval updated to every ${db.meta.scheduleIntervalHours || 1} hour(s)!`,
+      scheduleIntervalHours: db.meta.scheduleIntervalHours,
+      nextScheduledFetchAt: nextScheduledAt,
+    });
   });
 
   // ----------------------------------------------------

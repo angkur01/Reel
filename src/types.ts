@@ -62,6 +62,11 @@ export interface Reel {
   cpmEligibilityStatus?: 'eligible' | 'below_minimum' | 'capped_at_max' | 'no_campaign';
 
   category?: 'active' | 'archived' | 'paid';
+  archiveReason?: 'Fetch failed' | 'Low 24-hour growth' | 'Manually archived' | string | null;
+  archivedAt?: string | null;
+  lastSuccessfulFetch?: string | null;
+  lastFetchError?: string | null;
+  hasSufficient24hData?: boolean;
   paidAt?: string;
 }
 

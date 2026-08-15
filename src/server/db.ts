@@ -266,7 +266,7 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   (local.reels || []).forEach(processReel);
 
   const globalFeePercent = 8;
-  const scheduleIntervalHours = local.meta?.scheduleIntervalHours ?? remote.meta?.scheduleIntervalHours ?? 6;
+  const scheduleIntervalHours = local.meta?.scheduleIntervalHours ?? remote.meta?.scheduleIntervalHours ?? 1;
 
   const campaignMap = new Map<string, CpmCampaign>();
   (remote.cpmCampaigns || []).forEach(c => c && c.id && !deletedCampaignSet.has(c.id) && campaignMap.set(c.id, c));
@@ -657,7 +657,7 @@ function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
       deletedCampaignIds: [], 
       deletedProviderIds: [],
       globalFeePercent: 8,
-      scheduleIntervalHours: 6,
+      scheduleIntervalHours: 1,
     },
   }, data);
 }

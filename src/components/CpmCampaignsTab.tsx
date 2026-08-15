@@ -173,7 +173,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
   const totalCpmEarnings = activeReels.reduce((sum, r) => sum + (r.cpmEarnings || 0), 0);
   const totalFees = activeReels.reduce((sum, r) => sum + (r.fee3Percent || 0), 0);
   const totalPayout = activeReels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
-  const campaignConnectedReelsCount = reels.filter(r => r.campaignId).length;
+  const campaignConnectedReelsCount = activeReels.filter(r => r.campaignId).length;
 
   return (
     <div className="space-y-8 pb-12">
@@ -443,7 +443,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {campaigns.map((c) => {
-              const connectedReels = reels.filter(r => r.campaignId === c.id);
+              const connectedReels = activeReels.filter(r => r.campaignId === c.id);
               const campaignEarnings = connectedReels.reduce((sum, r) => sum + (r.cpmEarnings || 0), 0);
               const campaignPayout = connectedReels.reduce((sum, r) => sum + (r.estimatedPayout || 0), 0);
 
@@ -524,8 +524,8 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
           </div>
         </div>
 
-        {reels.length === 0 ? (
-          <p className="text-center text-slate-500 text-xs py-8">No Reels added yet.</p>
+        {activeReels.length === 0 ? (
+          <p className="text-center text-slate-500 text-xs py-8">No active Reels added yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-300">
@@ -543,7 +543,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {reels.map((reel) => {
+                {activeReels.map((reel) => {
                   const connectedCampaign = campaigns.find(c => c.id === reel.campaignId);
 
                   return (

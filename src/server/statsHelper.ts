@@ -1,4 +1,4 @@
-import { Reel } from '../types.js';
+import { Reel, ReelHistoryPoint } from '../types.js';
 import { DatabaseSchema } from './db.js';
 import { applyCpmToReel } from './cpm.js';
 
@@ -25,9 +25,96 @@ export function generateTwoWordTitleFromCaption(caption: string): string {
   return selected.join(' ');
 }
 
+export interface Growth24hResult {
+  growth24h: number;
+  hasSufficient24hData: boolean;
+  shouldAutoArchiveLowGrowth: boolean;
+  baselineSnapshot: ReelHistoryPoint | null;
+}
+
+/**
+ * Calculates 24-hour view growth using real historical view snapshots.
+ *
+ * Rules:
+ * 1. Condition 1: Total views < 2,000.
+ * 2. Condition 2: Gained < 30 views during the previous 24-hour period.
+ * 3. Accurate 24h Tracking:
+ *    - To calculate previous 24-hour growth: Current views MINUS the most recent valid
+ *      view snapshot that is approximately 24 hours old.
+ *    - If there is NOT enough historical data to reliably determine 24-hour growth
+ *      (e.g., oldest snapshot is less than 20 hours old), DO NOT auto-archive the Reel yet.
+ */
+export function calculate24hGrowthFromSnapshots(
+  reel: Reel,
+  history: ReelHistoryPoint[],
+  currentFetchTimestamp: string = new Date().toISOString()
+): Growth24hResult {
+  const currentViews = Math.max(0, reel.views || 0);
+  const nowMs = new Date(currentFetchTimestamp).getTime();
+  const target24hAgoMs = nowMs - (24 * 60 * 60 * 1000);
+  const minHistoryAgeMs = 20 * 60 * 60 * 1000; // Minimum 20 hours of history required to reliably evaluate 24-hour growth
+
+  // Filter history points for this reel with valid numeric views
+  const validSnapshots = (history || [])
+    .filter(h => h.reelId === reel.id && typeof h.views === 'number' && !isNaN(h.views))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  if (validSnapshots.length === 0) {
+    return {
+      growth24h: 0,
+      hasSufficient24hData: false,
+      shouldAutoArchiveLowGrowth: false,
+      baselineSnapshot: null,
+    };
+  }
+
+  const oldestSnapshot = validSnapshots[0];
+  const oldestSnapshotAgeMs = nowMs - new Date(oldestSnapshot.timestamp).getTime();
+
+  // If the total tracked history span is less than ~20 hours, we do NOT have enough data yet
+  if (oldestSnapshotAgeMs < minHistoryAgeMs) {
+    const rawGain = Math.max(0, currentViews - oldestSnapshot.views);
+    return {
+      growth24h: rawGain,
+      hasSufficient24hData: false,
+      shouldAutoArchiveLowGrowth: false,
+      baselineSnapshot: oldestSnapshot,
+    };
+  }
+
+  // Find the snapshot closest to 24 hours ago (target24hAgoMs)
+  // Look at snapshots with age >= 18 hours or the closest snapshot overall to 24h ago
+  let bestSnapshot: ReelHistoryPoint = validSnapshots[0];
+  let minDiff = Math.abs(new Date(bestSnapshot.timestamp).getTime() - target24hAgoMs);
+
+  for (let i = 1; i < validSnapshots.length; i++) {
+    const s = validSnapshots[i];
+    const sTime = new Date(s.timestamp).getTime();
+    // Don't choose a snapshot that is practically identical to current fetch (e.g. within last 6 hours) if older ones exist
+    if (nowMs - sTime < 12 * 60 * 60 * 1000 && validSnapshots.length > 2) {
+      continue;
+    }
+    const diff = Math.abs(sTime - target24hAgoMs);
+    if (diff < minDiff) {
+      minDiff = diff;
+      bestSnapshot = s;
+    }
+  }
+
+  const growth24h = Math.max(0, currentViews - bestSnapshot.views);
+  const shouldAutoArchiveLowGrowth = (currentViews < 2000) && (growth24h < 30);
+
+  return {
+    growth24h,
+    hasSufficient24hData: true,
+    shouldAutoArchiveLowGrowth,
+    baselineSnapshot: bestSnapshot,
+  };
+}
+
 /**
  * Safely updates a Reel with newly fetched API data,
- * records a point in db.history, calculates 24h view growth from history,
+ * records a point in db.history, calculates 24h view growth from historical snapshots,
  * and recalculates CPM earnings & fees.
  */
 export function updateReelWithFetchResult(
@@ -65,9 +152,11 @@ export function updateReelWithFetchResult(
   if (fetchResult.data.author) reel.author = fetchResult.data.author;
   if (fetchResult.data.thumbnail) reel.thumbnail = fetchResult.data.thumbnail;
 
+  const nowIso = new Date().toISOString();
   reel.status = 'success';
   reel.lastError = null;
-  reel.lastUpdatedAt = new Date().toISOString();
+  reel.lastSuccessfulFetch = nowIso;
+  reel.lastUpdatedAt = nowIso;
   if (fetchResult.providerName) reel.lastProviderUsed = fetchResult.providerName;
 
   // 1. Record snapshot point in db.history
@@ -75,45 +164,32 @@ export function updateReelWithFetchResult(
   db.history.push({
     id: 'hist_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     reelId: reel.id,
-    timestamp: new Date().toISOString(),
+    timestamp: nowIso,
     views: reel.views,
     likes: reel.likes,
     comments: reel.comments,
     shares: reel.shares,
   });
 
-  // Limit total history array size to avoid memory & Firestore payload bloat
-  if (db.history.length > 500) {
-    db.history = db.history.slice(-500);
+  // Limit total history array size safely to avoid memory/Firestore bloat while preserving 24-48h snapshots
+  if (db.history.length > 2500) {
+    db.history = db.history.slice(-2500);
   }
 
-  // 2. Calculate 24-hour growth dynamically from history
-  const now = Date.now();
-  const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
-
-  const reelHistory = db.history.filter(h => h.reelId === reel.id);
-  if (reelHistory.length > 0) {
-    // Sort history points chronologically
-    reelHistory.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    
-    // Baseline entry is the first history point recorded in the last 24h, or the earliest point if all are recent
-    const baselineEntry = reelHistory.find(h => new Date(h.timestamp).getTime() >= twentyFourHoursAgo) || reelHistory[0];
-    const baselineViews = baselineEntry ? baselineEntry.views : prevViews;
-    
-    reel.growth24h = Math.max(0, reel.views - baselineViews);
-  } else {
-    reel.growth24h = viewGain;
-  }
+  // 2. Calculate 24-hour growth accurately from historical snapshots
+  const growthResult = calculate24hGrowthFromSnapshots(reel, db.history, nowIso);
+  reel.growth24h = growthResult.growth24h;
+  reel.hasSufficient24hData = growthResult.hasSufficient24hData;
 
   if (viewGain > 0) {
     reel.growth1h = viewGain;
     reel.isStalled = false;
-  } else if (reel.lastUpdatedAt && now - new Date(reel.lastUpdatedAt).getTime() > 24 * 60 * 60 * 1000) {
+  } else if (reel.lastUpdatedAt && Date.now() - new Date(reel.lastUpdatedAt).getTime() > 24 * 60 * 60 * 1000) {
     reel.isStalled = true;
   }
 
   // Viral check
-  const baselineViews = (reelHistory.length > 0 && reelHistory[0]) ? reelHistory[0].views : prevViews;
+  const baselineViews = growthResult.baselineSnapshot ? growthResult.baselineSnapshot.views : prevViews;
   if (reel.growth24h >= 10000 || (baselineViews > 0 && reel.growth24h / baselineViews >= 0.2)) {
     reel.isViral = true;
   }
@@ -137,19 +213,14 @@ export function updateReelWithFetchResult(
  * Re-evaluates 24h growth & CPM metrics across all reels in DB.
  */
 export function recalculateAllReelsGrowthAndCpm(db: DatabaseSchema) {
-  const now = Date.now();
-  const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
   const feePercent = 8;
+  const nowIso = new Date().toISOString();
 
   for (const reel of db.reels) {
-    const reelHistory = (db.history || []).filter(h => h.reelId === reel.id);
-    if (reelHistory.length > 0) {
-      reelHistory.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      const baselineEntry = reelHistory.find(h => new Date(h.timestamp).getTime() >= twentyFourHoursAgo) || reelHistory[0];
-      reel.growth24h = Math.max(0, reel.views - (baselineEntry ? baselineEntry.views : reel.views));
-    } else {
-      reel.growth24h = reel.growth24h || 0;
-    }
+    const growthResult = calculate24hGrowthFromSnapshots(reel, db.history || [], nowIso);
+    reel.growth24h = growthResult.growth24h;
+    reel.hasSufficient24hData = growthResult.hasSufficient24hData;
     applyCpmToReel(reel, db.cpmCampaigns || [], feePercent);
   }
 }
+

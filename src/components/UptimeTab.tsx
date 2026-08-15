@@ -20,7 +20,7 @@ export const UptimeTab: React.FC<UptimeTabProps> = ({ onOpenLogin, isPublicMode 
       crons: [
         {
           path: '/api/uptime?fetch=true',
-          schedule: '0 */6 * * *',
+          schedule: '0 * * * *',
         },
       ],
     },
@@ -228,7 +228,7 @@ export const UptimeTab: React.FC<UptimeTabProps> = ({ onOpenLogin, isPublicMode 
               {cronFetchUrl}
             </code>
             <p className="text-[11px] text-slate-400">
-              Configure in <b>Cron-Job.org</b> (Trigger every 6 hours). Automatically fetches fresh statistics and alerts Telegram.
+              Configure in <b>Cron-Job.org</b> (Trigger every 1 hour). Automatically fetches fresh statistics and alerts Telegram.
             </p>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { FetchLog } from '../types.js';
 
 export function getNextScheduledTime(fromDate: Date = new Date()): Date {
   const db = loadDb();
-  const intervalHours = db.meta?.scheduleIntervalHours || 6;
+  const intervalHours = db.meta?.scheduleIntervalHours || 1;
   
   // Calculate target hours for the interval
   const targetHours: number[] = [];
@@ -77,7 +77,7 @@ export async function runAutomaticFetchJob(isManualForce = false): Promise<{ suc
   const totalReels = activeReels.length;
   for (let i = 0; i < totalReels; i++) {
     let currentDb = loadDb();
-    if (i >= currentDb.reels.length) continue;
+    if (i >= activeReels.length) continue;
     const reelId = activeReels[i].id;
     const targetReel = currentDb.reels.find(r => r.id === reelId);
     if (!targetReel) continue;
@@ -100,30 +100,80 @@ export async function runAutomaticFetchJob(isManualForce = false): Promise<{ suc
       if (fetchResult.success && fetchResult.data) {
         updateReelWithFetchResult(reloadReel, fetchResult, currentDb);
         reloadReel.nextScheduledAt = nextScheduledIso;
-        
-        const logEntry: FetchLog = {
-          id: 'log_auto_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-          reelId: reloadReel.id,
-          reelName: reloadReel.name,
-          timestamp: new Date().toISOString(),
-          type: isManualForce ? 'manual_web' : 'automatic',
-          status: 'success',
-          providerName: fetchResult.providerName || 'Unknown Provider',
-          statsAdded: {
-            views: reloadReel.views,
-            likes: reloadReel.likes,
-            comments: reloadReel.comments,
-          },
-        };
-        currentDb.logs.unshift(logEntry);
-        saveDb(currentDb);
-        
-        await notifyTelegramReelResult(reloadReel, isManualForce ? 'manual_web' : 'automatic');
+
+        // Check Low-View Auto-Archive rule
+        // Condition 1: Total views < 2,000
+        // Condition 2: Gained < 30 views in previous 24 hours (with sufficient tracking data)
+        const isLowViewGrowthArchive = (reloadReel.views < 2000) &&
+          (reloadReel.hasSufficient24hData === true) &&
+          ((reloadReel.growth24h || 0) < 30);
+
+        if (isLowViewGrowthArchive) {
+          console.log(`[Automatic Scheduler] Auto-archiving reel "${reloadReel.name}" (${reloadReel.id}) due to low 24h growth: ${reloadReel.views} total views, +${reloadReel.growth24h || 0} views in 24h.`);
+          reloadReel.category = 'archived';
+          reloadReel.archiveReason = 'Low 24-hour growth';
+          reloadReel.archivedAt = new Date().toISOString();
+
+          const logEntry: FetchLog = {
+            id: 'log_auto_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            reelId: reloadReel.id,
+            reelName: reloadReel.name,
+            timestamp: new Date().toISOString(),
+            type: isManualForce ? 'manual_web' : 'automatic',
+            status: 'success',
+            providerName: fetchResult.providerName || 'Unknown Provider',
+            statsAdded: {
+              views: reloadReel.views,
+              likes: reloadReel.likes,
+              comments: reloadReel.comments,
+            },
+            errorMessage: `Auto-archived: Low 24h growth (${reloadReel.views} total views, +${reloadReel.growth24h || 0} 24h gain)`,
+          };
+          currentDb.logs.unshift(logEntry);
+          saveDb(currentDb);
+          // Do NOT send Telegram result for auto-archived reels (must remain completely inactive)
+        } else {
+          reloadReel.category = 'active';
+          reloadReel.archiveReason = null;
+          reloadReel.archivedAt = null;
+
+          const logEntry: FetchLog = {
+            id: 'log_auto_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            reelId: reloadReel.id,
+            reelName: reloadReel.name,
+            timestamp: new Date().toISOString(),
+            type: isManualForce ? 'manual_web' : 'automatic',
+            status: 'success',
+            providerName: fetchResult.providerName || 'Unknown Provider',
+            statsAdded: {
+              views: reloadReel.views,
+              likes: reloadReel.likes,
+              comments: reloadReel.comments,
+            },
+          };
+          currentDb.logs.unshift(logEntry);
+          saveDb(currentDb);
+
+          // Only send Telegram for successfully completed active Reel updates
+          await notifyTelegramReelResult(reloadReel, isManualForce ? 'manual_web' : 'automatic');
+        }
       } else {
+        // Rule 1: AUTO-ARCHIVE FAILED REELS
+        // If any Reel fails to fetch successfully during an automatic scheduled fetch:
+        // - Automatically move that Reel to ARCHIVED status.
+        // - Do NOT retry it automatically afterward.
+        // - Do NOT include it in active Dashboard, Reels, CPM, campaign totals, payout totals, or Telegram.
+        // - Do NOT send a Telegram result for the failed fetch.
+        // - Preserve the last valid data. Record the failure in archiveReason / lastFetchError.
+        console.warn(`[Automatic Scheduler] Fetch failed for reel "${reloadReel.name}" (${reloadReel.id}). Auto-archiving reel with reason "Fetch failed".`);
         reloadReel.status = 'failed';
         reloadReel.lastError = fetchResult.error || 'Failed to fetch from all providers';
+        reloadReel.lastFetchError = reloadReel.lastError;
+        reloadReel.category = 'archived';
+        reloadReel.archiveReason = 'Fetch failed';
+        reloadReel.archivedAt = new Date().toISOString();
         reloadReel.nextScheduledAt = nextScheduledIso;
-        
+
         const logEntry: FetchLog = {
           id: 'log_auto_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
           reelId: reloadReel.id,
@@ -132,10 +182,11 @@ export async function runAutomaticFetchJob(isManualForce = false): Promise<{ suc
           type: isManualForce ? 'manual_web' : 'automatic',
           status: 'failed',
           providerName: 'All Providers Failed',
-          errorMessage: reloadReel.lastError,
+          errorMessage: `Auto-archived: ${reloadReel.lastError}`,
         };
         currentDb.logs.unshift(logEntry);
         saveDb(currentDb);
+        // Do NOT send a Telegram result for failed fetch
       }
     }
   }
@@ -162,7 +213,7 @@ export function initializeScheduler() {
   // Check every hour at minute 0
   cron.schedule('0 * * * *', () => {
     const db = loadDb();
-    const intervalHours = db.meta?.scheduleIntervalHours || 6;
+    const intervalHours = db.meta?.scheduleIntervalHours || 1;
     const currentHour = new Date().getUTCHours();
 
     if (currentHour % intervalHours === 0) {
