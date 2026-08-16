@@ -139,9 +139,9 @@ export async function generateAiInsight(prompt: string): Promise<{ text: string;
     const ai = getGeminiClient(geminiKey);
     if (!ai) return null;
     try {
-      console.log('[AI] Calling Google Gemini 3.6 Flash...');
+      console.log('[AI] Calling Google Gemini 2.5 Flash...');
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
           systemInstruction: 'You are an expert Instagram Reel Performance Monitoring AI Agent. Return concise, impactful, emoji-rich alerts for creator dashboards and Telegram.',

@@ -285,7 +285,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <div className="text-slate-400 font-medium">Automatic Cron Scheduler</div>
               <div className="text-emerald-400 font-bold flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Runs Every {stats?.scheduleIntervalHours || 1} Hour{(stats?.scheduleIntervalHours || 1) > 1 ? 's' : ''}</span>
+                <span>
+                  {(stats?.scheduleIntervalHours ?? 24) === 24
+                    ? 'Runs Daily (Every 24 Hours)'
+                    : `Runs Every ${stats?.scheduleIntervalHours} Hour${(stats?.scheduleIntervalHours || 0) > 1 ? 's' : ''}`}
+                </span>
               </div>
               <div className="text-[10px] text-slate-500">
                 Next run: {stats?.nextScheduledFetchAt ? new Date(stats.nextScheduledFetchAt).toLocaleTimeString() : 'Scheduled'}

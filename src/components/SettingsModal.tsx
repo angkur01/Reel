@@ -105,7 +105,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Global Settings controls state
   const [feeInput, setFeeInput] = useState<string>(stats?.globalFeePercent?.toString() || '8');
-  const [intervalChoice, setIntervalChoice] = useState<number>(stats?.scheduleIntervalHours || 1);
+  const [intervalChoice, setIntervalChoice] = useState<number>(stats?.scheduleIntervalHours || 24);
   const [globalStatusMsg, setGlobalStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [globalSaving, setGlobalSaving] = useState(false);
 
@@ -1375,7 +1375,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>Global CPM Platform Fee & Scheduler Interval Controls</span>
               </h3>
               <p className="text-xs text-slate-400">
-                Platform fee is fixed at 8% across all CPM campaigns. Adjust the automatic cron refresh gap below (1 hour, 2 hours, 4 hours, 6 hours, or 12 hours).
+                Platform fee is fixed at 8% across all CPM campaigns. Adjust the automatic cron refresh gap below (1 hour, 2 hours, 4 hours, 6 hours, 12 hours, or 24 hours).
               </p>
             </div>
 
@@ -1417,12 +1417,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span>Auto-Fetch Scheduler Interval Gap</span>
                   </label>
                   <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
-                    Every {intervalChoice} Hour{intervalChoice > 1 ? 's' : ''}
+                    Every {intervalChoice} Hour{intervalChoice > 1 ? 's' : ''} {intervalChoice === 24 ? '(Daily)' : ''}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {[1, 2, 4, 6, 12].map((gap) => (
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {[1, 2, 4, 6, 12, 24].map((gap) => (
                     <button
                       key={gap}
                       type="button"
@@ -1435,7 +1435,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     >
                       <span className="text-sm font-extrabold">{gap}h</span>
                       <span className="text-[10px] opacity-75">
-                        {gap === 1 ? 'Hourly' : `${24 / gap}x daily`}
+                        {gap === 1 ? 'Hourly' : gap === 24 ? 'Daily' : `${24 / gap}x daily`}
                       </span>
                     </button>
                   ))}

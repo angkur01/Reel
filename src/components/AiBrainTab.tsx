@@ -100,7 +100,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
               Autonomous AI Monitor Engine
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-              Powered by Groq Cloud API (Llama-3.3-70B) & Google Gemini 3.6 Flash for high-speed performance monitoring.
+              Powered by Groq Cloud API (Llama-3.3-70B) & Google Gemini 2.5 Flash for high-speed performance monitoring.
               Strictly limited to {maxLimit} checks per day.
             </p>
           </div>
@@ -217,7 +217,7 @@ export const AiBrainTab: React.FC<AiBrainTabProps> = ({
                 <Sparkles className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-extrabold text-white text-base">Google Gemini 3.6 Flash</h3>
+                <h3 className="font-extrabold text-white text-base">Google Gemini 2.5 Flash</h3>
                 <p className="text-xs text-slate-400">Secondary AI Reasoning Engine</p>
               </div>
             </div>

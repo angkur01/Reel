@@ -59,12 +59,16 @@ export async function sendTelegramMessage(botToken: string, chatId: string, text
 
     const json = await res.json() as any;
     if (!json.ok) {
-      console.error('[Telegram Error]', json.description || json);
+      if (res.status === 401 || json.error_code === 401 || json.description === 'Unauthorized') {
+        console.warn('[Telegram Bot] Unauthorized: Provided Bot Token is invalid or revoked.');
+      } else {
+        console.warn('[Telegram Error]', json.description || json);
+      }
       return false;
     }
     return true;
-  } catch (err) {
-    console.error('[Telegram Send Exception]', err);
+  } catch (err: any) {
+    console.warn('[Telegram Send Exception]', err?.message || err);
     return false;
   }
 }
@@ -720,6 +724,20 @@ export function startTelegramBotPolling() {
       const offsetParam = lastUpdateId > 0 ? `?offset=${lastUpdateId + 1}&timeout=3` : '?timeout=3';
       const url = `https://api.telegram.org/bot${botToken}/getUpdates${offsetParam}`;
       const res = await fetch(url);
+
+      if (res.status === 401) {
+        // Unauthorized - Invalid or revoked bot token
+        if (db.telegram.lastStatus !== 'Unauthorized (Invalid Bot Token)') {
+          console.warn('[Telegram Bot] Bot Token is unauthorized. Please verify the Bot Token in Settings -> Telegram. Polling paused.');
+          db.telegram.lastStatus = 'Unauthorized (Invalid Bot Token)';
+          saveDb(db);
+        }
+        isPollingInFlight = false;
+        if (isPollingActive && activeSessionId === currentPollingSessionId) {
+          pollingTimeout = setTimeout(pollCycle, 60000); // Back off for 60s
+        }
+        return;
+      }
 
       if (res.ok) {
         const json = (await res.json()) as any;

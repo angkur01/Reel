@@ -36,8 +36,14 @@ let activeDbPath: string | null = null;
 let firestoreDb: any = null;
 let firestoreInitialized = false;
 let firestoreQuotaExceeded = false;
+let firestoreUnsubscribe: (() => void) | null = null;
 let cachedDb: DatabaseSchema | null = null;
 let lastLocalWriteAt = 0;
+let firestoreSyncTimeout: NodeJS.Timeout | null = null;
+
+export function isFirestoreQuotaExceeded(): boolean {
+  return firestoreQuotaExceeded;
+}
 
 function getDbFilePath(): string {
   if (activeDbPath) return activeDbPath;
@@ -266,7 +272,7 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   (local.reels || []).forEach(processReel);
 
   const globalFeePercent = 8;
-  const scheduleIntervalHours = local.meta?.scheduleIntervalHours ?? remote.meta?.scheduleIntervalHours ?? 1;
+  const scheduleIntervalHours = local.meta?.scheduleIntervalHours ?? remote.meta?.scheduleIntervalHours ?? 24;
 
   const campaignMap = new Map<string, CpmCampaign>();
   (remote.cpmCampaigns || []).forEach(c => c && c.id && !deletedCampaignSet.has(c.id) && campaignMap.set(c.id, c));
@@ -500,6 +506,15 @@ export function saveFirebaseConfig(newConfig: any) {
 }
 
 export async function testFirestoreConnection() {
+  if (firestoreQuotaExceeded) {
+    return {
+      success: false,
+      isQuotaExceeded: true,
+      error: 'Daily free tier write/read quota reached on Firebase Spark plan. The app is running smoothly on local storage fallback until the quota resets at 00:00 UTC.',
+      databaseId: loadedFirebaseConfig?.firestoreDatabaseId || 'default',
+      projectId: loadedFirebaseConfig?.projectId || 'unknown',
+    };
+  }
   try {
     const db = initFirestore();
     if (!db) {
@@ -515,6 +530,16 @@ export async function testFirestoreConnection() {
       projectId: loadedFirebaseConfig?.projectId || 'unknown',
     };
   } catch (e: any) {
+    if (isQuotaError(e)) {
+      handleQuotaExceeded();
+      return {
+        success: false,
+        isQuotaExceeded: true,
+        error: 'Daily free tier write/read quota reached on Firebase Spark plan. App is running smoothly on persistent local storage fallback.',
+        databaseId: loadedFirebaseConfig?.firestoreDatabaseId || 'default',
+        projectId: loadedFirebaseConfig?.projectId || 'unknown',
+      };
+    }
     return {
       success: false,
       error: e.message || 'Failed to connect to Cloud Firestore',
@@ -529,20 +554,33 @@ function isQuotaError(err: any): boolean {
   return (
     code === 8 ||
     code === '8' ||
+    code === 'resource-exhausted' ||
     String(code).toLowerCase() === 'resource_exhausted' ||
     msg.includes('RESOURCE_EXHAUSTED') ||
+    msg.includes('Quota limit exceeded') ||
     msg.includes('Quota exceeded') ||
-    msg.includes('quota')
+    msg.includes('quota metric') ||
+    msg.toLowerCase().includes('quota')
   );
 }
 
 function handleQuotaExceeded() {
   if (!firestoreQuotaExceeded) {
     firestoreQuotaExceeded = true;
-    console.warn('[Firestore] Free daily quota exceeded. Terminating connection and falling back to local JSON storage.');
+    console.warn('[Firestore] Free daily write/read quota reached (RESOURCE_EXHAUSTED). Cloud write listener paused; seamlessly using persistent local JSON storage.');
+    if (firestoreUnsubscribe) {
+      try {
+        firestoreUnsubscribe();
+      } catch (e) {}
+      firestoreUnsubscribe = null;
+    }
+    if (firestoreSyncTimeout) {
+      clearTimeout(firestoreSyncTimeout);
+      firestoreSyncTimeout = null;
+    }
     if (firestoreDb) {
       try {
-        terminate(firestoreDb).catch(e => console.warn('Error terminating firestore:', e));
+        terminate(firestoreDb).catch(() => {});
       } catch (e) {}
     }
     firestoreDb = null;
@@ -604,24 +642,30 @@ function initFirestore() {
     });
 
     // Realtime Listener
-    onSnapshot(docRef, (snapshot) => {
-      if (firestoreQuotaExceeded) return;
-      if (snapshot.exists()) {
-        if (Date.now() - lastLocalWriteAt < 2500) {
-          return;
+    try {
+      firestoreUnsubscribe = onSnapshot(docRef, (snapshot) => {
+        if (firestoreQuotaExceeded) return;
+        if (snapshot.exists()) {
+          if (Date.now() - lastLocalWriteAt < 2500) {
+            return;
+          }
+          const data = snapshot.data() as Partial<DatabaseSchema>;
+          const baseLocal = cachedDb || readLocalFile() || normalizeDbSchema({});
+          cachedDb = mergeDatabaseSchemas(baseLocal, data);
+          saveLocalFile(cachedDb);
         }
-        const data = snapshot.data() as Partial<DatabaseSchema>;
-        const baseLocal = cachedDb || readLocalFile() || normalizeDbSchema({});
-        cachedDb = mergeDatabaseSchemas(baseLocal, data);
-        saveLocalFile(cachedDb);
-      }
-    }, (error) => {
-      if (isQuotaError(error)) {
+      }, (error) => {
+        if (isQuotaError(error)) {
+          handleQuotaExceeded();
+        } else {
+          console.warn('[Firestore Listener Warning]', error);
+        }
+      });
+    } catch (e) {
+      if (isQuotaError(e)) {
         handleQuotaExceeded();
-      } else {
-        console.warn('[Firestore Listener Warning]', error);
       }
-    });
+    }
 
     return firestoreDb;
   } catch (err: any) {
@@ -657,7 +701,7 @@ function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
       deletedCampaignIds: [], 
       deletedProviderIds: [],
       globalFeePercent: 8,
-      scheduleIntervalHours: 1,
+      scheduleIntervalHours: 24,
     },
   }, data);
 }
@@ -690,36 +734,45 @@ function saveLocalFile(data: DatabaseSchema): void {
 
 function saveFirestoreDoc(data: DatabaseSchema): void {
   if (firestoreQuotaExceeded) return;
-  try {
-    const db = initFirestore();
-    if (db) {
-      const docRef = doc(db, 'dashboard_data', 'main');
 
-      // Prune heavy log arrays to ensure payload stays under Firestore 1MB size limit
-      const firestorePayload: DatabaseSchema = {
-        ...data,
-        history: (data.history || []).slice(0, 150),
-        logs: (data.logs || []).slice(0, 50),
-        aiLogs: (data.aiLogs || []).slice(0, 50),
-      };
-
-      setDoc(docRef, firestorePayload, { merge: true }).catch((err) => {
-        if (isQuotaError(err)) {
-          if (!firestoreQuotaExceeded) {
-            handleQuotaExceeded();
-          }
-        } else {
-          console.error('[Firestore Cloud Save Error]', err);
-        }
-      });
-    }
-  } catch (e: any) {
-    if (isQuotaError(e)) {
-      handleQuotaExceeded();
-    } else {
-      console.error('[Firestore Sync Trigger Error]', e);
-    }
+  // Debounce cloud syncing by 2 seconds to coalesce rapid consecutive writes
+  if (firestoreSyncTimeout) {
+    clearTimeout(firestoreSyncTimeout);
   }
+
+  firestoreSyncTimeout = setTimeout(() => {
+    firestoreSyncTimeout = null;
+    if (firestoreQuotaExceeded) return;
+
+    try {
+      const db = initFirestore();
+      if (db) {
+        const docRef = doc(db, 'dashboard_data', 'main');
+
+        // Prune heavy log arrays to ensure payload stays well under Firestore document size limit
+        const firestorePayload: DatabaseSchema = {
+          ...data,
+          history: (data.history || []).slice(0, 100),
+          logs: (data.logs || []).slice(0, 30),
+          aiLogs: (data.aiLogs || []).slice(0, 30),
+        };
+
+        setDoc(docRef, firestorePayload, { merge: true }).catch((err) => {
+          if (isQuotaError(err)) {
+            handleQuotaExceeded();
+          } else {
+            console.error('[Firestore Cloud Save Error]', err);
+          }
+        });
+      }
+    } catch (e: any) {
+      if (isQuotaError(e)) {
+        handleQuotaExceeded();
+      } else {
+        console.error('[Firestore Sync Trigger Error]', e);
+      }
+    }
+  }, 2000);
 }
 
 export async function loadDbFresh(): Promise<DatabaseSchema> {

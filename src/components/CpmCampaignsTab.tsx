@@ -31,7 +31,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
   const [editingCampaign, setEditingCampaign] = useState<CpmCampaign | null>(null);
 
   // Global Settings state
-  const [feeInputValue, setFeeInputValue] = useState(stats?.globalFeePercent?.toString() || '3');
+  const [feeInputValue, setFeeInputValue] = useState(stats?.globalFeePercent?.toString() || '8');
   const [isSavingFee, setIsSavingFee] = useState(false);
   const [isSavingInterval, setIsSavingInterval] = useState(false);
 
@@ -359,7 +359,7 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
               <span>Platform Fee & Auto-Refresh Interval Controls</span>
             </h3>
             <p className="text-xs text-slate-400">
-              Platform fee is fixed at 8%. Adjust the automatic scheduler gap (1h, 2h, 4h, 6h, 12h) below.
+              Platform fee is fixed at 8%. Adjust the automatic scheduler gap (1h, 2h, 4h, 6h, 12h, 24h) below.
             </p>
           </div>
         </div>
@@ -389,19 +389,19 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
                 <span>Auto-Fetch Scheduler Interval:</span>
               </span>
               <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                Every {stats?.scheduleIntervalHours ?? 6} Hours
+                Every {stats?.scheduleIntervalHours ?? 24} Hours
               </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {[1, 2, 4, 6, 12].map((gap) => (
+              {[1, 2, 4, 6, 12, 24].map((gap) => (
                 <button
                   key={gap}
                   type="button"
                   onClick={() => handleSaveInterval(gap)}
                   disabled={isSavingInterval}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
-                    (stats?.scheduleIntervalHours ?? 6) === gap
+                    (stats?.scheduleIntervalHours ?? 24) === gap
                       ? 'bg-indigo-600 text-white border-indigo-400 font-extrabold shadow-md shadow-indigo-500/20'
                       : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
                   }`}

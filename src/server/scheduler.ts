@@ -7,7 +7,7 @@ import { FetchLog } from '../types.js';
 
 export function getNextScheduledTime(fromDate: Date = new Date()): Date {
   const db = loadDb();
-  const intervalHours = db.meta?.scheduleIntervalHours || 1;
+  const intervalHours = db.meta?.scheduleIntervalHours || 24;
   
   // Calculate target hours for the interval
   const targetHours: number[] = [];
@@ -213,7 +213,7 @@ export function initializeScheduler() {
   // Check every hour at minute 0
   cron.schedule('0 * * * *', () => {
     const db = loadDb();
-    const intervalHours = db.meta?.scheduleIntervalHours || 1;
+    const intervalHours = db.meta?.scheduleIntervalHours || 24;
     const currentHour = new Date().getUTCHours();
 
     if (currentHour % intervalHours === 0) {

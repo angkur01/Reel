@@ -314,7 +314,7 @@ export function createExpressApp() {
       totalEstimatedPayout: Math.round(totalEstimatedPayout * 100) / 100,
       totalCampaignsCount,
       globalFeePercent: db.meta?.globalFeePercent || 8,
-      scheduleIntervalHours: db.meta?.scheduleIntervalHours || 1,
+      scheduleIntervalHours: db.meta?.scheduleIntervalHours || 24,
     };
 
     res.json({ success: true, stats });
@@ -1042,8 +1042,8 @@ export function createExpressApp() {
       db.meta = { lastAutoFetchAt: null, deletedReelIds: [], deletedCampaignIds: [], deletedProviderIds: [] };
     }
 
-    if (scheduleIntervalHours !== undefined) {
-      const hours = Math.max(1, Math.min(24, Number(scheduleIntervalHours) || 1));
+    if (scheduleIntervalHours !== undefined && !isNaN(Number(scheduleIntervalHours))) {
+      const hours = Math.max(1, Math.min(24, Math.floor(Number(scheduleIntervalHours)) || 24));
       db.meta.scheduleIntervalHours = hours;
     }
 
@@ -1056,19 +1056,21 @@ export function createExpressApp() {
       reel.nextScheduledAt = nextScheduledAt;
     }
 
+    recalculateAllReelsGrowthAndCpm(db);
     saveDb(db);
 
     logSystemEvent(
       'info',
       'scheduler',
-      `Global scheduler interval updated to every ${db.meta.scheduleIntervalHours || 1} hour(s).`,
+      `Global scheduler interval updated to every ${db.meta.scheduleIntervalHours || 24} hour(s).`,
       undefined,
       { url: nextScheduledAt }
     );
 
     res.json({
       success: true,
-      message: `Auto-Fetch Schedule Interval updated to every ${db.meta.scheduleIntervalHours || 1} hour(s)!`,
+      message: `Auto-Fetch Schedule Interval updated to every ${db.meta.scheduleIntervalHours || 24} hour(s)!`,
+      globalFeePercent: 8,
       scheduleIntervalHours: db.meta.scheduleIntervalHours,
       nextScheduledFetchAt: nextScheduledAt,
     });
@@ -1209,30 +1211,8 @@ export function createExpressApp() {
         totalEstimatedPayout: cpmTotals.totalEstimatedPayout,
         totalCampaignsCount: (db.cpmCampaigns || []).length,
         globalFeePercent: 8,
-        scheduleIntervalHours: db.meta?.scheduleIntervalHours ?? 6,
+        scheduleIntervalHours: db.meta?.scheduleIntervalHours ?? 24,
       },
-    });
-  });
-
-  // Save Global Settings (Schedule Gap)
-  app.post('/api/settings/global', requireAuth, (req: Request, res: Response) => {
-    const { scheduleIntervalHours } = req.body;
-    const db = loadDb();
-    if (!db.meta) db.meta = { lastAutoFetchAt: null, deletedReelIds: [] };
-
-    db.meta.globalFeePercent = 8;
-    if (scheduleIntervalHours !== undefined && !isNaN(Number(scheduleIntervalHours))) {
-      db.meta.scheduleIntervalHours = Math.max(1, Math.min(24, Math.floor(Number(scheduleIntervalHours))));
-    }
-
-    recalculateAllReelsGrowthAndCpm(db);
-    saveDb(db);
-
-    res.json({
-      success: true,
-      message: 'Global settings updated successfully!',
-      globalFeePercent: 8,
-      scheduleIntervalHours: db.meta.scheduleIntervalHours,
     });
   });
 
