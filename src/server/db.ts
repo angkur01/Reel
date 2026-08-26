@@ -4,7 +4,7 @@ import os from 'os';
 import bcrypt from 'bcryptjs';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, terminate } from 'firebase/firestore';
-import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint, CpmCampaign } from '../types.js';
+import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint, CpmCampaign, InstagramAccount } from '../types.js';
 import { recalculateAllDbReelsCpm } from './cpm.js';
 
 export interface DatabaseSchema {
@@ -15,6 +15,7 @@ export interface DatabaseSchema {
   };
   reels: Reel[];
   cpmCampaigns?: CpmCampaign[];
+  instagramAccounts?: InstagramAccount[];
   providers: ApiProvider[];
   telegram: TelegramSettings;
   aiSettings: AiSettings;
@@ -29,6 +30,7 @@ export interface DatabaseSchema {
     deletedReelIds?: string[];
     deletedCampaignIds?: string[];
     deletedProviderIds?: string[];
+    deletedAccountIds?: string[];
   };
 }
 
@@ -181,6 +183,26 @@ const defaultAiMeta: AiMeta = {
   activeModelUsed: 'gemini',
 };
 
+export function sanitizeForFirestore<T = any>(data: T): T {
+  if (data === undefined) {
+    return null as any;
+  }
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as any;
+  }
+  const cleanObj: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) {
+      continue;
+    }
+    cleanObj[key] = sanitizeForFirestore(value);
+  }
+  return cleanObj as T;
+}
+
 function ensureDir(filePath: string) {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
@@ -188,13 +210,39 @@ function ensureDir(filePath: string) {
   }
 }
 
+export function extractInstagramShortcode(rawUrlOrId: string): string {
+  if (!rawUrlOrId) return '';
+  const clean = rawUrlOrId.trim();
+  // Match shortcode from various Instagram URL formats (/reel/CODE, /p/CODE, /tv/CODE, /share/reel/CODE, etc.)
+  const match = clean.match(/(?:instagram\.com\/)?(?:reel|p|tv|share\/reel)\/([A-Za-z0-9_-]+)/i);
+  if (match && match[1]) {
+    return match[1].replace(/\/+$/, '').trim();
+  }
+  // If it's already a clean alphanumeric shortcode (e.g., C-abc123)
+  if (/^[A-Za-z0-9_-]{5,40}$/.test(clean) && !clean.includes('.') && !clean.includes('/')) {
+    return clean;
+  }
+  // Fallback: strip query params & trailing slashes
+  const noQuery = clean.split('?')[0].split('#')[0].replace(/\/+$/, '');
+  const parts = noQuery.split('/');
+  return parts[parts.length - 1] || clean;
+}
+
+export function canonicalizeInstagramReelUrl(rawUrlOrId: string): string {
+  const shortcode = extractInstagramShortcode(rawUrlOrId);
+  if (shortcode && shortcode.length >= 5) {
+    return `https://www.instagram.com/reel/${shortcode}/`;
+  }
+  return normalizeInstagramUrl(rawUrlOrId);
+}
+
 export function normalizeInstagramUrl(rawUrl: string): string {
   if (!rawUrl) return '';
   try {
     let clean = rawUrl.trim();
-    const match = clean.match(/instagram\.com\/(reel|p|tv)\/([A-Za-z0-9_-]+)/i);
-    if (match && match[2]) {
-      return `https://www.instagram.com/reel/${match[2]}`;
+    const shortcode = extractInstagramShortcode(clean);
+    if (shortcode && shortcode.length >= 5) {
+      return `https://www.instagram.com/reel/${shortcode}/`;
     }
     clean = clean.split('?')[0].split('#')[0].replace(/\/+$/, '');
     return clean.toLowerCase();
@@ -216,23 +264,44 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
     ...(local.meta?.deletedProviderIds || []),
     ...(remote.meta?.deletedProviderIds || []),
   ]);
+  const deletedAccountSet = new Set<string>([
+    ...(local.meta?.deletedAccountIds || []),
+    ...(remote.meta?.deletedAccountIds || []),
+  ]);
 
   const reelMap = new Map<string, Reel>();
+  const shortcodeToReelIdMap = new Map<string, string>();
   const urlToReelIdMap = new Map<string, string>();
+  const instagramReelIdMap = new Map<string, string>();
 
   const processReel = (r: Reel) => {
     if (!r || !r.id || deletedSet.has(r.id)) return;
-    const cleanUrl = normalizeInstagramUrl(r.url) || r.url;
+    const shortcode = extractInstagramShortcode(r.shortcode || r.url || r.id);
+    const cleanUrl = canonicalizeInstagramReelUrl(r.url) || r.url;
+    const igReelId = r.instagram_reel_id ? String(r.instagram_reel_id).trim() : undefined;
 
-    // Check if we already have this reel by ID or canonical URL
-    const existingId = urlToReelIdMap.get(cleanUrl) || (reelMap.has(r.id) ? r.id : undefined);
+    // Check if we already have this reel by Instagram Reel ID, shortcode, or canonical URL (Multi-tier uniqueness constraint)
+    const existingId = (igReelId ? instagramReelIdMap.get(igReelId) : undefined)
+      || (shortcode ? shortcodeToReelIdMap.get(shortcode.toLowerCase()) : undefined)
+      || (cleanUrl ? urlToReelIdMap.get(cleanUrl.toLowerCase()) : undefined)
+      || (reelMap.has(r.id) ? r.id : undefined);
     const existing = existingId ? reelMap.get(existingId) : undefined;
 
     if (!existing) {
-      reelMap.set(r.id, { ...r, url: cleanUrl });
-      if (cleanUrl) urlToReelIdMap.set(cleanUrl, r.id);
+      const enrichedReel: Reel = {
+        ...r,
+        instagram_reel_id: igReelId || r.instagram_reel_id,
+        canonical_reel_url: cleanUrl,
+        url: cleanUrl,
+        shortcode: shortcode || r.shortcode,
+        category: r.category || 'active',
+      };
+      reelMap.set(r.id, enrichedReel);
+      if (cleanUrl) urlToReelIdMap.set(cleanUrl.toLowerCase(), r.id);
+      if (shortcode) shortcodeToReelIdMap.set(shortcode.toLowerCase(), r.id);
+      if (igReelId) instagramReelIdMap.set(igReelId, r.id);
     } else {
-      // Merge properties cleanly without deleting either ID from future additions
+      // Merge properties cleanly without duplicating records
       const targetId = existing.id || r.id;
       const existingTime = new Date(existing.lastUpdatedAt || existing.createdAt || 0).getTime();
       const rTime = new Date(r.lastUpdatedAt || r.createdAt || 0).getTime();
@@ -248,11 +317,18 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
       const mergedReel: Reel = {
         ...dominant,
         id: targetId,
+        instagram_reel_id: existing.instagram_reel_id || igReelId || dominant.instagram_reel_id,
+        canonical_reel_url: cleanUrl,
         url: cleanUrl,
+        shortcode: shortcode || existing.shortcode || r.shortcode,
         name: dominant.name || existing.name || r.name || 'Instagram Reel',
         thumbnail: dominant.thumbnail || existing.thumbnail || r.thumbnail,
         caption: dominant.caption || existing.caption || r.caption,
         author: dominant.author || existing.author || r.author,
+        discoveredFromAccount: dominant.discoveredFromAccount || existing.discoveredFromAccount || r.discoveredFromAccount,
+        discoverySource: dominant.discoverySource || existing.discoverySource || r.discoverySource,
+        firstDiscoveredAt: dominant.firstDiscoveredAt || existing.firstDiscoveredAt || r.firstDiscoveredAt,
+        publishedAt: dominant.publishedAt || existing.publishedAt || r.publishedAt,
         views: maxViews,
         likes: maxLikes,
         comments: maxComments,
@@ -264,7 +340,10 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
       };
 
       reelMap.set(targetId, mergedReel);
-      if (cleanUrl) urlToReelIdMap.set(cleanUrl, targetId);
+      if (cleanUrl) urlToReelIdMap.set(cleanUrl.toLowerCase(), targetId);
+      if (shortcode) shortcodeToReelIdMap.set(shortcode.toLowerCase(), targetId);
+      if (igReelId) instagramReelIdMap.set(igReelId, targetId);
+      if (mergedReel.instagram_reel_id) instagramReelIdMap.set(mergedReel.instagram_reel_id, targetId);
     }
   };
 
@@ -278,6 +357,58 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
   (remote.cpmCampaigns || []).forEach(c => c && c.id && !deletedCampaignSet.has(c.id) && campaignMap.set(c.id, c));
   (local.cpmCampaigns || []).forEach(c => c && c.id && !deletedCampaignSet.has(c.id) && campaignMap.set(c.id, c));
   const mergedCampaigns = Array.from(campaignMap.values());
+
+  // Instagram Accounts merge
+  const accountMap = new Map<string, InstagramAccount>();
+  const normalizedUsernameToIdMap = new Map<string, string>();
+
+  const processAccount = (acc: InstagramAccount) => {
+    if (!acc || !acc.id || deletedAccountSet.has(acc.id)) return;
+    const normalized = (acc.normalizedUsername || acc.username || '').replace(/^@+/, '').trim().toLowerCase();
+    if (!normalized) return;
+
+    const existingId = normalizedUsernameToIdMap.get(normalized) || (accountMap.has(acc.id) ? acc.id : undefined);
+    const existing = existingId ? accountMap.get(existingId) : undefined;
+
+    if (!existing) {
+      accountMap.set(acc.id, {
+        ...acc,
+        normalizedUsername: normalized,
+        username: acc.username?.startsWith('@') ? acc.username : `@${normalized}`,
+        profileUrl: `https://www.instagram.com/${normalized}/`,
+        scanIntervalMinutes: acc.scanIntervalMinutes || 30,
+        enabled: acc.enabled ?? true,
+        totalDiscoveredReels: acc.totalDiscoveredReels || 0,
+        lastScanDiscoveredCount: acc.lastScanDiscoveredCount || 0,
+        lastScanNewCount: acc.lastScanNewCount || 0,
+      });
+      normalizedUsernameToIdMap.set(normalized, acc.id);
+    } else {
+      const targetId = existing.id || acc.id;
+      const mergedAcc: InstagramAccount = {
+        ...existing,
+        ...acc,
+        id: targetId,
+        normalizedUsername: normalized,
+        username: acc.username?.startsWith('@') ? acc.username : `@${normalized}`,
+        profileUrl: `https://www.instagram.com/${normalized}/`,
+        enabled: acc.enabled ?? existing.enabled ?? true,
+        scanIntervalMinutes: acc.scanIntervalMinutes || existing.scanIntervalMinutes || 30,
+        totalDiscoveredReels: Math.max(acc.totalDiscoveredReels || 0, existing.totalDiscoveredReels || 0),
+        lastScanAt: acc.lastScanAt || existing.lastScanAt || null,
+        lastSuccessfulScanAt: acc.lastSuccessfulScanAt || existing.lastSuccessfulScanAt || null,
+        lastScanError: acc.lastScanError !== undefined ? acc.lastScanError : existing.lastScanError,
+        lastScanDiscoveredCount: acc.lastScanDiscoveredCount || existing.lastScanDiscoveredCount || 0,
+        lastScanNewCount: acc.lastScanNewCount || existing.lastScanNewCount || 0,
+      };
+      accountMap.set(targetId, mergedAcc);
+      normalizedUsernameToIdMap.set(normalized, targetId);
+    }
+  };
+
+  (remote.instagramAccounts || []).forEach(processAccount);
+  (local.instagramAccounts || []).forEach(processAccount);
+  const mergedAccounts = Array.from(accountMap.values()).filter(a => !deletedAccountSet.has(a.id));
 
   const mergedReels = Array.from(reelMap.values()).filter(r => !deletedSet.has(r.id));
   mergedReels.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -412,6 +543,7 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
     },
     reels: mergedReels,
     cpmCampaigns: mergedCampaigns,
+    instagramAccounts: mergedAccounts,
     providers: mergedProviders,
     telegram: mergedTelegram,
     aiSettings: mergedAiSettings,
@@ -426,6 +558,7 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
       deletedReelIds: Array.from(deletedSet),
       deletedCampaignIds: Array.from(deletedCampaignSet),
       deletedProviderIds: Array.from(deletedProviderSet),
+      deletedAccountIds: Array.from(deletedAccountSet),
     },
   };
 }
@@ -625,7 +758,8 @@ function initFirestore() {
       } else {
         console.log('[Firestore] No existing Cloud Firestore document found. Seeding initial data...');
         const baseLocal = cachedDb || readLocalFile() || normalizeDbSchema({});
-        setDoc(docRef, baseLocal).catch(e => {
+        const sanitizedSeed = sanitizeForFirestore(baseLocal);
+        setDoc(docRef, sanitizedSeed).catch(e => {
           if (isQuotaError(e)) {
             handleQuotaExceeded();
           } else {
@@ -688,6 +822,7 @@ function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
     },
     reels: [],
     cpmCampaigns: [],
+    instagramAccounts: [],
     providers: defaultProviders,
     telegram: defaultTelegram,
     aiSettings: defaultAiSettings,
@@ -700,6 +835,7 @@ function normalizeDbSchema(data: Partial<DatabaseSchema>): DatabaseSchema {
       deletedReelIds: [], 
       deletedCampaignIds: [], 
       deletedProviderIds: [],
+      deletedAccountIds: [],
       globalFeePercent: 8,
       scheduleIntervalHours: 24,
     },
@@ -757,7 +893,9 @@ function saveFirestoreDoc(data: DatabaseSchema): void {
           aiLogs: (data.aiLogs || []).slice(0, 30),
         };
 
-        setDoc(docRef, firestorePayload, { merge: true }).catch((err) => {
+        const sanitizedPayload = sanitizeForFirestore(firestorePayload);
+
+        setDoc(docRef, sanitizedPayload, { merge: true }).catch((err) => {
           if (isQuotaError(err)) {
             handleQuotaExceeded();
           } else {

@@ -10,7 +10,9 @@ import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi, 
 import { calculateReelCpm, applyCpmToReel, recalculateAllDbReelsCpm, getDbCpmTotals } from './cpm.js';
 import { updateReelWithFetchResult, recalculateAllReelsGrowthAndCpm, generateTwoWordTitleFromCaption } from './statsHelper.js';
 import { logSystemEvent, getSystemLogs, clearSystemLogs } from './logger.js';
-import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign, SystemLogEntry, SystemStats } from '../types.js';
+import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign, SystemLogEntry, SystemStats, InstagramAccount, AccountScanResult } from '../types.js';
+import { normalizeInstagramUsername, scanInstagramAccount, importReelsForAccount, getRefetcherAccountBalance } from './accountScraper.js';
+import { runScheduledAccountScans } from './scheduler.js';
 
 export function createExpressApp() {
   const app = express();
@@ -596,6 +598,34 @@ export function createExpressApp() {
     res.json({ success: true, reel, message: `Reel moved to ${category}` });
   });
 
+  // Batch Update Reel Categories (e.g. Unarchive All / Activate All)
+  app.post('/api/reels/batch-category', requireAuth, (req: Request, res: Response) => {
+    const { reelIds, category } = req.body;
+    if (!['active', 'archived', 'paid'].includes(category)) {
+      res.status(400).json({ success: false, error: 'Invalid category' });
+      return;
+    }
+    const db = loadDb();
+    let count = 0;
+    for (const r of db.reels) {
+      if (!reelIds || reelIds.length === 0 || reelIds.includes(r.id)) {
+        r.category = category;
+        if (category === 'active') {
+          r.archiveReason = null;
+          r.archivedAt = null;
+          if (r.status === 'failed' && (r.views || 0) > 0) r.status = 'success';
+        } else if (category === 'archived') {
+          r.archivedAt = new Date().toISOString();
+        } else if (category === 'paid') {
+          r.paidAt = new Date().toISOString();
+        }
+        count++;
+      }
+    }
+    saveDb(db);
+    res.json({ success: true, count, message: `Successfully updated ${count} reels to ${category}` });
+  });
+
   // Delete Reel
   app.delete('/api/reels/:id', requireAuth, (req: Request, res: Response) => {
     const { id } = req.params;
@@ -1168,6 +1198,325 @@ export function createExpressApp() {
     res.json({ success: true, message: 'All system logs cleared successfully' });
   });
 
+  // ----------------------------------------------------
+  // INSTAGRAM ACCOUNTS TRACKER ROUTES
+  // ----------------------------------------------------
+
+  // Get all Tracked Instagram Accounts
+  app.get('/api/accounts', requireAuth, (req: Request, res: Response) => {
+    const db = loadDb();
+    const reels = db.reels || [];
+    const accounts = (db.instagramAccounts || []).map(acc => {
+      const matchingCount = reels.filter(
+        r => r.discoveredFromAccount === acc.normalizedUsername || r.accountId === acc.id || (acc.fullName && r.author === acc.fullName)
+      ).length;
+      return {
+        ...acc,
+        totalDiscoveredReels: Math.max(acc.totalDiscoveredReels || 0, matchingCount),
+      };
+    });
+    const activeCount = accounts.filter(a => a.enabled !== false).length;
+    const totalDiscovered = accounts.reduce((sum, a) => sum + (a.totalDiscoveredReels || 0), 0);
+
+    res.json({
+      success: true,
+      accounts,
+      stats: {
+        totalAccounts: accounts.length,
+        activeAccounts: activeCount,
+        totalDiscoveredReels: totalDiscovered,
+      },
+    });
+  });
+
+  // Bulk Import / Paste Reels for a specific Instagram Account
+  app.post('/api/accounts/:id/import-reels', requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { urls, rawInput } = req.body;
+    const input = urls || rawInput;
+
+    if (!input || (Array.isArray(input) && input.length === 0)) {
+      res.status(400).json({ success: false, error: 'Please provide Instagram Reel URLs or shortcodes.' });
+      return;
+    }
+
+    try {
+      const result = await importReelsForAccount(id, input);
+      if (!result.success) {
+        res.status(400).json({ success: false, error: result.error });
+        return;
+      }
+
+      // Trigger asynchronous background fetch for the reels so metrics update immediately
+      runAutomaticFetchJob(true).catch(err => console.warn('[Background Fetch Error]', err));
+
+      res.json({
+        success: true,
+        message: `Imported ${result.totalImported} Reels for @${result.account?.normalizedUsername} (${result.newAdded} newly added, ${result.alreadyTracked} linked).`,
+        ...result,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message || 'Error importing reels' });
+    }
+  });
+
+  // Auto-Link existing database Reels to an Account
+  app.post('/api/accounts/:id/link-existing', requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const db = loadDb();
+    const cleanInput = normalizeInstagramUsername(id);
+    const account = (db.instagramAccounts || []).find(
+      a => a.id === id || a.normalizedUsername === cleanInput
+    );
+
+    if (!account) {
+      res.status(404).json({ success: false, error: 'Account not found' });
+      return;
+    }
+
+    const authorCandidates = [
+      account.normalizedUsername.toLowerCase(),
+      `@${account.normalizedUsername.toLowerCase()}`,
+      account.fullName?.toLowerCase(),
+    ].filter(Boolean) as string[];
+
+    let linkedCount = 0;
+    for (const reel of db.reels || []) {
+      const isAlreadyLinked = reel.discoveredFromAccount === account.normalizedUsername || reel.accountId === account.id;
+      const matchesAuthor = reel.author && authorCandidates.some(cand => cand && reel.author.toLowerCase().includes(cand));
+      const matchesName = reel.name && reel.name.toLowerCase().includes(account.normalizedUsername);
+
+      if (!isAlreadyLinked && (matchesAuthor || matchesName)) {
+        reel.discoveredFromAccount = account.normalizedUsername;
+        reel.accountId = account.id;
+        reel.category = reel.category || 'active';
+        linkedCount++;
+      }
+    }
+
+    const totalAccountReels = (db.reels || []).filter(
+      r => r.discoveredFromAccount === account.normalizedUsername || r.accountId === account.id || (account.fullName && r.author === account.fullName)
+    ).length;
+
+    account.totalDiscoveredReels = totalAccountReels;
+    account.lastScanError = null;
+    saveDb(db);
+
+    res.json({
+      success: true,
+      message: `Linked ${linkedCount} database Reels to @${account.normalizedUsername}. Total tracked: ${totalAccountReels}.`,
+      account,
+      linkedCount,
+      totalAccountReels,
+    });
+  });
+
+  // Add a new Instagram Account + Immediate Initial Scan
+  app.post('/api/accounts', requireAuth, async (req: Request, res: Response) => {
+    const { username, scanIntervalMinutes } = req.body;
+    if (!username || typeof username !== 'string') {
+      res.status(400).json({ success: false, error: 'Instagram username or profile URL is required.' });
+      return;
+    }
+
+    const normalized = normalizeInstagramUsername(username);
+    if (!normalized || normalized.length < 1 || normalized.length > 35) {
+      res.status(400).json({ success: false, error: 'Invalid Instagram username format.' });
+      return;
+    }
+
+    const db = loadDb();
+    if (!db.instagramAccounts) db.instagramAccounts = [];
+
+    // Check if this normalized account already exists
+    const existing = db.instagramAccounts.find(a => a.normalizedUsername === normalized);
+    if (existing) {
+      res.status(400).json({
+        success: false,
+        error: `Instagram account @${normalized} is already being tracked in your database.`,
+        account: existing,
+      });
+      return;
+    }
+
+    const newAccount: InstagramAccount = {
+      id: 'acc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      username: username.startsWith('@') ? username.trim() : `@${normalized}`,
+      normalizedUsername: normalized,
+      profileUrl: `https://www.instagram.com/${normalized}/`,
+      enabled: true,
+      scanIntervalMinutes: Math.max(5, Math.min(1440, Number(scanIntervalMinutes) || 30)),
+      lastScanAt: null,
+      lastSuccessfulScanAt: null,
+      lastScanError: null,
+      lastScanDiscoveredCount: 0,
+      lastScanNewCount: 0,
+      totalDiscoveredReels: 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    db.instagramAccounts.unshift(newAccount);
+    saveDb(db);
+
+    logSystemEvent(
+      'info',
+      'accounts',
+      `Added Instagram Account @${normalized} with ${newAccount.scanIntervalMinutes}m scan interval. Starting initial scan...`,
+      undefined,
+      { url: newAccount.profileUrl }
+    );
+
+    // Immediately trigger initial scan of all available public Reels from the account
+    try {
+      const scanResult = await scanInstagramAccount(newAccount.id, 'initial');
+      const updatedDb = loadDb();
+      const updatedAccount = updatedDb.instagramAccounts?.find(a => a.id === newAccount.id) || newAccount;
+
+      res.json({
+        success: true,
+        account: updatedAccount,
+        scanResult,
+        message: `Account @${normalized} added successfully! Initial scan found ${scanResult.totalDiscovered} Reels (${scanResult.newReelsCount} new added).`,
+      });
+    } catch (err: any) {
+      res.json({
+        success: true,
+        account: newAccount,
+        scanResult: {
+          success: false,
+          totalDiscovered: 0,
+          alreadyKnown: 0,
+          newReelsCount: 0,
+          failed: 1,
+          errorMessage: err?.message || 'Initial scan encountered an error',
+        },
+        message: `Account @${normalized} added, but initial scan encountered an issue. Will retry automatically.`,
+      });
+    }
+  });
+
+  // Refetch(er) Account Balance
+  app.get('/api/accounts/refetcher-balance', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const balance = await getRefetcherAccountBalance();
+      res.json(balance);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message || 'Error fetching Refetcher balance' });
+    }
+  });
+
+  // Manual Scan a specific Instagram Account (supports normal: 1 page, or full: 25 pages)
+  app.post('/api/accounts/:id/scan', requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { mode } = req.body; // 'normal' (pages: 1) or 'full' (pages: 25)
+    const scanMode = mode === 'full' ? 'full' : 'normal';
+
+    const db = loadDb();
+    const account = (db.instagramAccounts || []).find(a => a.id === id || a.normalizedUsername === normalizeInstagramUsername(id));
+
+    if (!account) {
+      res.status(404).json({ success: false, error: 'Account not found' });
+      return;
+    }
+
+    try {
+      const scanResult = await scanInstagramAccount(account.id, scanMode, 'manual');
+      const freshDb = loadDb();
+      const freshAccount = (freshDb.instagramAccounts || []).find(a => a.id === account.id) || account;
+
+      res.json({
+        success: scanResult.success,
+        account: freshAccount,
+        scanResult,
+        message: scanResult.success
+          ? `Scan complete: ${scanResult.pagesScanned} page(s) scanned (${scanResult.newReelsCount} new added, ${scanResult.alreadyKnown} already known).`
+          : `Scan failed: ${scanResult.errorMessage}`,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Error executing manual account scan',
+      });
+    }
+  });
+
+  // Manual Scan All Enabled Accounts
+  app.post('/api/accounts/scan-all', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const result = await runScheduledAccountScans(true);
+      const db = loadDb();
+      res.json({
+        success: true,
+        message: result.message || 'Scanned all enabled accounts.',
+        accounts: db.instagramAccounts || [],
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message || 'Error scanning accounts' });
+    }
+  });
+
+  // Edit / Toggle Instagram Account
+  app.patch('/api/accounts/:id', requireAuth, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { enabled, scanIntervalMinutes } = req.body;
+
+    const db = loadDb();
+    if (!db.instagramAccounts) db.instagramAccounts = [];
+
+    const account = db.instagramAccounts.find(a => a.id === id);
+    if (!account) {
+      res.status(404).json({ success: false, error: 'Account not found' });
+      return;
+    }
+
+    if (enabled !== undefined) account.enabled = Boolean(enabled);
+    if (scanIntervalMinutes !== undefined) {
+      account.scanIntervalMinutes = Math.max(5, Math.min(1440, Number(scanIntervalMinutes) || 30));
+    }
+    account.updatedAt = new Date().toISOString();
+
+    saveDb(db);
+
+    res.json({
+      success: true,
+      account,
+      message: `Account @${account.normalizedUsername} settings updated successfully.`,
+    });
+  });
+
+  // Delete Instagram Account (Preserves existing discovered Reels)
+  app.delete('/api/accounts/:id', requireAuth, (req: Request, res: Response) => {
+    const { id } = req.params;
+    const db = loadDb();
+    if (!db.instagramAccounts) db.instagramAccounts = [];
+
+    const index = db.instagramAccounts.findIndex(a => a.id === id);
+    if (index === -1) {
+      res.status(404).json({ success: false, error: 'Account not found' });
+      return;
+    }
+
+    const deleted = db.instagramAccounts.splice(index, 1)[0];
+    if (!db.meta) db.meta = { lastAutoFetchAt: null, deletedReelIds: [], deletedCampaignIds: [], deletedProviderIds: [], deletedAccountIds: [] };
+    if (!db.meta.deletedAccountIds) db.meta.deletedAccountIds = [];
+    if (!db.meta.deletedAccountIds.includes(id)) db.meta.deletedAccountIds.push(id);
+
+    saveDb(db);
+
+    logSystemEvent(
+      'info',
+      'accounts',
+      `Removed Instagram Account @${deleted.normalizedUsername} from tracking (all existing Reels retained).`,
+      undefined,
+      { url: deleted.profileUrl }
+    );
+
+    res.json({
+      success: true,
+      message: `Account @${deleted.normalizedUsername} removed from tracking. Discovered Reels remain preserved in database.`,
+    });
+  });
+
   // Export System Logs
   app.get('/api/system/logs/export', requireAuth, (req: Request, res: Response) => {
     const data = getSystemLogs({ limit: 1000 });
@@ -1189,6 +1538,10 @@ export function createExpressApp() {
     const viralCount = activeReels.filter(r => r.isViral).length;
     const stalledCount = activeReels.filter(r => r.isStalled).length;
     const cpmTotals = getDbCpmTotals(activeReels);
+
+    const accounts = db.instagramAccounts || [];
+    const activeAccountsCount = accounts.filter(a => a.enabled !== false).length;
+    const totalDiscoveredReels = accounts.reduce((sum, a) => sum + (a.totalDiscoveredReels || 0), 0);
 
     res.json({
       success: true,
@@ -1212,6 +1565,9 @@ export function createExpressApp() {
         totalCampaignsCount: (db.cpmCampaigns || []).length,
         globalFeePercent: 8,
         scheduleIntervalHours: db.meta?.scheduleIntervalHours ?? 24,
+        totalTrackedAccounts: accounts.length,
+        activeAccountsCount,
+        totalDiscoveredReels,
       },
     });
   });

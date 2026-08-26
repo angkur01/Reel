@@ -78,11 +78,16 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onRefresh, onEditName,
               </div>
             )}
             
-            <div className="flex items-center space-x-2 text-xs text-slate-400 mt-0.5">
+            <div className="flex items-center flex-wrap gap-2 text-xs text-slate-400 mt-0.5">
               <span className="flex items-center gap-1">
                 <User className="w-3 h-3 text-slate-500" />
                 <span>@{reel.author || 'instagram'}</span>
               </span>
+              {reel.discoveredFromAccount && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md bg-pink-500/10 text-pink-300 border border-pink-500/20 text-[10px] font-medium">
+                  via @{reel.discoveredFromAccount}
+                </span>
+              )}
               <span>•</span>
               <a
                 href={reel.url}

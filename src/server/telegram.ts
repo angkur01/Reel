@@ -110,6 +110,36 @@ export async function notifyTelegramReelResult(reel: Reel, logType: 'automatic' 
   return await sendTelegramMessage(botToken, adminTelegramId, message);
 }
 
+// Send alert when genuinely new Reels are discovered from an Instagram Account
+export async function notifyTelegramNewReelsDiscovered(
+  accountUsername: string,
+  newReelUrls: string[]
+): Promise<boolean> {
+  const db = loadDb();
+  const { botToken, adminTelegramId, enabled } = db.telegram;
+
+  if (!enabled || !botToken || !adminTelegramId || !newReelUrls || newReelUrls.length === 0) {
+    return false;
+  }
+
+  const cleanUsername = accountUsername.startsWith('@') ? accountUsername : `@${accountUsername}`;
+  const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+
+  let message = '';
+  if (newReelUrls.length === 1) {
+    message = `🚨 <b>NEW REEL DETECTED!</b>\n\n👤 <b>Account:</b> ${cleanUsername}\n\n🎬 <b>New Reel:</b>\n${newReelUrls[0]}\n\n✅ Added to the Reel tracker.`;
+  } else {
+    const listLines = newReelUrls.slice(0, 15).map((url, idx) => {
+      const prefix = idx < 10 ? numberEmojis[idx] : `<b>${idx + 1}.</b>`;
+      return `${prefix} ${url}`;
+    }).join('\n');
+    const extraCount = newReelUrls.length > 15 ? `\n<i>...and ${newReelUrls.length - 15} more</i>` : '';
+    message = `🚨 <b>${newReelUrls.length} NEW REELS DETECTED!</b>\n\n👤 ${cleanUsername}\n\n${listLines}${extraCount}\n\n✅ All ${newReelUrls.length} were added successfully.`;
+  }
+
+  return await sendTelegramMessage(botToken, adminTelegramId, message);
+}
+
 // Answer Callback Query
 async function answerCallbackQuery(botToken: string, callbackQueryId: string, text?: string): Promise<void> {
   try {

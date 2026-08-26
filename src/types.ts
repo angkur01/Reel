@@ -1,3 +1,50 @@
+export interface InstagramAccount {
+  id: string;
+  username: string;          // e.g. "@creatorname" or "creatorname"
+  normalizedUsername: string;// e.g. "creatorname"
+  profileUrl: string;        // e.g. "https://www.instagram.com/creatorname/"
+  enabled: boolean;
+  scanIntervalMinutes: number; // e.g. 15, 30, 60 (default 30)
+  lastScanAt: string | null;
+  lastSuccessfulScanAt: string | null;
+  lastScanError: string | null;
+  lastScanDiscoveredCount: number;
+  lastScanNewCount: number;
+  lastScanPages?: number;
+  lastScanDurationMs?: number;
+  totalDiscoveredReels: number;
+  createdAt: string;
+  updatedAt?: string;
+
+  // Rich Profile Metadata
+  fullName?: string | null;
+  biography?: string | null;
+  profilePicUrl?: string | null;
+  followers?: number | null;
+  following?: number | null;
+  totalProfilePosts?: number | null;
+  isPrivate?: boolean;
+  isVerified?: boolean;
+}
+
+export interface AccountScanResult {
+  success: boolean;
+  accountId: string;
+  username: string;
+  pagesScanned: number;
+  totalDiscovered: number;
+  alreadyKnown: number;
+  newReelsCount: number;
+  failed: number;
+  newReelUrls: string[];
+  newReelIds: string[];
+  errorMessage?: string | null;
+  durationMs?: number;
+  costEstimate?: string;
+  mode?: 'normal' | 'full' | 'initial';
+  triggerType?: 'manual' | 'scheduled' | 'initial';
+}
+
 export interface ReelHistoryPoint {
   id: string;
   reelId: string;
@@ -68,6 +115,16 @@ export interface Reel {
   lastFetchError?: string | null;
   hasSufficient24hData?: boolean;
   paidAt?: string;
+
+  // Account Tracker Discovery Metadata
+  instagram_reel_id?: string;
+  canonical_reel_url?: string;
+  publishedAt?: string;
+  shortcode?: string;
+  accountId?: string;
+  discoveredFromAccount?: string;
+  discoverySource?: 'account_tracker' | 'manual' | 'telegram' | 'refetcher_profile';
+  firstDiscoveredAt?: string;
 }
 
 export interface ApiProvider {
@@ -171,7 +228,7 @@ export interface SystemLogEntry {
   id: string;
   timestamp: string;
   level: 'info' | 'warn' | 'error' | 'success';
-  category: 'scraper' | 'provider' | 'telegram' | 'ai' | 'auth' | 'scheduler' | 'database' | 'http';
+  category: 'scraper' | 'provider' | 'telegram' | 'ai' | 'auth' | 'scheduler' | 'database' | 'http' | 'accounts';
   message: string;
   details?: string;
   durationMs?: number;
@@ -226,5 +283,10 @@ export interface SystemStats {
   totalCampaignsCount: number;
   globalFeePercent?: number;
   scheduleIntervalHours?: number;
+
+  // Instagram Account Tracker Totals
+  totalTrackedAccounts?: number;
+  activeAccountsCount?: number;
+  totalDiscoveredReels?: number;
 }
 

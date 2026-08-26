@@ -4,6 +4,7 @@ import { fetchReelWithFallbackChain } from './providers.js';
 import { notifyTelegramReelResult } from './telegram.js';
 import { updateReelWithFetchResult } from './statsHelper.js';
 import { FetchLog } from '../types.js';
+import { scanInstagramAccount } from './accountScraper.js';
 
 export function getNextScheduledTime(fromDate: Date = new Date()): Date {
   const db = loadDb();
@@ -201,6 +202,52 @@ export async function runAutomaticFetchJob(isManualForce = false): Promise<{ suc
   return { success: true, message: `Completed refresh for ${totalReels} reels.`, count: totalReels };
 }
 
+let isAccountScanRunning = false;
+
+export async function runScheduledAccountScans(isManual = false) {
+  if (isAccountScanRunning) {
+    console.log('[Account Scanner] Scan already in progress. Skipping duplicate.');
+    return { success: false, message: 'Account scan already in progress.' };
+  }
+
+  isAccountScanRunning = true;
+  try {
+    const db = loadDb();
+    const accounts = db.instagramAccounts || [];
+    const enabledAccounts = accounts.filter(a => a && a.enabled !== false);
+
+    if (enabledAccounts.length === 0) {
+      isAccountScanRunning = false;
+      return { success: true, message: 'No active Instagram accounts to scan.', count: 0 };
+    }
+
+    console.log(`[Account Scanner] Checking ${enabledAccounts.length} enabled Instagram accounts for scheduled discovery...`);
+
+    for (const acc of enabledAccounts) {
+      const intervalMs = (acc.scanIntervalMinutes || 30) * 60 * 1000;
+      const lastRunMs = acc.lastScanAt ? new Date(acc.lastScanAt).getTime() : 0;
+      const elapsedMs = Date.now() - lastRunMs;
+
+      // Scan if never run, or if interval has passed, or if manual trigger
+      if (isManual || isNaN(lastRunMs) || elapsedMs >= intervalMs) {
+        console.log(`[Account Scanner] Scanning @${acc.normalizedUsername} (interval: ${acc.scanIntervalMinutes}m)...`);
+        try {
+          const result = await scanInstagramAccount(acc.id, 'normal', isManual ? 'manual' : 'scheduled');
+          console.log(`[Account Scanner] Result for @${acc.normalizedUsername}: Discovered ${result.totalDiscovered}, New: ${result.newReelsCount}, Known: ${result.alreadyKnown}`);
+        } catch (scanErr) {
+          console.error(`[Account Scanner] Error scanning @${acc.normalizedUsername}:`, scanErr);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Account Scanner] Global scanning error:', err);
+  } finally {
+    isAccountScanRunning = false;
+  }
+
+  return { success: true, message: 'Account scan cycle completed.' };
+}
+
 // Initialize node-cron schedule and backup timer check
 export function initializeScheduler() {
   if (isSchedulerInitialized) {
@@ -210,7 +257,7 @@ export function initializeScheduler() {
   isSchedulerInitialized = true;
   console.log('[Scheduler] Initializing dynamic hourly cron check...');
 
-  // Check every hour at minute 0
+  // Check reels every hour at minute 0
   cron.schedule('0 * * * *', () => {
     const db = loadDb();
     const intervalHours = db.meta?.scheduleIntervalHours || 24;
@@ -224,6 +271,13 @@ export function initializeScheduler() {
         runAutomaticFetchJob(false).catch(err => console.error('[Scheduler Error]', err));
       }, jitterMs);
     }
+  }, {
+    timezone: 'UTC',
+  });
+
+  // Account discovery loop: check every 2 minutes
+  cron.schedule('*/2 * * * *', () => {
+    runScheduledAccountScans(false).catch(err => console.error('[Account Scheduler Error]', err));
   }, {
     timezone: 'UTC',
   });

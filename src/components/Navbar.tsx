@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Film, Brain, BarChart3, Settings, RefreshCw, LogOut, Bot, Zap, Bell, Server, DollarSign, Terminal } from 'lucide-react';
+import { LayoutDashboard, Film, Brain, BarChart3, Settings, RefreshCw, LogOut, Bot, Zap, Bell, Server, DollarSign, Terminal, Users } from 'lucide-react';
 import { SystemStats } from '../types';
 
 interface NavbarProps {
@@ -25,6 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'reels', label: 'Reels', icon: Film, badge: stats?.totalReels },
     { id: 'cpm-campaigns', label: 'CPM Campaigns', icon: DollarSign, badge: stats?.totalCampaignsCount },
+    { id: 'accounts', label: 'Accounts', icon: Users, badge: stats?.totalTrackedAccounts },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 

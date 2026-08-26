@@ -9,7 +9,7 @@ const listeners: Set<LogListener> = new Set();
 
 export function logSystemEvent(
   level: 'info' | 'warn' | 'error' | 'success',
-  category: 'scraper' | 'provider' | 'telegram' | 'ai' | 'auth' | 'scheduler' | 'database' | 'http',
+  category: SystemLogEntry['category'],
   message: string,
   details?: any,
   metadata?: SystemLogEntry['metadata'],

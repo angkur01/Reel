@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar';
 import { OverviewTab } from './components/OverviewTab';
 import { ReelsTab } from './components/ReelsTab';
 import { CpmCampaignsTab } from './components/CpmCampaignsTab';
+import { AccountsTab } from './components/AccountsTab';
 import { AiBrainTab } from './components/AiBrainTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { LogsTab } from './components/LogsTab';
@@ -11,7 +12,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { AddReelModal } from './components/AddReelModal';
 import { LoginModal } from './components/LoginModal';
 
-import { Reel, ApiProvider, TelegramSettings, SystemStats, AiSettings, AiMeta, AiLog, TestProviderResult, CpmCampaign } from './types';
+import { Reel, ApiProvider, TelegramSettings, SystemStats, AiSettings, AiMeta, AiLog, TestProviderResult, CpmCampaign, InstagramAccount } from './types';
 
 async function parseJsonResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
@@ -50,6 +51,7 @@ export default function App() {
 
   // Core Data States
   const [reels, setReels] = useState<Reel[]>([]);
+  const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [cpmCampaigns, setCpmCampaigns] = useState<CpmCampaign[]>([]);
   const [providers, setProviders] = useState<ApiProvider[]>([]);
   const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>({
@@ -72,6 +74,7 @@ export default function App() {
   // Modal Controls
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedReelForModal, setSelectedReelForModal] = useState<Reel | null>(null);
+  const [reelFilterQuery, setReelFilterQuery] = useState<string>('');
 
   // Authenticated Fetch Wrapper
   const authFetch = useCallback(async (url: string, options: RequestInit = {}, timeoutMs = 30000) => {
@@ -103,8 +106,9 @@ export default function App() {
   // Load All Dashboard Data in Parallel
   const loadDashboardData = useCallback(async () => {
     try {
-      const [reelsRes, cpmRes, statsRes, provRes, tgRes, aiSettingsRes, aiLogsRes] = await Promise.allSettled([
+      const [reelsRes, accountsRes, cpmRes, statsRes, provRes, tgRes, aiSettingsRes, aiLogsRes] = await Promise.allSettled([
         authFetch('/api/reels', {}, 8000),
+        authFetch('/api/accounts', {}, 8000),
         authFetch('/api/cpm-campaigns', {}, 8000),
         authFetch('/api/stats', {}, 8000),
         authFetch('/api/providers', {}, 8000),
@@ -117,6 +121,13 @@ export default function App() {
         try {
           const reelsData = await parseJsonResponse(reelsRes.value);
           if (reelsData.success) setReels(reelsData.reels || []);
+        } catch (e) {}
+      }
+
+      if (accountsRes.status === 'fulfilled' && accountsRes.value.ok) {
+        try {
+          const accData = await parseJsonResponse(accountsRes.value);
+          if (accData.success) setAccounts(accData.accounts || []);
         } catch (e) {}
       }
 
@@ -568,7 +579,7 @@ return (
         {activeTab === 'overview' && (
           <OverviewTab
             stats={stats}
-            reels={activeReels}
+            reels={reels}
             aiLogs={aiLogs}
             onOpenAddModal={() => setIsAddModalOpen(true)}
             onRefreshAll={handleBatchRefresh}
@@ -585,7 +596,9 @@ return (
 
         {activeTab === 'reels' && (
           <ReelsTab
-            reels={activeReels} onChangeCategory={handleChangeCategory}
+            reels={reels}
+            initialSearchTerm={reelFilterQuery}
+            onChangeCategory={handleChangeCategory}
             onRefreshReel={handleRefreshReel}
             onEditReelName={handleEditReelName}
             onGroqRenameReel={handleGroqRenameReel}
@@ -609,6 +622,19 @@ return (
             onDeleteCampaign={handleDeleteCpmCampaign}
             onEditReelCampaign={handleEditReelCampaign}
             onSaveGlobalSettings={handleSaveGlobalSettings}
+          />
+        )}
+
+        {activeTab === 'accounts' && (
+          <AccountsTab
+            accounts={accounts}
+            stats={stats}
+            authFetch={authFetch}
+            onRefreshData={loadDashboardData}
+            onViewReelsForAccount={(username) => {
+              setReelFilterQuery(username);
+              setActiveTab('reels');
+            }}
           />
         )}
 

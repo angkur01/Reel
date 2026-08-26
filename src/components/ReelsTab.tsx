@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, RefreshCw, Trash2, Edit2, ExternalLink, Play, Eye, Heart, MessageSquare, Flame, AlertCircle, CheckCircle2, Video, ArrowUpDown, Sparkles, BarChart3, LayoutGrid, Archive } from 'lucide-react';
+import { Search, Filter, RefreshCw, Trash2, Edit2, ExternalLink, Play, Eye, Heart, MessageSquare, Flame, AlertCircle, CheckCircle2, Video, ArrowUpDown, Sparkles, BarChart3, LayoutGrid, Archive, RotateCcw } from 'lucide-react';
 import { Reel } from '../types';
 import { AnalyticsTab } from './AnalyticsTab';
 
@@ -17,6 +17,7 @@ interface ReelsTabProps {
   isRefreshingAll: boolean;
   onChangeCategory?: (id: string, category: 'active' | 'archived' | 'paid') => void;
   initialViewMode?: 'grid' | 'analytics';
+  initialSearchTerm?: string;
 }
 
 export const ReelsTab: React.FC<ReelsTabProps> = ({
@@ -33,9 +34,11 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   isRefreshingAll,
   onChangeCategory,
   initialViewMode = 'grid',
+  initialSearchTerm = '',
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'analytics'>(initialViewMode);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'active' | 'archived' | 'paid'>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'viral' | 'stalled' | 'failed' | 'success'>('all');
   const [sortBy, setSortBy] = useState<'views' | 'growth' | 'likes' | 'newest'>('views');
   const [activeVideoModalUrl, setActiveVideoModalUrl] = useState<string | null>(null);
@@ -46,12 +49,23 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   const [isGeneratingGroqTitle, setIsGeneratingGroqTitle] = useState<boolean>(false);
   const [renameStatusMsg, setRenameStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const activeCount = reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length;
+  const archivedCount = reels.filter(r => r.category === 'archived').length;
+  const paidCount = reels.filter(r => r.category === 'paid').length;
+  const totalCount = reels.length;
+
   // Filter logic
   const filteredReels = reels.filter((r) => {
+    // Category filter
+    if (categoryFilter === 'active' && (r.category === 'archived' || r.category === 'paid')) return false;
+    if (categoryFilter === 'archived' && r.category !== 'archived') return false;
+    if (categoryFilter === 'paid' && r.category !== 'paid') return false;
+
     const matchesSearch =
       r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.caption.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.author.toLowerCase().includes(searchTerm.toLowerCase());
+      r.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.discoveredFromAccount && r.discoveredFromAccount.toLowerCase().includes(searchTerm.toLowerCase()));
 
     if (!matchesSearch) return false;
 
@@ -159,6 +173,90 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
         </div>
       ) : (
         <>
+          {/* Category Filter Tabs Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <button
+                id="btn-cat-filter-all"
+                onClick={() => setCategoryFilter('all')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  categoryFilter === 'all'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                <span>All Reels</span>
+                <span className="px-1.5 py-0.2 rounded-md bg-black/40 text-[10px] font-mono">{totalCount}</span>
+              </button>
+
+              <button
+                id="btn-cat-filter-active"
+                onClick={() => setCategoryFilter('active')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  categoryFilter === 'active'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                <span>Active Tracked</span>
+                <span className="px-1.5 py-0.2 rounded-md bg-black/40 text-[10px] font-mono">{activeCount}</span>
+              </button>
+
+              <button
+                id="btn-cat-filter-archived"
+                onClick={() => setCategoryFilter('archived')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  categoryFilter === 'archived'
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                <span>Archived</span>
+                <span className="px-1.5 py-0.2 rounded-md bg-black/40 text-[10px] font-mono">{archivedCount}</span>
+              </button>
+
+              <button
+                id="btn-cat-filter-paid"
+                onClick={() => setCategoryFilter('paid')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  categoryFilter === 'paid'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                }`}
+              >
+                <span>Paid Out</span>
+                <span className="px-1.5 py-0.2 rounded-md bg-black/40 text-[10px] font-mono">{paidCount}</span>
+              </button>
+            </div>
+
+            {archivedCount > 0 && (
+              <button
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('admin_token');
+                    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                    const res = await fetch('/api/reels/batch-category', {
+                      method: 'POST',
+                      headers,
+                      body: JSON.stringify({ category: 'active' }),
+                    });
+                    if (res.ok) {
+                      window.location.reload();
+                    }
+                  } catch (e) {
+                    console.error('Failed to unarchive all', e);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-bold transition cursor-pointer"
+                title="Restore all archived reels to active status"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restore All to Active</span>
+              </button>
+            )}
+          </div>
+
           {/* Search, Filter & Sort Controls */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
         
@@ -250,7 +348,17 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
 
                   {/* Top Status Indicators */}
                   <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {reel.category === 'archived' && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500/90 text-slate-950 text-[10px] font-extrabold shadow-lg">
+                          ARCHIVED 📦
+                        </span>
+                      )}
+                      {reel.category === 'paid' && (
+                        <span className="px-2 py-0.5 rounded-full bg-purple-500/90 text-white text-[10px] font-extrabold shadow-lg">
+                          PAID 💰
+                        </span>
+                      )}
                       {reel.isViral && (
                         <span className="px-2 py-0.5 rounded-full bg-rose-500/90 text-white text-[10px] font-extrabold shadow-lg shadow-rose-500/30 border border-rose-400">
                           VIRAL 🔥
@@ -383,22 +491,43 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
 
-                    {/* Archive Reel */}
-                    <button
-                      onClick={() => onChangeCategory && onChangeCategory(reel.id, 'archived')}
-                      className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-amber-400 hover:border-amber-500/40 transition cursor-pointer"
-                      title="Archive Reel"
-                    >
-                      <Archive className="w-3.5 h-3.5" />
-                    </button>
-                    {/* Mark as Paid */}
-                    <button
-                      onClick={() => onChangeCategory && onChangeCategory(reel.id, 'paid')}
-                      className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 hover:border-emerald-500/40 transition cursor-pointer"
-                      title="Mark as Paid"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Category Actions */}
+                    {reel.category === 'archived' ? (
+                      <button
+                        onClick={() => onChangeCategory && onChangeCategory(reel.id, 'active')}
+                        className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 transition cursor-pointer"
+                        title="Restore to Active"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    ) : reel.category === 'paid' ? (
+                      <button
+                        onClick={() => onChangeCategory && onChangeCategory(reel.id, 'active')}
+                        className="p-2 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:bg-purple-500/30 transition cursor-pointer"
+                        title="Move back to Active"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <>
+                        {/* Archive Reel */}
+                        <button
+                          onClick={() => onChangeCategory && onChangeCategory(reel.id, 'archived')}
+                          className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-amber-400 hover:border-amber-500/40 transition cursor-pointer"
+                          title="Archive Reel"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                        {/* Mark as Paid */}
+                        <button
+                          onClick={() => onChangeCategory && onChangeCategory(reel.id, 'paid')}
+                          className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 hover:border-emerald-500/40 transition cursor-pointer"
+                          title="Mark as Paid"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
                     
                     {/* Delete Reel */}
                     <button
