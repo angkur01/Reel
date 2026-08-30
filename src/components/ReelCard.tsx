@@ -156,10 +156,12 @@ export const ReelCard: React.FC<ReelCardProps> = ({ reel, onRefresh, onEditName,
               <div className="flex items-center justify-between text-slate-400">
                 <span className="flex items-center gap-1 text-amber-400/90">
                   <Clock className="w-3 h-3" />
-                  Next Auto:
+                  {reel.category === 'stop_pushing' ? '3-Day Recheck:' : 'Next Auto:'}
                 </span>
                 <span className="font-mono text-amber-400">
-                  {new Date(reel.nextScheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {reel.category === 'stop_pushing' && reel.nextStopPushingCheckAt
+                    ? new Date(reel.nextStopPushingCheckAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : new Date(reel.nextScheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             </div>

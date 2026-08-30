@@ -219,41 +219,67 @@ export async function executeProviderFetch(provider: ApiProvider, reelUrl: strin
       fetchOptions.body = JSON.stringify(bodyObj);
     }
 
-    // Log attempt (sanitized)
-    const startTime = Date.now();
+    // Log attempt (sanitized) with transient HTTP 502/503/504 retry logic
+    let response: Response | null = null;
+    let responseText = '';
+    let httpStatus = 0;
+    let durationMs = 0;
+    let attempt = 0;
+    const maxAttempts = 2;
     const sanitizedUrl = sanitizeApiKey(urlObj.toString(), cleanApiKey);
-    console.log(`[Provider Attempt] Calling ${provider.name} -> ${sanitizedUrl}`);
 
-    // Call API with 20 second timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-    fetchOptions.signal = controller.signal;
+    while (attempt < maxAttempts) {
+      attempt++;
+      const startTime = Date.now();
+      console.log(`[Provider Attempt ${attempt}/${maxAttempts}] Calling ${provider.name} -> ${sanitizedUrl}`);
 
-    const response = await fetch(urlObj.toString(), fetchOptions);
-    clearTimeout(timeoutId);
-    const durationMs = Date.now() - startTime;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      fetchOptions.signal = controller.signal;
 
-    const httpStatus = response.status;
-    const responseText = await response.text();
-    const sanitizedRawSnippet = sanitizeApiKey(responseText.slice(0, 1000), cleanApiKey);
+      try {
+        response = await fetch(urlObj.toString(), fetchOptions);
+        clearTimeout(timeoutId);
+        durationMs = Date.now() - startTime;
+        httpStatus = response.status;
+        responseText = await response.text();
 
-    if (!response.ok) {
-      const errMsg = parseDetailedApiError(responseText, httpStatus, cleanApiKey);
+        // If 502/503/504 and attempts remaining, wait 1.5s and retry
+        if ((httpStatus === 502 || httpStatus === 503 || httpStatus === 504) && attempt < maxAttempts) {
+          console.warn(`[Provider Retry] ${provider.name} returned HTTP ${httpStatus}. Retrying in 1.5s (attempt ${attempt}/${maxAttempts})...`);
+          await new Promise(r => setTimeout(r, 1500));
+          continue;
+        }
+        break;
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        if (attempt >= maxAttempts) {
+          throw fetchErr;
+        }
+        console.warn(`[Provider Retry] ${provider.name} fetch exception: ${fetchErr.message}. Retrying in 1.5s...`);
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    }
+
+    if (!response || !response.ok) {
+      const errMsg = parseDetailedApiError(responseText, httpStatus || 502, cleanApiKey);
       logSystemEvent(
         'error',
         'provider',
-        `Provider ${provider.name} returned HTTP ${httpStatus}`,
-        { error: errMsg, url: sanitizedUrl, snippet: sanitizedRawSnippet },
-        { providerName: provider.name, httpStatus, url: sanitizedUrl },
+        `Provider ${provider.name} returned HTTP ${httpStatus || 502}`,
+        { error: errMsg, url: sanitizedUrl, snippet: sanitizeApiKey(responseText.slice(0, 1000), cleanApiKey) },
+        { providerName: provider.name, httpStatus: httpStatus || 502, url: sanitizedUrl },
         durationMs
       );
       return {
         success: false,
-        httpStatus,
+        httpStatus: httpStatus || 502,
         error: sanitizeApiKey(errMsg, cleanApiKey),
-        rawSnippet: sanitizedRawSnippet,
+        rawSnippet: sanitizeApiKey(responseText.slice(0, 1000), cleanApiKey),
       };
     }
+
+    const sanitizedRawSnippet = sanitizeApiKey(responseText.slice(0, 1000), cleanApiKey);
 
     // Parse JSON
     let json: any;

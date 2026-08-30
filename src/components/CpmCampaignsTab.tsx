@@ -35,6 +35,62 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
   const [isSavingFee, setIsSavingFee] = useState(false);
   const [isSavingInterval, setIsSavingInterval] = useState(false);
 
+  // Default CPM Campaign State
+  const [defaultCpmEnabled, setDefaultCpmEnabled] = useState(false);
+  const [defaultCpmCampaignId, setDefaultCpmCampaignId] = useState<string>('');
+  const [isSavingDefaultCpm, setIsSavingDefaultCpm] = useState(false);
+  const [defaultCpmFeedback, setDefaultCpmFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDefaultCpm = async () => {
+      try {
+        const token = localStorage.getItem('admin_token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch('/api/settings/default-cpm', { headers });
+        const data = await res.json();
+        if (data.success) {
+          setDefaultCpmEnabled(Boolean(data.defaultCpmEnabled));
+          setDefaultCpmCampaignId(data.defaultCpmCampaignId || '');
+        }
+      } catch (e) {}
+    };
+    fetchDefaultCpm();
+  }, []);
+
+  const handleSaveDefaultCpm = async (enabledVal: boolean, campaignIdVal: string) => {
+    setIsSavingDefaultCpm(true);
+    setDefaultCpmFeedback(null);
+    let finalId = campaignIdVal;
+    if (enabledVal && !finalId && campaigns.length > 0) {
+      finalId = campaigns[0].id;
+    }
+    try {
+      const token = localStorage.getItem('admin_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('/api/settings/default-cpm', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          defaultCpmEnabled: enabledVal,
+          defaultCpmCampaignId: finalId || null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDefaultCpmEnabled(enabledVal);
+        setDefaultCpmCampaignId(finalId);
+        setDefaultCpmFeedback(enabledVal ? 'Default CPM Auto-Assignment is now ON.' : 'Default CPM Auto-Assignment is now OFF.');
+        setTimeout(() => setDefaultCpmFeedback(null), 4000);
+      }
+    } catch (e: any) {
+      setDefaultCpmFeedback('Failed to update Default CPM settings');
+    } finally {
+      setIsSavingDefaultCpm(false);
+    }
+  };
+
   useEffect(() => {
     if (stats?.globalFeePercent !== undefined) {
       setFeeInputValue(stats.globalFeePercent.toString());
@@ -364,16 +420,16 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Global Fee % Display */}
           <div className="space-y-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-amber-400" />
-                <span>Platform Fee Percentage (%):</span>
+                <span>Platform Fee:</span>
               </span>
               <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-                Fixed 8% Fee Active
+                Fixed 8% Active
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
@@ -386,30 +442,80 @@ export const CpmCampaignsTab: React.FC<CpmCampaignsTabProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                 <RefreshCw className="w-4 h-4 text-indigo-400" />
-                <span>Auto-Fetch Scheduler Interval:</span>
+                <span>Auto-Fetch Gap:</span>
               </span>
               <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                Every {stats?.scheduleIntervalHours ?? 24} Hours
+                Every {stats?.scheduleIntervalHours ?? 24}h
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {[1, 2, 4, 6, 12, 24].map((gap) => (
                 <button
                   key={gap}
                   type="button"
                   onClick={() => handleSaveInterval(gap)}
                   disabled={isSavingInterval}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition border cursor-pointer ${
                     (stats?.scheduleIntervalHours ?? 24) === gap
                       ? 'bg-indigo-600 text-white border-indigo-400 font-extrabold shadow-md shadow-indigo-500/20'
                       : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  {gap}h Gap
+                  {gap}h
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Default CPM Campaign Configuration */}
+          <div className="space-y-3 bg-slate-950/80 p-4 rounded-2xl border border-emerald-500/30">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>Default CPM Campaign:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => handleSaveDefaultCpm(!defaultCpmEnabled, defaultCpmCampaignId)}
+                disabled={isSavingDefaultCpm}
+                className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition cursor-pointer ${
+                  defaultCpmEnabled
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                    : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                }`}
+              >
+                {defaultCpmEnabled ? 'ON' : 'OFF'}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={defaultCpmCampaignId}
+                onChange={(e) => {
+                  setDefaultCpmCampaignId(e.target.value);
+                  if (defaultCpmEnabled) {
+                    handleSaveDefaultCpm(true, e.target.value);
+                  }
+                }}
+                disabled={!defaultCpmEnabled || isSavingDefaultCpm}
+                className="flex-1 py-1.5 px-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white disabled:opacity-50 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="">-- Select Default Campaign --</option>
+                {campaigns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} (${c.cpm.toFixed(2)}/1k)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {defaultCpmFeedback && (
+              <p className="text-[10px] text-emerald-300 font-medium">{defaultCpmFeedback}</p>
+            )}
+            <p className="text-[10px] text-slate-400">
+              When ON, newly scanned or added reels automatically get this campaign. Manual choices always take priority.
+            </p>
           </div>
         </div>
       </div>

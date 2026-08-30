@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, RefreshCw, Trash2, Edit2, ExternalLink, Play, Eye, Heart, MessageSquare, Flame, AlertCircle, CheckCircle2, Video, ArrowUpDown, Sparkles, BarChart3, LayoutGrid, Archive, RotateCcw } from 'lucide-react';
+import { Search, Filter, RefreshCw, Trash2, Edit2, ExternalLink, Play, Eye, Heart, MessageSquare, Flame, AlertCircle, CheckCircle2, Video, ArrowUpDown, Sparkles, BarChart3, LayoutGrid, Archive, RotateCcw, Ban, Clock, Zap } from 'lucide-react';
 import { Reel } from '../types';
 import { AnalyticsTab } from './AnalyticsTab';
 
@@ -15,7 +15,7 @@ interface ReelsTabProps {
   refreshingReelIds: Set<string>;
   onRefreshAll: () => void;
   isRefreshingAll: boolean;
-  onChangeCategory?: (id: string, category: 'active' | 'archived' | 'paid') => void;
+  onChangeCategory?: (id: string, category: 'active' | 'archived' | 'paid' | 'stop_pushing') => void;
   initialViewMode?: 'grid' | 'analytics';
   initialSearchTerm?: string;
 }
@@ -38,10 +38,14 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'analytics'>(initialViewMode);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'active' | 'archived' | 'paid'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'active' | 'stop_pushing' | 'archived' | 'paid'>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'viral' | 'stalled' | 'failed' | 'success'>('all');
   const [sortBy, setSortBy] = useState<'views' | 'growth' | 'likes' | 'newest'>('views');
   const [activeVideoModalUrl, setActiveVideoModalUrl] = useState<string | null>(null);
+
+  // Stop Pushing batch state
+  const [isFetchingStopPushing, setIsFetchingStopPushing] = useState(false);
+  const [stopPushingFeedback, setStopPushingFeedback] = useState<string | null>(null);
 
   // Rename modal state
   const [renameTargetReel, setRenameTargetReel] = useState<Reel | null>(null);
@@ -49,7 +53,8 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   const [isGeneratingGroqTitle, setIsGeneratingGroqTitle] = useState<boolean>(false);
   const [renameStatusMsg, setRenameStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const activeCount = reels.filter(r => r.category !== 'archived' && r.category !== 'paid').length;
+  const activeCount = reels.filter(r => r.category !== 'archived' && r.category !== 'paid' && r.category !== 'stop_pushing').length;
+  const stopPushingCount = reels.filter(r => r.category === 'stop_pushing').length;
   const archivedCount = reels.filter(r => r.category === 'archived').length;
   const paidCount = reels.filter(r => r.category === 'paid').length;
   const totalCount = reels.length;
@@ -57,7 +62,8 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   // Filter logic
   const filteredReels = reels.filter((r) => {
     // Category filter
-    if (categoryFilter === 'active' && (r.category === 'archived' || r.category === 'paid')) return false;
+    if (categoryFilter === 'active' && (r.category === 'archived' || r.category === 'paid' || r.category === 'stop_pushing')) return false;
+    if (categoryFilter === 'stop_pushing' && r.category !== 'stop_pushing') return false;
     if (categoryFilter === 'archived' && r.category !== 'archived') return false;
     if (categoryFilter === 'paid' && r.category !== 'paid') return false;
 
@@ -87,6 +93,25 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
   });
 
   const failedCount = reels.filter(r => r.status === 'failed').length;
+
+  const getRemaining72hText = (targetDateStr?: string | null, createdAtStr?: string | null) => {
+    let targetTime: number;
+    if (targetDateStr) {
+      targetTime = new Date(targetDateStr).getTime();
+    } else if (createdAtStr) {
+      targetTime = new Date(createdAtStr).getTime() + 72 * 3600 * 1000;
+    } else {
+      targetTime = Date.now() + 72 * 3600 * 1000;
+    }
+    const diffMs = targetTime - Date.now();
+    if (diffMs <= 0) return 'Ready for auto-recheck';
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const days = Math.floor(totalHours / 24);
+    const remHours = totalHours % 24;
+    if (days > 0) return `${days}d ${remHours}h left`;
+    return `${totalHours}h ${mins}m left`;
+  };
 
   return (
     <div className="space-y-6 pb-16">
@@ -203,11 +228,25 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
               </button>
 
               <button
+                id="btn-cat-filter-stop-pushing"
+                onClick={() => setCategoryFilter('stop_pushing')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  categoryFilter === 'stop_pushing'
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-amber-300'
+                }`}
+              >
+                <Ban className="w-3.5 h-3.5 text-amber-400" />
+                <span>Stop Pushing</span>
+                <span className="px-1.5 py-0.2 rounded-md bg-black/40 text-[10px] font-mono">{stopPushingCount}</span>
+              </button>
+
+              <button
                 id="btn-cat-filter-archived"
                 onClick={() => setCategoryFilter('archived')}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                   categoryFilter === 'archived'
-                    ? 'bg-amber-600 text-white shadow-md'
+                    ? 'bg-slate-700 text-white shadow-md'
                     : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
                 }`}
               >
@@ -229,7 +268,7 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
               </button>
             </div>
 
-            {archivedCount > 0 && (
+            {archivedCount > 0 && categoryFilter === 'archived' && (
               <button
                 onClick={async () => {
                   try {
@@ -242,7 +281,7 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
                       body: JSON.stringify({ category: 'active' }),
                     });
                     if (res.ok) {
-                      window.location.reload();
+                      onRefreshAll();
                     }
                   } catch (e) {
                     console.error('Failed to unarchive all', e);
@@ -256,6 +295,75 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
               </button>
             )}
           </div>
+
+          {/* Dedicated Stop Pushing Control Banner */}
+          {categoryFilter === 'stop_pushing' && (
+            <div className="glass-panel p-5 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 shadow-xl space-y-4">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                    <Ban className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-extrabold text-white">Stop-Pushing Videos Engine</h3>
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
+                        72h+ &lt; 100 Views
+                      </span>
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">
+                        3-Day Auto Schedule Active
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+                      Videos added 72+ hours ago with under 100 views are placed in Stop Pushing to conserve API resources.
+                      Each video runs its own independent <strong>72-hour recheck cycle</strong> automatically in the background, logs progress, sends Telegram alerts, and <strong>automatically recovers to Active once it reaches 100+ views</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0 flex-wrap w-full md:w-auto">
+                  <button
+                    onClick={async () => {
+                      setIsFetchingStopPushing(true);
+                      setStopPushingFeedback(null);
+                      try {
+                        const token = localStorage.getItem('admin_token');
+                        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                        if (token) headers['Authorization'] = `Bearer ${token}`;
+                        const res = await fetch('/api/reels/stop-pushing/fetch-all', {
+                          method: 'POST',
+                          headers,
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setStopPushingFeedback(data.message || `Refreshed ${data.total || 0} Stop Pushing reels. ${data.recovered || 0} recovered to Active!`);
+                          onRefreshAll();
+                        } else {
+                          setStopPushingFeedback(data.error || 'Failed to fetch Stop Pushing reels.');
+                        }
+                      } catch (e: any) {
+                        setStopPushingFeedback(e.message || 'Network error during batch fetch.');
+                      } finally {
+                        setIsFetchingStopPushing(false);
+                      }
+                    }}
+                    disabled={isFetchingStopPushing || stopPushingCount === 0}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-lg shadow-amber-600/20 transition disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isFetchingStopPushing ? 'animate-spin' : ''}`} />
+                    <span>Force Fetch All ({stopPushingCount})</span>
+                  </button>
+                </div>
+              </div>
+
+              {stopPushingFeedback && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>{stopPushingFeedback}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Search, Filter & Sort Controls */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -349,6 +457,12 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
                   {/* Top Status Indicators */}
                   <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
+                      {reel.category === 'stop_pushing' && (
+                        <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black shadow-lg flex items-center gap-1">
+                          <Ban className="w-3 h-3" />
+                          <span>STOP PUSHING</span>
+                        </span>
+                      )}
                       {reel.category === 'archived' && (
                         <span className="px-2 py-0.5 rounded-full bg-amber-500/90 text-slate-950 text-[10px] font-extrabold shadow-lg">
                           ARCHIVED 📦
@@ -364,7 +478,7 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
                           VIRAL 🔥
                         </span>
                       )}
-                      {reel.isStalled && (
+                      {reel.isStalled && reel.category !== 'stop_pushing' && (
                         <span className="px-2 py-0.5 rounded-full bg-amber-500/90 text-slate-950 text-[10px] font-extrabold shadow-lg">
                           STALLED ⚠️
                         </span>
@@ -460,6 +574,35 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
                       </div>
                     )}
 
+                    {/* Stop Pushing 3-Day Schedule & Recovery Progress */}
+                    {reel.category === 'stop_pushing' && (
+                      <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+                        <div className="flex items-center justify-between font-bold text-amber-300">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            <span>3-Day Schedule: Cycle #{reel.stopPushingCheckCount || 0}</span>
+                          </span>
+                          <span className="text-[11px] font-mono text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                            {getRemaining72hText(reel.nextStopPushingCheckAt, reel.stopPushingAt || reel.createdAt)}
+                          </span>
+                        </div>
+                        
+                        {/* Recovery progress bar towards 100 views */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-300">
+                            <span>Auto-Recovery Goal (100 views):</span>
+                            <span className="font-mono text-amber-300 font-bold">{reel.views || 0} / 100 views</span>
+                          </div>
+                          <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                            <div
+                              className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(100, Math.max(3, ((reel.views || 0) / 100) * 100))}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Last Provider Used & Last Updated */}
                     <div className="flex items-center justify-between text-[10px] text-slate-500 px-1">
                       <span>Provider: <strong className="text-slate-400">{reel.lastProviderUsed || 'Pending'}</strong></span>
@@ -508,8 +651,33 @@ export const ReelsTab: React.FC<ReelsTabProps> = ({
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                       </button>
+                    ) : reel.category === 'stop_pushing' ? (
+                      <>
+                        <button
+                          onClick={() => onChangeCategory && onChangeCategory(reel.id, 'active')}
+                          className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer"
+                          title="Restore to Active"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => onChangeCategory && onChangeCategory(reel.id, 'archived')}
+                          className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-amber-400 hover:border-amber-500/40 transition cursor-pointer"
+                          title="Archive Reel"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                      </>
                     ) : (
                       <>
+                        {/* Move to Stop Pushing */}
+                        <button
+                          onClick={() => onChangeCategory && onChangeCategory(reel.id, 'stop_pushing')}
+                          className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-amber-400 hover:border-amber-500/40 transition cursor-pointer"
+                          title="Move to Stop Pushing"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                        </button>
                         {/* Archive Reel */}
                         <button
                           onClick={() => onChangeCategory && onChangeCategory(reel.id, 'archived')}

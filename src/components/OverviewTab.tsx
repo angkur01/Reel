@@ -136,10 +136,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className="text-2xl sm:text-3xl font-black text-white">
             {stats?.totalReels || 0}
           </div>
-          <div className="mt-2 text-[11px] text-amber-400 flex items-center gap-1 font-medium">
+          <div className="mt-2 text-[11px] text-amber-400 flex items-center gap-1 font-medium flex-wrap">
             <span>🔥 {stats?.viralCount || 0} Viral</span>
             <span className="text-slate-600">•</span>
-            <span className="text-slate-400">⚠️ {stats?.stalledCount || 0} Stalled</span>
+            <span>🚫 {reels.filter(r => r.category === 'stop_pushing').length} Stop Pushing</span>
           </div>
         </div>
 

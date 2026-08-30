@@ -1,7 +1,7 @@
 import { ApiProvider, InstagramAccount, AccountScanResult, Reel, FetchLog } from '../types.js';
 import { loadDb, saveDb, extractInstagramShortcode, canonicalizeInstagramReelUrl, DatabaseSchema } from './db.js';
 import { notifyTelegramNewReelsDiscovered } from './telegram.js';
-import { applyCpmToReel } from './cpm.js';
+import { applyCpmToReel, getDefaultCampaignId } from './cpm.js';
 
 // Server-side scan locks to prevent overlapping concurrent scans for the same account
 const activeAccountScanLocks = new Set<string>();
@@ -520,8 +520,12 @@ export async function scanInstagramAccount(
       };
 
       // Assign default/eligible CPM campaign according to existing rules
+      const defaultCampId = getDefaultCampaignId(db);
+      if (defaultCampId) {
+        newReel.campaignId = defaultCampId;
+      }
       if (db.cpmCampaigns && db.cpmCampaigns.length > 0) {
-        applyCpmToReel(newReel, db.cpmCampaigns);
+        applyCpmToReel(newReel, db.cpmCampaigns, db.meta?.globalFeePercent || 8);
       }
 
       genuinelyNewReels.push(newReel);
@@ -542,6 +546,11 @@ export async function scanInstagramAccount(
     account.lastScanNewCount = genuinelyNewReels.length;
     account.lastScanPages = pagesToScan;
     account.lastScanDurationMs = Date.now() - startTime;
+
+    if (refetcherResult.reels.length > 0) {
+      account.lastSeenShortcode = refetcherResult.reels[0].shortcode || account.lastSeenShortcode || null;
+      account.lastSeenPostId = refetcherResult.reels[0].id ? String(refetcherResult.reels[0].id) : account.lastSeenPostId || null;
+    }
 
     if (genuinelyNewReels.length > 0) {
       db.reels = [...genuinelyNewReels, ...(db.reels || [])];
@@ -738,8 +747,12 @@ export async function importReelsForAccount(
         firstDiscoveredAt: nowIso,
       };
 
+      const defaultCampId = getDefaultCampaignId(db);
+      if (defaultCampId) {
+        newReel.campaignId = defaultCampId;
+      }
       if (db.cpmCampaigns && db.cpmCampaigns.length > 0) {
-        applyCpmToReel(newReel, db.cpmCampaigns);
+        applyCpmToReel(newReel, db.cpmCampaigns, db.meta?.globalFeePercent || 8);
       }
 
       newlyCreatedReels.push(newReel);

@@ -25,6 +25,8 @@ export interface InstagramAccount {
   totalProfilePosts?: number | null;
   isPrivate?: boolean;
   isVerified?: boolean;
+  lastSeenPostId?: string | null;
+  lastSeenShortcode?: string | null;
 }
 
 export interface AccountScanResult {
@@ -108,9 +110,14 @@ export interface Reel {
   estimatedPayout?: number;
   cpmEligibilityStatus?: 'eligible' | 'below_minimum' | 'capped_at_max' | 'no_campaign';
 
-  category?: 'active' | 'archived' | 'paid';
+  category?: 'active' | 'archived' | 'paid' | 'stop_pushing';
   archiveReason?: 'Fetch failed' | 'Low 24-hour growth' | 'Manually archived' | string | null;
   archivedAt?: string | null;
+  stopPushingAt?: string | null;
+  stopPushingReason?: string | null;
+  lastStopPushingCheckAt?: string | null;
+  nextStopPushingCheckAt?: string | null;
+  stopPushingCheckCount?: number;
   lastSuccessfulFetch?: string | null;
   lastFetchError?: string | null;
   hasSufficient24hData?: boolean;
@@ -228,7 +235,7 @@ export interface SystemLogEntry {
   id: string;
   timestamp: string;
   level: 'info' | 'warn' | 'error' | 'success';
-  category: 'scraper' | 'provider' | 'telegram' | 'ai' | 'auth' | 'scheduler' | 'database' | 'http' | 'accounts';
+  category: 'scraper' | 'provider' | 'telegram' | 'ai' | 'auth' | 'scheduler' | 'database' | 'http' | 'accounts' | 'cpm';
   message: string;
   details?: string;
   durationMs?: number;
@@ -240,12 +247,20 @@ export interface SystemLogEntry {
     url?: string;
     model?: string;
     chatId?: string;
+    nextCheck?: string;
+    views?: number;
+    processed?: number;
+    recovered?: number;
+    cycle?: number;
+    enabled?: boolean;
+    campaignId?: string | null;
     stats?: {
       views?: number;
       likes?: number;
       comments?: number;
       shares?: number;
     };
+    [key: string]: any;
   };
 }
 
@@ -288,5 +303,35 @@ export interface SystemStats {
   totalTrackedAccounts?: number;
   activeAccountsCount?: number;
   totalDiscoveredReels?: number;
+}
+
+export interface DatabaseSchema {
+  auth: {
+    adminPasswordHash: string;
+    sessionSecret: string;
+    sessions?: Record<string, number>;
+  };
+  reels: Reel[];
+  cpmCampaigns?: CpmCampaign[];
+  instagramAccounts?: InstagramAccount[];
+  providers: ApiProvider[];
+  telegram: TelegramSettings;
+  aiSettings: AiSettings;
+  aiMeta: AiMeta;
+  aiLogs: AiLog[];
+  history: ReelHistoryPoint[];
+  logs: FetchLog[];
+  meta: {
+    lastAutoFetchAt: string | null;
+    lastStopPushingCheckAt?: string | null;
+    globalFeePercent?: number;
+    scheduleIntervalHours?: number;
+    defaultCpmEnabled?: boolean;
+    defaultCpmCampaignId?: string | null;
+    deletedReelIds?: string[];
+    deletedCampaignIds?: string[];
+    deletedProviderIds?: string[];
+    deletedAccountIds?: string[];
+  };
 }
 

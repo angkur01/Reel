@@ -1,7 +1,7 @@
 import { loadDb, saveDb, normalizeInstagramUrl } from './db.js';
 import { fetchReelWithFallbackChain } from './providers.js';
 import { runAiMonitoringCheck, generateDailyAiReport, generateAiCpmTelegramMessage, talkToAi } from './ai.js';
-import { applyCpmToReel } from './cpm.js';
+import { applyCpmToReel, getDefaultCampaignId } from './cpm.js';
 import { updateReelWithFetchResult, generateTwoWordTitleFromCaption } from './statsHelper.js';
 import { Reel, FetchLog } from '../types.js';
 
@@ -110,6 +110,84 @@ export async function notifyTelegramReelResult(reel: Reel, logType: 'automatic' 
   return await sendTelegramMessage(botToken, adminTelegramId, message);
 }
 
+// Send alert when a reel enters Stop Pushing (72h+ old with < 100 views)
+export async function notifyTelegramStopPushingMove(reel: Reel, ageHours: number, nextCheckIso: string): Promise<boolean> {
+  const db = loadDb();
+  const { botToken, adminTelegramId, enabled } = db.telegram;
+
+  if (!enabled || !botToken || !adminTelegramId) {
+    return false;
+  }
+
+  const lines = [
+    `⛔ <b>REEL ENTERED STOP PUSHING</b>`,
+    ``,
+    `🎬 <b>Name:</b> ${reel.name}`,
+    `👁️ <b>Current Views:</b> ${(reel.views || 0).toLocaleString()} (Target: 100+)`,
+    `⏳ <b>Age:</b> ${Math.round(ageHours)} hours (>= 72h threshold)`,
+    `🔄 <b>Schedule:</b> 3-Day (72h) Automatic Cycle`,
+    `📅 <b>Next Check:</b> ${new Date(nextCheckIso).toUTCString()}`,
+    ``,
+    `<i>The system will automatically recheck every 72 hours and auto-recover to Active as soon as 100 views are reached.</i>`,
+  ];
+
+  return await sendTelegramMessage(botToken, adminTelegramId, lines.join('\n'));
+}
+
+// Send alert for a reel's 3-day schedule progress check
+export async function notifyTelegramStopPushingProgress(reel: Reel, cycleNumber: number, nextCheckIso: string): Promise<boolean> {
+  const db = loadDb();
+  const { botToken, adminTelegramId, enabled } = db.telegram;
+
+  if (!enabled || !botToken || !adminTelegramId) {
+    return false;
+  }
+
+  const lines = [
+    `⏱️ <b>3-DAY SCHEDULE PROGRESS CHECK</b>`,
+    ``,
+    `🎬 <b>Name:</b> ${reel.name}`,
+    `🔢 <b>Cycle:</b> Check #${cycleNumber} (72-Hour Interval)`,
+    `👁️ <b>Views:</b> ${(reel.views || 0).toLocaleString()} / 100 target`,
+    `🔄 <b>Status:</b> Retained in Stop Pushing (< 100 views)`,
+    `📅 <b>Next Recheck:</b> ${new Date(nextCheckIso).toUTCString()}`,
+    ``,
+    `<i>Automatic background recheck scheduled. Progress saved in system logs.</i>`,
+  ];
+
+  return await sendTelegramMessage(botToken, adminTelegramId, lines.join('\n'));
+}
+
+// Send alert when a reel in Stop Pushing recovers to Active
+export async function notifyTelegramStopPushingRecovered(reel: Reel): Promise<boolean> {
+  const db = loadDb();
+  const { botToken, adminTelegramId, enabled } = db.telegram;
+
+  if (!enabled || !botToken || !adminTelegramId) {
+    return false;
+  }
+
+  applyCpmToReel(reel, db.cpmCampaigns || []);
+
+  const lines = [
+    `🎉 <b>REEL RECOVERED TO ACTIVE!</b>`,
+    ``,
+    `🎬 <b>Name:</b> ${reel.name}`,
+    `👁️ <b>Views:</b> ${(reel.views || 0).toLocaleString()} (Reached 100+ Goal!)`,
+    `🚀 <b>Status:</b> Restored from Stop Pushing to Active Dashboard`,
+  ];
+
+  if (reel.campaignName) {
+    lines.push(`💰 <b>CPM Earnings:</b> $${(reel.cpmEarnings || 0).toFixed(2)}`);
+    lines.push(`💵 <b>Est. Payout:</b> $${(reel.estimatedPayout || 0).toFixed(2)}`);
+  }
+
+  lines.push(`🔗 <a href="${reel.url}">View on Instagram</a>`);
+  lines.push(`🕒 <i>Restored: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</i>`);
+
+  return await sendTelegramMessage(botToken, adminTelegramId, lines.join('\n'));
+}
+
 // Send alert when genuinely new Reels are discovered from an Instagram Account
 export async function notifyTelegramNewReelsDiscovered(
   accountUsername: string,
@@ -199,6 +277,7 @@ async function handleTelegramVideoUpload(botToken: string, chatId: string, msg: 
 
     // Create new Reel from Telegram video upload
     const reelName = getFirst3Words(caption).slice(0, 10);
+    const defaultCampId = getDefaultCampaignId(db);
     const newReel: Reel = {
       id: 'reel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
       url: reelUrl,
@@ -218,7 +297,11 @@ async function handleTelegramVideoUpload(botToken: string, chatId: string, msg: 
       lastProviderUsed: null,
       videoFileUrl: fileUrl,
       telegramFileId: fileId,
+      campaignId: defaultCampId || null,
     };
+    if (db.cpmCampaigns && db.cpmCampaigns.length > 0) {
+      applyCpmToReel(newReel, db.cpmCampaigns, db.meta?.globalFeePercent || 8);
+    }
 
     db.reels.unshift(newReel);
     saveDb(db);
@@ -345,6 +428,7 @@ async function handleTelegramMessage(botToken: string, adminTelegramId: string, 
       }
 
       // Add new reel
+      const defaultCampId = getDefaultCampaignId(db);
       const newReel: Reel = {
         id: 'reel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
         url: reelUrl,
@@ -362,7 +446,11 @@ async function handleTelegramMessage(botToken: string, adminTelegramId: string, 
         status: 'pending',
         lastError: null,
         lastProviderUsed: null,
+        campaignId: defaultCampId || null,
       };
+      if (db.cpmCampaigns && db.cpmCampaigns.length > 0) {
+        applyCpmToReel(newReel, db.cpmCampaigns, db.meta?.globalFeePercent || 8);
+      }
       db.reels.unshift(newReel);
       saveDb(db);
 

@@ -5,9 +5,9 @@ import { loadDb, saveDb, getFirebaseConfig, saveFirebaseConfig, testFirestoreCon
 import { requireAuth, verifyPassword, setPassword, createSessionToken, revokeSession, isValidSession } from './auth.js';
 import { fetchReelWithFallbackChain, testSingleProvider } from './providers.js';
 import { startTelegramBotPolling, stopTelegramBotPolling, sendTelegramMessage, notifyTelegramReelResult, getFirst3Words } from './telegram.js';
-import { getNextScheduledTime, runAutomaticFetchJob } from './scheduler.js';
+import { getNextScheduledTime, runAutomaticFetchJob, forceFetchStopPushingReel, forceFetchAllStopPushingReels, runStopPushingRecheckJob, evaluateReelsForStopPushing } from './scheduler.js';
 import { runAiMonitoringCheck, generateDailyAiReport, callGroqApi, callGrokApi, generateGroqTitle } from './ai.js';
-import { calculateReelCpm, applyCpmToReel, recalculateAllDbReelsCpm, getDbCpmTotals } from './cpm.js';
+import { calculateReelCpm, applyCpmToReel, recalculateAllDbReelsCpm, getDbCpmTotals, getDefaultCampaignId, isDefaultCpmEnabled } from './cpm.js';
 import { updateReelWithFetchResult, recalculateAllReelsGrowthAndCpm, generateTwoWordTitleFromCaption } from './statsHelper.js';
 import { logSystemEvent, getSystemLogs, clearSystemLogs } from './logger.js';
 import { Reel, ApiProvider, FetchLog, AiSettings, CpmCampaign, SystemLogEntry, SystemStats, InstagramAccount, AccountScanResult } from '../types.js';
@@ -432,6 +432,8 @@ export function createExpressApp() {
       if (!reelName || reelName === 'Viral Reel') reelName = 'Reel ' + newId.slice(-4);
     }
 
+    const finalCampaignId = campaignId || getDefaultCampaignId(db);
+
     const newReel: Reel = {
       id: newId,
       url: cleanUrl,
@@ -452,7 +454,7 @@ export function createExpressApp() {
       growth1h: 0,
       growth6h: 0,
       growth24h: 0,
-      campaignId: campaignId || null,
+      campaignId: finalCampaignId,
     };
 
     // Save reel
@@ -559,12 +561,12 @@ export function createExpressApp() {
 
 
   
-  // Update Reel Category (Archive/Paid/Active)
+  // Update Reel Category (Archive/Paid/Active/Stop Pushing)
   app.post('/api/reels/:id/category', requireAuth, (req: Request, res: Response) => {
     const { id } = req.params;
     const { category, archiveReason } = req.body;
     
-    if (!['active', 'archived', 'paid'].includes(category)) {
+    if (!['active', 'archived', 'paid', 'stop_pushing'].includes(category)) {
       res.status(400).json({ success: false, error: 'Invalid category' });
       return;
     }
@@ -580,9 +582,14 @@ export function createExpressApp() {
     if (category === 'archived') {
       reel.archiveReason = archiveReason || 'Manually archived';
       reel.archivedAt = new Date().toISOString();
+    } else if (category === 'stop_pushing') {
+      reel.stopPushingAt = new Date().toISOString();
+      reel.stopPushingReason = archiveReason || 'Moved to Stop Pushing';
     } else if (category === 'active') {
       reel.archiveReason = null;
       reel.archivedAt = null;
+      reel.stopPushingAt = null;
+      reel.stopPushingReason = null;
       reel.lastFetchError = null;
       reel.lastError = null;
       if (reel.status === 'failed') {
@@ -601,7 +608,7 @@ export function createExpressApp() {
   // Batch Update Reel Categories (e.g. Unarchive All / Activate All)
   app.post('/api/reels/batch-category', requireAuth, (req: Request, res: Response) => {
     const { reelIds, category } = req.body;
-    if (!['active', 'archived', 'paid'].includes(category)) {
+    if (!['active', 'archived', 'paid', 'stop_pushing'].includes(category)) {
       res.status(400).json({ success: false, error: 'Invalid category' });
       return;
     }
@@ -613,7 +620,12 @@ export function createExpressApp() {
         if (category === 'active') {
           r.archiveReason = null;
           r.archivedAt = null;
+          r.stopPushingAt = null;
+          r.stopPushingReason = null;
           if (r.status === 'failed' && (r.views || 0) > 0) r.status = 'success';
+        } else if (category === 'stop_pushing') {
+          r.stopPushingAt = new Date().toISOString();
+          r.stopPushingReason = 'Batch moved to Stop Pushing';
         } else if (category === 'archived') {
           r.archivedAt = new Date().toISOString();
         } else if (category === 'paid') {
@@ -737,6 +749,54 @@ export function createExpressApp() {
     } catch (err: any) {
       console.error('[Manual All Fetch Error]', err);
       res.status(500).json({ success: false, error: err.message || 'Failed to refresh all reels' });
+    }
+  });
+
+  // ----------------------------------------------------
+  // STOP PUSHING ROUTES (3-Day Schedule & Force Fetch)
+  // ----------------------------------------------------
+
+  // Batch Force Fetch ALL Stop Pushing Reels
+  app.post('/api/reels/stop-pushing/fetch-all', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const result = await forceFetchAllStopPushingReels();
+      res.json({
+        success: result.success,
+        total: result.total,
+        recovered: result.recovered,
+        message: result.message,
+      });
+    } catch (err: any) {
+      console.error('[Stop Pushing Fetch All Error]', err);
+      res.status(500).json({ success: false, error: err.message || 'Failed to fetch Stop Pushing reels' });
+    }
+  });
+
+  // Run 3-Day Automatic Stop Pushing Recheck
+  app.post('/api/reels/stop-pushing/recheck', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const result = await runStopPushingRecheckJob(true);
+      res.json({
+        success: result.success,
+        count: result.count,
+        recovered: result.recovered,
+        message: result.message,
+      });
+    } catch (err: any) {
+      console.error('[Stop Pushing Recheck Error]', err);
+      res.status(500).json({ success: false, error: err.message || 'Failed to run Stop Pushing recheck' });
+    }
+  });
+
+  // Force Fetch a specific Stop Pushing Reel
+  app.post('/api/reels/:id/stop-pushing/fetch', requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      const result = await forceFetchStopPushingReel(id);
+      res.json(result);
+    } catch (err: any) {
+      console.error('[Force Fetch Stop Pushing Reel Error]', err);
+      res.status(500).json({ success: false, error: err.message || 'Failed to fetch Stop Pushing reel' });
     }
   });
 
@@ -1103,6 +1163,61 @@ export function createExpressApp() {
       globalFeePercent: 8,
       scheduleIntervalHours: db.meta.scheduleIntervalHours,
       nextScheduledFetchAt: nextScheduledAt,
+    });
+  });
+
+  // Get Default CPM Campaign Settings
+  app.get('/api/settings/default-cpm', requireAuth, (req: Request, res: Response) => {
+    const db = loadDb();
+    const isEnabled = Boolean(db.meta?.defaultCpmEnabled);
+    const campaignId = db.meta?.defaultCpmCampaignId || null;
+    const campaign = campaignId ? (db.cpmCampaigns || []).find(c => c.id === campaignId) : null;
+
+    res.json({
+      success: true,
+      defaultCpmEnabled: isEnabled,
+      defaultCpmCampaignId: campaignId,
+      campaignName: campaign ? campaign.name : null,
+      campaignRate: campaign ? campaign.cpm : null,
+    });
+  });
+
+  // Save Default CPM Campaign Settings
+  app.post('/api/settings/default-cpm', requireAuth, (req: Request, res: Response) => {
+    const { defaultCpmEnabled, defaultCpmCampaignId } = req.body;
+    const db = loadDb();
+    if (!db.meta) {
+      db.meta = { lastAutoFetchAt: null, deletedReelIds: [], deletedCampaignIds: [], deletedProviderIds: [] };
+    }
+
+    if (defaultCpmEnabled !== undefined) {
+      db.meta.defaultCpmEnabled = Boolean(defaultCpmEnabled);
+    }
+    if (defaultCpmCampaignId !== undefined) {
+      db.meta.defaultCpmCampaignId = defaultCpmCampaignId ? String(defaultCpmCampaignId).trim() : null;
+    }
+
+    saveDb(db);
+
+    const campaign = db.meta.defaultCpmCampaignId ? (db.cpmCampaigns || []).find(c => c.id === db.meta.defaultCpmCampaignId) : null;
+    const msg = db.meta.defaultCpmEnabled
+      ? `Default CPM Auto-Assignment enabled (${campaign ? campaign.name : 'Selected Campaign'}). Newly added and discovered reels will automatically receive this campaign.`
+      : 'Default CPM Auto-Assignment disabled.';
+
+    logSystemEvent(
+      'info',
+      'cpm',
+      msg,
+      undefined,
+      { enabled: db.meta.defaultCpmEnabled, campaignId: db.meta.defaultCpmCampaignId }
+    );
+
+    res.json({
+      success: true,
+      defaultCpmEnabled: db.meta.defaultCpmEnabled,
+      defaultCpmCampaignId: db.meta.defaultCpmCampaignId,
+      campaignName: campaign ? campaign.name : null,
+      message: msg,
     });
   });
 

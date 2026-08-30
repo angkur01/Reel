@@ -1,4 +1,4 @@
-import { CpmCampaign, Reel } from '../types.js';
+import { CpmCampaign, Reel, DatabaseSchema } from '../types.js';
 
 export interface CpmCalculationResult {
   campaignId: string | null;
@@ -11,6 +11,25 @@ export interface CpmCalculationResult {
   fee3Percent: number;
   estimatedPayout: number;
   cpmEligibilityStatus: 'eligible' | 'below_minimum' | 'capped_at_max' | 'no_campaign';
+}
+
+/**
+ * Returns the configured default CPM campaign ID if Default CPM is enabled and campaign exists.
+ * Returns null if disabled or campaign not found.
+ */
+export function getDefaultCampaignId(db: Partial<DatabaseSchema>): string | null {
+  if (!db?.meta?.defaultCpmEnabled) return null;
+  const targetId = db.meta.defaultCpmCampaignId;
+  if (!targetId) return null;
+  const campaign = (db.cpmCampaigns || []).find(c => c.id === targetId && c.enabled);
+  return campaign ? campaign.id : null;
+}
+
+/**
+ * Checks if default CPM auto-assignment is active with a valid campaign.
+ */
+export function isDefaultCpmEnabled(db: Partial<DatabaseSchema>): boolean {
+  return Boolean(db?.meta?.defaultCpmEnabled && db.meta.defaultCpmCampaignId);
 }
 
 /**

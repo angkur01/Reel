@@ -4,35 +4,10 @@ import os from 'os';
 import bcrypt from 'bcryptjs';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, terminate } from 'firebase/firestore';
-import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint, CpmCampaign, InstagramAccount } from '../types.js';
+import { Reel, ApiProvider, TelegramSettings, FetchLog, AiSettings, AiMeta, AiLog, ReelHistoryPoint, CpmCampaign, InstagramAccount, DatabaseSchema } from '../types.js';
 import { recalculateAllDbReelsCpm } from './cpm.js';
 
-export interface DatabaseSchema {
-  auth: {
-    adminPasswordHash: string;
-    sessionSecret: string;
-    sessions?: Record<string, number>;
-  };
-  reels: Reel[];
-  cpmCampaigns?: CpmCampaign[];
-  instagramAccounts?: InstagramAccount[];
-  providers: ApiProvider[];
-  telegram: TelegramSettings;
-  aiSettings: AiSettings;
-  aiMeta: AiMeta;
-  aiLogs: AiLog[];
-  history: ReelHistoryPoint[];
-  logs: FetchLog[];
-  meta: {
-    lastAutoFetchAt: string | null;
-    globalFeePercent?: number;
-    scheduleIntervalHours?: number;
-    deletedReelIds?: string[];
-    deletedCampaignIds?: string[];
-    deletedProviderIds?: string[];
-    deletedAccountIds?: string[];
-  };
-}
+export type { DatabaseSchema };
 
 let activeDbPath: string | null = null;
 let firestoreDb: any = null;
@@ -553,8 +528,11 @@ export function mergeDatabaseSchemas(local: DatabaseSchema, remote: Partial<Data
     logs: mergedLogs,
     meta: {
       lastAutoFetchAt: local.meta?.lastAutoFetchAt || remote.meta?.lastAutoFetchAt || null,
+      lastStopPushingCheckAt: local.meta?.lastStopPushingCheckAt || remote.meta?.lastStopPushingCheckAt || null,
       globalFeePercent,
       scheduleIntervalHours,
+      defaultCpmEnabled: local.meta?.defaultCpmEnabled ?? remote.meta?.defaultCpmEnabled ?? false,
+      defaultCpmCampaignId: local.meta?.defaultCpmCampaignId ?? remote.meta?.defaultCpmCampaignId ?? null,
       deletedReelIds: Array.from(deletedSet),
       deletedCampaignIds: Array.from(deletedCampaignSet),
       deletedProviderIds: Array.from(deletedProviderSet),
